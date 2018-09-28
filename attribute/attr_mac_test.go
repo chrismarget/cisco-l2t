@@ -1,4 +1,4 @@
-package l2t
+package attribute
 
 import "testing"
 
