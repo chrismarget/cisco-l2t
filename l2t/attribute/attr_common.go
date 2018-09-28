@@ -20,7 +20,7 @@ type (
 )
 
 const (
-	TLsize        = 2
+	TLsize            = 2
 	srcMacType        = attrType(1)
 	dstMacType        = attrType(2)
 	vlanType          = attrType(3)

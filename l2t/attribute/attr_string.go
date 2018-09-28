@@ -9,8 +9,8 @@ import (
 )
 
 const (
-	stringTerminator = '\x00' // strings are null-teriminated
-	minStringLen     = 2      // at a minimum we'll have a single character and the terminator
+	stringTerminator   = '\x00' // strings are null-teriminated
+	minStringLen       = 2      // at a minimum we'll have a single character and the terminator
 	stringStringPrefix = "String: "
 )
 
@@ -29,11 +29,11 @@ func stringString(a attr) (string, error) {
 	}
 
 	trimmed := bytes.Split(a.attrData, []byte{stringTerminator})[0]
-	if len(trimmed) != len(a.attrData) - 1 {
+	if len(trimmed) != len(a.attrData)-1 {
 		return "", errors.New("Error, trimming string terminator.")
 	}
 
-	for _, v := range(trimmed) {
+	for _, v := range trimmed {
 		if v > unicode.MaxASCII || !unicode.IsPrint(rune(v)) {
 			return "", errors.New("Error, string is not printable.")
 		}
