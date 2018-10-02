@@ -9,7 +9,7 @@ func TestStringMac(t *testing.T) {
 			attrType: v,
 			attrData: []byte{0, 0, 0, 0, 0, 0},
 		}
-		expected1 := macStringPrefix + "00:00:00:00:00:00"
+		expected1 := "00:00:00:00:00:00"
 		result1, err := stringMac(data1)
 		if err != nil {
 			t.Error(err)
@@ -22,7 +22,7 @@ func TestStringMac(t *testing.T) {
 			attrType: v,
 			attrData: []byte{255, 255, 255, 255, 255, 255},
 		}
-		expected2 := macStringPrefix + "ff:ff:ff:ff:ff:ff"
+		expected2 := "ff:ff:ff:ff:ff:ff"
 		result2, err := stringMac(data2)
 		if err != nil {
 			t.Error(err)

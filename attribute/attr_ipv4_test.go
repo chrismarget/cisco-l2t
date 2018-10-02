@@ -1,18 +1,16 @@
 package attribute
 
-import (
-	"testing"
-)
+import "testing"
 
-func TestStringString(t *testing.T) {
-	attrTypesToTest := getAttrsByCategory(stringCategory)
+func TestStringIPv4(t *testing.T) {
+	attrTypesToTest := getAttrsByCategory(ipv4Category)
 	for _, v := range attrTypesToTest {
 		data1 := attr{
 			attrType: v,
-			attrData: []byte{65, 0},
+			attrData: []byte{192, 168, 10, 11},
 		}
-		expected1 := "A"
-		result1, err := stringString(data1)
+		expected1 := "192.168.10.11"
+		result1, err := stringIPv4(data1)
 		if err != nil {
 			t.Error(err)
 		}
@@ -20,5 +18,4 @@ func TestStringString(t *testing.T) {
 			t.Errorf("expected '%s', got '%s'", expected1, result1)
 		}
 	}
-
 }

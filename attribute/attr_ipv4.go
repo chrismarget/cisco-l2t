@@ -7,15 +7,11 @@ import (
 	"runtime"
 )
 
-const (
-	macStringPrefix = "MAC Address: "
-)
-
-func stringMac(a attr) (string, error) {
+func stringIPv4(a attr) (string, error) {
 	pc, _, _, _ := runtime.Caller(0)
 	fname := runtime.FuncForPC(pc).Name()
 
-	if attrCategoryByType[a.attrType] != macCategory {
+	if attrCategoryByType[a.attrType] != ipv4Category {
 		msg := fmt.Sprintf("Cannot use %s on attribute with type %d.", fname, a.attrType)
 		return "", errors.New(msg)
 	}
@@ -25,5 +21,5 @@ func stringMac(a attr) (string, error) {
 		return "", err
 	}
 
-	return net.HardwareAddr(a.attrData).String(), nil
+	return net.IP(a.attrData).String(), nil
 }

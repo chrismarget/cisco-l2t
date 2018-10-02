@@ -8,10 +8,6 @@ import (
 	"strconv"
 )
 
-const (
-	vlanStringPrefix = "VLAN: "
-)
-
 func stringVlan(a attr) (string, error) {
 	pc, _, _, _ := runtime.Caller(0)
 	fname := runtime.FuncForPC(pc).Name()
@@ -31,5 +27,5 @@ func stringVlan(a attr) (string, error) {
 		msg := fmt.Sprintf("Error parsing VLAN number: %d", vlan)
 		return "", errors.New(msg)
 	}
-	return vlanStringPrefix + strconv.Itoa(int(vlan)), nil
+	return strconv.Itoa(int(vlan)), nil
 }

@@ -91,7 +91,7 @@ var (
 		duplexCategory: 3,
 		ipv4Category:   6,
 		macCategory:    8,
-		speedCategory:  8,
+		speedCategory:  6,
 		statusCategory: 3,
 		stringCategory: -1,
 		vlanCategory:   4,
@@ -99,12 +99,12 @@ var (
 
 	attrStringfuncByCategory = map[attrCategory]func(attr) (string, error){
 		"duplex": stringDuplex,
-		//		"ipv4":   stringIPv4,
-		"mac": stringMac,
-		//		"speed":  stringSpeed,
-		//		"status": stringStatus,
-		//		"string": stringString,
-		"vlan": stringVlan,
+		"ipv4":   stringIPv4,
+		"mac":    stringMac,
+		"speed":  stringSpeed,
+		"status": stringReplyStatus,
+		"string": stringString,
+		"vlan":   stringVlan,
 	}
 )
 

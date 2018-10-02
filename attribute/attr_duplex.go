@@ -11,7 +11,6 @@ type (
 )
 
 const (
-	duplexStringPrefix = "Duplex: "
 	autoDuplex = portDuplex(0)
 	halfDuplex = portDuplex(1)
 	fullDuplex = portDuplex(2)
@@ -45,5 +44,5 @@ func stringDuplex(a attr) (string, error) {
 		msg := fmt.Sprintf("Error, malformed duplex attribute: Value is %d", a.attrData)
 		return "", errors.New(msg)
 	}
-	return duplexStringPrefix + result, nil
+	return result, nil
 }

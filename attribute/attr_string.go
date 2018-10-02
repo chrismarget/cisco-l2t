@@ -11,7 +11,6 @@ import (
 const (
 	stringTerminator   = '\x00' // strings are null-teriminated
 	minStringLen       = 2      // at a minimum we'll have a single character and the terminator
-	stringStringPrefix = "String: "
 )
 
 func stringString(a attr) (string, error) {
@@ -39,5 +38,5 @@ func stringString(a attr) (string, error) {
 		}
 	}
 
-	return stringStringPrefix + string(trimmed), nil
+	return string(trimmed), nil
 }
