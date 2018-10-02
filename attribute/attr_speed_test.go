@@ -24,7 +24,7 @@ func TestStringSpeed(t *testing.T) {
 				attrType: v,
 				attrData: d,
 			}
-			result, err := stringSpeed(data)
+			result, err := data.String()
 			if err != nil {
 				t.Error(err)
 			}

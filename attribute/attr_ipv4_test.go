@@ -10,7 +10,7 @@ func TestStringIPv4(t *testing.T) {
 			attrData: []byte{192, 168, 10, 11},
 		}
 		expected1 := "192.168.10.11"
-		result1, err := stringIPv4(data1)
+		result1, err := data1.String()
 		if err != nil {
 			t.Error(err)
 		}

@@ -10,7 +10,7 @@ func TestStringDuplex(t *testing.T) {
 			attrData: []byte{0},
 		}
 		expected1 := duplexString[autoDuplex]
-		result1, err := stringDuplex(data1)
+		result1, err := data1.String()
 		if err != nil {
 			t.Error(err)
 		}
@@ -23,7 +23,7 @@ func TestStringDuplex(t *testing.T) {
 			attrData: []byte{1},
 		}
 		expected2 := duplexString[halfDuplex]
-		result2, err := stringDuplex(data2)
+		result2, err := data2.String()
 		if err != nil {
 			t.Error(err)
 		}
@@ -36,7 +36,7 @@ func TestStringDuplex(t *testing.T) {
 			attrData: []byte{2},
 		}
 		expected3 := duplexString[fullDuplex]
-		result3, err := stringDuplex(data3)
+		result3, err := data3.String()
 		if err != nil {
 			t.Error(err)
 		}
@@ -48,7 +48,7 @@ func TestStringDuplex(t *testing.T) {
 			attrType: v,
 			attrData: []byte{3},
 		}
-		_, err = stringDuplex(data4)
+		_, err = data4.String()
 		if err == nil {
 			t.Error("Bogus duplex value should have produced an error")
 		}
@@ -57,7 +57,7 @@ func TestStringDuplex(t *testing.T) {
 			attrType: v,
 			attrData: []byte{0, 0},
 		}
-		_, err = stringDuplex(data5)
+		_, err = data5.String()
 		if err == nil {
 			t.Error("Overlength duplex value should have produced an error")
 		}
@@ -66,7 +66,7 @@ func TestStringDuplex(t *testing.T) {
 			attrType: v,
 			attrData: []byte{},
 		}
-		_, err = stringDuplex(data6)
+		_, err = data6.String()
 		if err == nil {
 			t.Error("Empty duplex value should have produced an error")
 		}

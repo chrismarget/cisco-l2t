@@ -12,7 +12,7 @@ func TestStringString(t *testing.T) {
 			attrData: []byte{65, 0},
 		}
 		expected1 := "A"
-		result1, err := stringString(data1)
+		result1, err := data1.String()
 		if err != nil {
 			t.Error(err)
 		}

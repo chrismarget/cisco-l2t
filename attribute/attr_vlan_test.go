@@ -10,7 +10,7 @@ func TestStringVlan(t *testing.T) {
 			attrData: []byte{0, 10},
 		}
 		expected1 := "10"
-		result1, err := stringVlan(data1)
+		result1, err := data1.String()
 		if err != nil {
 			t.Error(err)
 		}
@@ -23,7 +23,7 @@ func TestStringVlan(t *testing.T) {
 			attrData: []byte{15, 160},
 		}
 		expected2 := "4000"
-		result2, err := stringVlan(data2)
+		result2, err := data2.String()
 		if err != nil {
 			t.Error(err)
 		}
@@ -35,7 +35,7 @@ func TestStringVlan(t *testing.T) {
 			attrType: v,
 			attrData: []byte{100},
 		}
-		_, err = stringVlan(data3)
+		_, err = data3.String()
 		if err == nil {
 			t.Errorf("Undersize payload should have produced an error")
 		}
@@ -44,7 +44,7 @@ func TestStringVlan(t *testing.T) {
 			attrType: v,
 			attrData: []byte{0, 0, 0},
 		}
-		_, err = stringVlan(data4)
+		_, err = data4.String()
 		if err == nil {
 			t.Errorf("Oversize payload should have produced an error")
 		}
@@ -53,7 +53,7 @@ func TestStringVlan(t *testing.T) {
 			attrType: v,
 			attrData: []byte{0, 0},
 		}
-		_, err = stringVlan(data5)
+		_, err = data5.String()
 		if err == nil {
 			t.Errorf("Zero VLAN should have produced an error")
 		}
@@ -62,7 +62,7 @@ func TestStringVlan(t *testing.T) {
 			attrType: v,
 			attrData: []byte{16, 0},
 		}
-		_, err = stringVlan(data6)
+		_, err = data6.String()
 		if err == nil {
 			t.Errorf("> 12-bit VLAN ID should have produced an error")
 		}
