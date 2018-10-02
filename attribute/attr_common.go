@@ -98,13 +98,13 @@ var (
 	}
 
 	attrStringfuncByCategory = map[attrCategory]func(attr) (string, error){
-		"duplex": stringDuplex,
-		"ipv4":   stringIPv4,
-		"mac":    stringMac,
-		"speed":  stringSpeed,
-		"status": stringReplyStatus,
-		"string": stringString,
-		"vlan":   stringVlan,
+		duplexCategory: stringDuplex,
+		ipv4Category:   stringIPv4,
+		macCategory:    stringMac,
+		speedCategory:  stringSpeed,
+		statusCategory: stringReplyStatus,
+		stringCategory: stringString,
+		vlanCategory:   stringVlan,
 	}
 )
 

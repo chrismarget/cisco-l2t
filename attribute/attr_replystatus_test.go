@@ -22,7 +22,7 @@ func TestStringStatus(t *testing.T) {
 			expected = strconv.Itoa(i) + " Unknown"
 		}
 
-		result, err := stringReplyStatus(data)
+		result, err := data.String()
 			if err != nil {
 				t.Error(err)
 			}

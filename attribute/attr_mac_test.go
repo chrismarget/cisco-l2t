@@ -10,7 +10,7 @@ func TestStringMac(t *testing.T) {
 			attrData: []byte{0, 0, 0, 0, 0, 0},
 		}
 		expected1 := "00:00:00:00:00:00"
-		result1, err := stringMac(data1)
+		result1, err := data1.String()
 		if err != nil {
 			t.Error(err)
 		}
@@ -23,7 +23,7 @@ func TestStringMac(t *testing.T) {
 			attrData: []byte{255, 255, 255, 255, 255, 255},
 		}
 		expected2 := "ff:ff:ff:ff:ff:ff"
-		result2, err := stringMac(data2)
+		result2, err := data2.String()
 		if err != nil {
 			t.Error(err)
 		}
@@ -35,7 +35,7 @@ func TestStringMac(t *testing.T) {
 			attrType: v,
 			attrData: []byte{0, 0, 0, 0, 0},
 		}
-		_, err = stringMac(data3)
+		_, err = data3.String()
 		if err == nil {
 			t.Error("Undersize MAC payload should have generated and error")
 		}
@@ -44,7 +44,7 @@ func TestStringMac(t *testing.T) {
 			attrType: v,
 			attrData: []byte{0, 0, 0, 0, 0, 0, 0},
 		}
-		_, err = stringMac(data4)
+		_, err = data4.String()
 		if err == nil {
 			t.Error("Oversize MAC payload should have generated and error")
 		}
