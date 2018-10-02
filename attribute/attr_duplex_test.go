@@ -9,7 +9,7 @@ func TestStringDuplex(t *testing.T) {
 			attrType: v,
 			attrData: []byte{0},
 		}
-		expected1 := duplexStringPrefix + duplexString[autoDuplex]
+		expected1 := duplexString[autoDuplex]
 		result1, err := stringDuplex(data1)
 		if err != nil {
 			t.Error(err)
@@ -22,7 +22,7 @@ func TestStringDuplex(t *testing.T) {
 			attrType: v,
 			attrData: []byte{1},
 		}
-		expected2 := duplexStringPrefix + duplexString[halfDuplex]
+		expected2 := duplexString[halfDuplex]
 		result2, err := stringDuplex(data2)
 		if err != nil {
 			t.Error(err)
@@ -35,7 +35,7 @@ func TestStringDuplex(t *testing.T) {
 			attrType: v,
 			attrData: []byte{2},
 		}
-		expected3 := duplexStringPrefix + duplexString[fullDuplex]
+		expected3 := duplexString[fullDuplex]
 		result3, err := stringDuplex(data3)
 		if err != nil {
 			t.Error(err)

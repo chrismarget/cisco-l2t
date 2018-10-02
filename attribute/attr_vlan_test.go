@@ -9,7 +9,7 @@ func TestStringVlan(t *testing.T) {
 			attrType: v,
 			attrData: []byte{0, 10},
 		}
-		expected1 := vlanStringPrefix + "10"
+		expected1 := "10"
 		result1, err := stringVlan(data1)
 		if err != nil {
 			t.Error(err)
@@ -22,7 +22,7 @@ func TestStringVlan(t *testing.T) {
 			attrType: v,
 			attrData: []byte{15, 160},
 		}
-		expected2 := vlanStringPrefix + "4000"
+		expected2 := "4000"
 		result2, err := stringVlan(data2)
 		if err != nil {
 			t.Error(err)
