@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"runtime"
 	"unicode"
 )
 
@@ -14,12 +13,15 @@ const (
 )
 
 func stringString(a attr) (string, error) {
-	pc, _, _, _ := runtime.Caller(0)
-	fname := runtime.FuncForPC(pc).Name()
+	var err error
+	err = checkAttrInCategory(a, stringCategory)
+	if err != nil {
+		return "", err
+	}
 
-	if attrCategoryByType[a.attrType] != stringCategory {
-		msg := fmt.Sprintf("Cannot use %s on attribute with type %d.", fname, a.attrType)
-		return "", errors.New(msg)
+	err = a.checkLen()
+	if err != nil {
+		return "", err
 	}
 
 	if len(a.attrData) < minStringLen {

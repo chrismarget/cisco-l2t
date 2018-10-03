@@ -4,20 +4,17 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"runtime"
 	"strconv"
 )
 
 func stringVlan(a attr) (string, error) {
-	pc, _, _, _ := runtime.Caller(0)
-	fname := runtime.FuncForPC(pc).Name()
-
-	if attrCategoryByType[a.attrType] != vlanCategory {
-		msg := fmt.Sprintf("Cannot use %s on attribute with type %d.", fname, a.attrType)
-		return "", errors.New(msg)
+	var err error
+	err = checkAttrInCategory(a, vlanCategory)
+	if err != nil {
+		return "", err
 	}
 
-	err := a.checkLen()
+	err = a.checkLen()
 	if err != nil {
 		return "", err
 	}

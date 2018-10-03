@@ -3,7 +3,7 @@ package attribute
 import (
 	"errors"
 	"fmt"
-	"runtime"
+	"strings"
 )
 
 type (
@@ -17,32 +17,85 @@ const (
 )
 
 var (
-	duplexString = map[portDuplex]string{
+	portDuplexToString = map[portDuplex]string{
 		autoDuplex: "auto",
 		halfDuplex: "half",
 		fullDuplex: "full",
 	}
 )
 
+// stringDuplex returns a string representing a port duplex.
+// This function should be called by attr.String()
 func stringDuplex(a attr) (string, error) {
-	pc, _, _, _ := runtime.Caller(0)
-	fname := runtime.FuncForPC(pc).Name()
-
-	if attrCategoryByType[a.attrType] != duplexCategory {
-		msg := fmt.Sprintf("Cannot use %s on attribute with type %d.", fname, a.attrType)
-		return "", errors.New(msg)
+	err := checkAttrInCategory(a, duplexCategory)
+	if err != nil {
+		return "", err
 	}
 
-	err := a.checkLen()
+	err = a.checkLen()
 	if err != nil {
 		return "", err
 	}
 
 	var result string
 	var ok bool
-	if result, ok = duplexString[portDuplex(a.attrData[0])]; !ok {
+	if result, ok = portDuplexToString[portDuplex(a.attrData[0])]; !ok {
 		msg := fmt.Sprintf("Error, malformed duplex attribute: Value is %d", a.attrData)
 		return "", errors.New(msg)
 	}
 	return result, nil
+}
+
+// stringToDuplex takes a string, converts it to a []byte for use in an
+// attr.attrData belonging to duplexCategory
+func stringToDuplex(in string) ([]byte, error) {
+	for k, v := range portDuplexToString {
+		if strings.ToLower(v) == strings.ToLower(in) {
+			result := []byte{byte(k)}
+			return result, nil
+		}
+	}
+
+	msg := fmt.Sprintf("Error parsing duplex string: '%s'", in)
+	return []byte{}, errors.New(msg)
+}
+
+// intToDuplex takes an integer, returns a []byte for use in an
+// attr.attrData belonging to duplexCategory
+func intToDuplex(in int) ([]byte, error) {
+	for k, _ := range portDuplexToString {
+		if k == portDuplex(in) {
+			result := []byte{byte(k)}
+			return result, nil
+		}
+	}
+
+	msg := fmt.Sprintf("Error parsing duplex integer: '%d'", in)
+	return []byte{}, errors.New(msg)
+}
+
+// newDuplexAttr takes an attrType (one that belongs to duplexCategory) and an
+// attrPayload, parses the payload, returns a populated attr.
+func newDuplexAttr(t attrType, p attrPayload) (attr, error) {
+	result := attr{attrType: t}
+
+	switch {
+	case p.stringData != "":
+		b, err := stringToDuplex(p.stringData)
+		if err != nil {
+			return attr{}, err
+		}
+		result.attrData = b
+		return result, nil
+	case p.intData >= 0:
+		b, err := intToDuplex(p.intData)
+		if err != nil {
+			return attr{}, err
+		}
+		result.attrData = b
+		return result, nil
+	default:
+		msg := fmt.Sprintf("Cannot create %s. No appropriate data supplied.", attrTypeString[t])
+		return attr{}, errors.New(msg)
+	}
 }
