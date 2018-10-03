@@ -3,6 +3,9 @@ package attribute
 import (
 	"errors"
 	"fmt"
+	"math"
+	"net"
+	"runtime"
 )
 
 type (
@@ -38,13 +41,13 @@ const (
 	replyStatusType   = attrType(15)
 	nbrDevIDType      = attrType(16)
 
-	duplexCategory = attrCategory(1)
-	ipv4Category   = attrCategory(2)
-	macCategory    = attrCategory(3)
-	speedCategory  = attrCategory(4)
-	statusCategory = attrCategory(5)
-	stringCategory = attrCategory(6)
-	vlanCategory   = attrCategory(7)
+	duplexCategory      = attrCategory(1)
+	ipv4Category        = attrCategory(2)
+	macCategory         = attrCategory(3)
+	speedCategory       = attrCategory(4)
+	replyStatusCategory = attrCategory(5)
+	stringCategory      = attrCategory(6)
+	vlanCategory        = attrCategory(7)
 )
 
 var (
@@ -83,30 +86,52 @@ var (
 		outPortDuplexType: duplexCategory,
 		nbrIPv4Type:       ipv4Category,
 		srcIPv4Type:       ipv4Category,
-		replyStatusType:   statusCategory,
+		replyStatusType:   replyStatusCategory,
 		nbrDevIDType:      stringCategory,
 	}
 
 	attrLenByCategory = map[attrCategory]int{
-		duplexCategory: 3,
-		ipv4Category:   6,
-		macCategory:    8,
-		speedCategory:  6,
-		statusCategory: 3,
-		stringCategory: -1,
-		vlanCategory:   4,
+		duplexCategory:      3,
+		ipv4Category:        6,
+		macCategory:         8,
+		speedCategory:       6,
+		replyStatusCategory: 3,
+		stringCategory:      -1,
+		vlanCategory:        4,
 	}
 
 	attrStringfuncByCategory = map[attrCategory]func(attr) (string, error){
-		duplexCategory: stringDuplex,
-		ipv4Category:   stringIPv4,
-		macCategory:    stringMac,
-		speedCategory:  stringSpeed,
-		statusCategory: stringReplyStatus,
-		stringCategory: stringString,
-		vlanCategory:   stringVlan,
+		duplexCategory:      stringDuplex,
+		ipv4Category:        stringIPv4,
+		macCategory:         stringMac,
+		speedCategory:       stringSpeed,
+		replyStatusCategory: stringReplyStatus,
+		stringCategory:      stringString,
+		vlanCategory:        stringVlan,
+	}
+
+	newAttrFuncByCategory = map[attrCategory]func(attrType, attrPayload) (attr, error) {
+		duplexCategory: newDuplexAttr,
+		ipv4Category:   newIPv4Attr,
+		//macCategory:    newMacAttr,
+		//speedCategory:  newSpeedAttr,
+		//replyStatusCategory: newReplyStatusAttr,
+		//stringCategory: newStringAttr,
+		//vlanCategory:   newVlanAttr,
 	}
 )
+
+type attr struct {
+	attrType attrType
+	attrData []byte
+}
+
+type attrPayload struct{
+	intData int
+	stringData string
+	ipAddrData net.IPAddr
+	hwAddrData net.HardwareAddr
+}
 
 func ParseL2tAttr(in []byte) (attr, error) {
 	observedLen := len(in)
@@ -127,11 +152,6 @@ func ParseL2tAttr(in []byte) (attr, error) {
 	}, nil
 }
 
-type attr struct {
-	attrType attrType
-	attrData []byte
-}
-
 // checkLen returns an error if the attribute's payload length doesn't make
 // sense based on the claimed type. A one-byte MAC address or a seven-byte IP
 // address should produce an error.
@@ -143,6 +163,13 @@ func (a attr) checkLen() error {
 	}
 
 	expectedLen := attrLenByCategory[category] - TLsize
+
+	// l2t attribute length field is only a single byte. We better not have more
+	// data than can be described by that byte.
+	if len(a.attrData) > math.MaxUint8 - TLsize {
+		msg := fmt.Sprintf("Error, attribute has impossible payload size: %d bytes.", len(a.attrData))
+		return errors.New(msg)
+	}
 
 	// String type attributes have no expected length so their
 	// attrLenByCategory entry will have a negative number.
@@ -167,7 +194,7 @@ func (a attr) Bytes() ([]byte, error) {
 
 	var result []byte
 	result = append(result, byte(a.attrType))
-	result = append(result, byte(len(a.attrData)))
+	result = append(result, byte(len(a.attrData) + TLsize))
 	result = append(result, a.attrData...)
 	return result, nil
 }
@@ -197,4 +224,40 @@ func (a attr) String() (string, error) {
 	}
 
 	return result, nil
+}
+
+func NewAttr(t attrType, p attrPayload) (attr, error) {
+	var ok bool
+
+	// Check that we know the category
+	if _, ok = attrCategoryByType[t]; !ok {
+		msg := fmt.Sprintf("Unknown l2t attribute type %d", t)
+		return attr{}, errors.New(msg)
+	}
+
+	// Check that we have a "new" function for this category
+	if _, ok = newAttrFuncByCategory[attrCategoryByType[t]]; !ok {
+		msg := fmt.Sprintf("Don't know how to create an attribute of type '%d'", t)
+		return attr{}, errors.New(msg)
+	}
+
+	// Call the appropriate "new" function, pass it input data
+	result, err := newAttrFuncByCategory[attrCategoryByType[t]](t, p)
+	if err != nil {
+		return attr{}, err
+	}
+
+	return result, nil
+}
+
+func checkAttrInCategory (a attr, c attrCategory) error {
+	pc, _, _, _ := runtime.Caller(1)
+	fname := runtime.FuncForPC(pc).Name()
+
+	if attrCategoryByType[a.attrType] != c {
+		msg := fmt.Sprintf("Cannot use %s on attribute with type %d.", fname, a.attrType)
+		return errors.New(msg)
+	}
+
+	return nil
 }
