@@ -12,8 +12,8 @@ func TestStringIPv4(t *testing.T) {
 	attrTypesToTest := getAttrsByCategory(ipv4Category)
 	for _, v := range attrTypesToTest {
 		data1 := Attr{
-			attrType: v,
-			attrData: []byte{192, 168, 10, 11},
+			AttrType: v,
+			AttrData: []byte{192, 168, 10, 11},
 		}
 		expected1 := "192.168.10.11"
 		result1, err := data1.String()
@@ -25,8 +25,8 @@ func TestStringIPv4(t *testing.T) {
 		}
 
 		data2 := Attr{
-			attrType: v,
-			attrData: []byte{192, 168, 10, 11, 12},
+			AttrType: v,
+			AttrData: []byte{192, 168, 10, 11, 12},
 		}
 		_, err = data2.String()
 		if err == nil {
@@ -34,8 +34,8 @@ func TestStringIPv4(t *testing.T) {
 		}
 
 		data3 := Attr{
-			attrType: v,
-			attrData: []byte{192, 168, 10},
+			AttrType: v,
+			AttrData: []byte{192, 168, 10},
 		}
 		_, err = data3.String()
 		if err == nil {
@@ -64,8 +64,8 @@ func TestNewIPv4AttrStringPayload(t *testing.T) {
 				data = append(data, byte(i))
 			}
 			expected = Attr{
-				attrType: testType,
-				attrData: data,
+				AttrType: testType,
+				AttrData: data,
 			}
 
 			testPayload.stringData = testString
@@ -94,8 +94,8 @@ func TestNewIPv4AttrIntPayload(t *testing.T) {
 			var result Attr
 
 			expected = Attr{
-				attrType: testType,
-				attrData: expectedResults[k],
+				AttrType: testType,
+				AttrData: expectedResults[k],
 			}
 
 			testPayload.intData = intsToTest[k]
@@ -148,7 +148,7 @@ func TestNewIPv4AttrIPAddrPayload(t *testing.T) {
 				t.Error(err)
 			}
 
-			expected = Attr{attrType: testType, attrData: expectedAttrData[k]}
+			expected = Attr{AttrType: testType, AttrData: expectedAttrData[k]}
 			if !reflect.DeepEqual(result, expected) {
 				t.Error("Unexpected result in TestNewIPv4Attr(). Structures don't match")
 			}

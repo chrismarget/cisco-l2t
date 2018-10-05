@@ -33,8 +33,8 @@ func TestParseL2tAttr(t *testing.T) {
 
 	data3 := []byte{1, 8, 0, 0, 0, 0, 0, 0}
 	expected3 := Attr{
-		attrType: attrType(1),
-		attrData: []byte{0, 0, 0, 0, 0, 0},
+		AttrType: attrType(1),
+		AttrData: []byte{0, 0, 0, 0, 0, 0},
 	}
 	result3, err := ParseL2tAttr(data3)
 	if err != nil {

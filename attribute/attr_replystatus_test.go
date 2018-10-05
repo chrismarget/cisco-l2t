@@ -10,8 +10,8 @@ import (
 func TestStringStatus(t *testing.T) {
 	for i := 0; i <= 255; i++ {
 		data := Attr{
-			attrType: replyStatusType,
-			attrData: []byte{byte(i)},
+			AttrType: replyStatusType,
+			AttrData: []byte{byte(i)},
 		}
 
 		var expected string

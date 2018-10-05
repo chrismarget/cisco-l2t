@@ -37,31 +37,31 @@ func stringifyReplyStatus(a Attr) (string, error) {
 		return "", err
 	}
 
-	if msg, ok := replyStatusToString[replyStatus(a.attrData[0])]; ok {
-		return fmt.Sprintf("%s (%d)", msg, int(a.attrData[0])), nil
+	if msg, ok := replyStatusToString[replyStatus(a.AttrData[0])]; ok {
+		return fmt.Sprintf("%s (%d)", msg, int(a.AttrData[0])), nil
 
 	}
 
-	return fmt.Sprintf("%s (%d)", replyStatusUnknown, int(a.attrData[0])), nil
+	return fmt.Sprintf("%s (%d)", replyStatusUnknown, int(a.AttrData[0])), nil
 }
 
-// newReplyStatusAttr returns an Attr with attrType t and attrData populated based on
+// newReplyStatusAttr returns an Attr with AttrType t and AttrData populated based on
 // input payload. Input options are:
 // - stringData (first choice, parses the string)
 // - intData (second choice, value used directly)
 func newReplyStatusAttr(t attrType, p attrPayload) (Attr, error) {
-	result := Attr{attrType: t}
+	result := Attr{AttrType: t}
 
 	switch {
 	case p.stringData != "":
 		for k, v := range replyStatusToString {
 			if strings.ToLower(p.stringData) == strings.ToLower(v) {
-				result.attrData = []byte{byte(k)}
+				result.AttrData = []byte{byte(k)}
 				return result, nil
 			}
 		}
 	case p.intData >= 0 && p.intData < math.MaxUint8:
-		result.attrData = []byte{byte(p.intData)}
+		result.AttrData = []byte{byte(p.intData)}
 		return result, nil
 	}
 	return Attr{}, errors.New("Error creating reply status, no appropriate data supplied.")

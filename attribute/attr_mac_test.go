@@ -9,8 +9,8 @@ func TestStringMac(t *testing.T) {
 	attrTypesToTest := getAttrsByCategory(macCategory)
 	for _, testType := range attrTypesToTest {
 		data1 := Attr{
-			attrType: testType,
-			attrData: []byte{0, 0, 0, 0, 0, 0},
+			AttrType: testType,
+			AttrData: []byte{0, 0, 0, 0, 0, 0},
 		}
 		expected1 := "00:00:00:00:00:00"
 		result1, err := data1.String()
@@ -22,8 +22,8 @@ func TestStringMac(t *testing.T) {
 		}
 
 		data2 := Attr{
-			attrType: testType,
-			attrData: []byte{255, 255, 255, 255, 255, 255},
+			AttrType: testType,
+			AttrData: []byte{255, 255, 255, 255, 255, 255},
 		}
 		expected2 := "ff:ff:ff:ff:ff:ff"
 		result2, err := data2.String()
@@ -35,8 +35,8 @@ func TestStringMac(t *testing.T) {
 		}
 
 		data3 := Attr{
-			attrType: testType,
-			attrData: []byte{0, 0, 0, 0, 0},
+			AttrType: testType,
+			AttrData: []byte{0, 0, 0, 0, 0},
 		}
 		_, err = data3.String()
 		if err == nil {
@@ -44,8 +44,8 @@ func TestStringMac(t *testing.T) {
 		}
 
 		data4 := Attr{
-			attrType: testType,
-			attrData: []byte{0, 0, 0, 0, 0, 0, 0},
+			AttrType: testType,
+			AttrData: []byte{0, 0, 0, 0, 0, 0, 0},
 		}
 		_, err = data4.String()
 		if err == nil {
@@ -87,7 +87,7 @@ func TestNewMacAttrWithString(t *testing.T) {
 
 		var expectedAttr []Attr
 		for _, v := range expectedAttrData {
-			expectedAttr = append(expectedAttr, Attr{attrType: testType, attrData: v})
+			expectedAttr = append(expectedAttr, Attr{AttrType: testType, AttrData: v})
 		}
 
 		for k, v := range stringsToTest {
@@ -124,7 +124,7 @@ func TestNewMacAttrWithInt(t *testing.T) {
 
 		var expectedAttrs []Attr
 		for _, v := range expectedAttrData {
-			expectedAttrs = append(expectedAttrs, Attr{attrType: testType, attrData: v})
+			expectedAttrs = append(expectedAttrs, Attr{AttrType: testType, AttrData: v})
 		}
 
 		for k, v := range intsToTest {
