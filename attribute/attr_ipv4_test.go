@@ -11,7 +11,7 @@ import (
 func TestStringIPv4(t *testing.T) {
 	attrTypesToTest := getAttrsByCategory(ipv4Category)
 	for _, v := range attrTypesToTest {
-		data1 := attr{
+		data1 := Attr{
 			attrType: v,
 			attrData: []byte{192, 168, 10, 11},
 		}
@@ -24,7 +24,7 @@ func TestStringIPv4(t *testing.T) {
 			t.Errorf("expected '%s', got '%s'", expected1, result1)
 		}
 
-		data2 := attr{
+		data2 := Attr{
 			attrType: v,
 			attrData: []byte{192, 168, 10, 11, 12},
 		}
@@ -33,7 +33,7 @@ func TestStringIPv4(t *testing.T) {
 			t.Error("Oversize IP payload should have produced an error")
 		}
 
-		data3 := attr{
+		data3 := Attr{
 			attrType: v,
 			attrData: []byte{192, 168, 10},
 		}
@@ -50,9 +50,9 @@ func TestNewIPv4AttrStringPayload(t *testing.T) {
 		stringsToTest := []string{"0.0.0.0", "192.168.1.2", "255.255.255.255"}
 		for _, testString := range stringsToTest {
 			var testPayload attrPayload
-			var expected attr
+			var expected Attr
 			var err error
-			var result attr
+			var result Attr
 
 			// building the "expected" structure requires us to walk the test
 			// string the hard way.
@@ -63,7 +63,7 @@ func TestNewIPv4AttrStringPayload(t *testing.T) {
 				i, err = strconv.Atoi(o)
 				data = append(data, byte(i))
 			}
-			expected = attr{
+			expected = Attr{
 				attrType: testType,
 				attrData: data,
 			}
@@ -89,11 +89,11 @@ func TestNewIPv4AttrIntPayload(t *testing.T) {
 		expectedResults := [][]byte{{0, 0, 0, 0}, {192, 168, 10, 11}, {255, 255, 255, 255}}
 		for k, _ := range intsToTest {
 			var testPayload attrPayload
-			var expected attr
+			var expected Attr
 			var err error
-			var result attr
+			var result Attr
 
-			expected = attr{
+			expected = Attr{
 				attrType: testType,
 				attrData: expectedResults[k],
 			}
@@ -138,9 +138,9 @@ func TestNewIPv4AttrIPAddrPayload(t *testing.T) {
 		expectedAttrData := [][]byte{{0, 0, 0, 0}, {192, 168, 11, 12}, {255, 255, 255, 255}}
 		for k, _ := range iPAddrsToTest {
 			var testPayload attrPayload
-			var expected attr
+			var expected Attr
 			var err error
-			var result attr
+			var result Attr
 
 			testPayload.ipAddrData = iPAddrsToTest[k]
 			result, err = NewAttr(testType, testPayload)
@@ -148,7 +148,7 @@ func TestNewIPv4AttrIPAddrPayload(t *testing.T) {
 				t.Error(err)
 			}
 
-			expected = attr{attrType: testType, attrData: expectedAttrData[k]}
+			expected = Attr{attrType: testType, attrData: expectedAttrData[k]}
 			if !reflect.DeepEqual(result, expected) {
 				t.Error("Unexpected result in TestNewIPv4Attr(). Structures don't match")
 			}

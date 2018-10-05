@@ -13,7 +13,7 @@ const (
 	minStringLen     = 2      // at a minimum we'll have a single character and the terminator
 )
 
-func stringString(a attr) (string, error) {
+func stringString(a Attr) (string, error) {
 	var err error
 	err = checkAttrInCategory(a, stringCategory)
 	if err != nil {
@@ -44,20 +44,20 @@ func stringString(a attr) (string, error) {
 	return string(trimmed), nil
 }
 
-func newStringAttr(t attrType, p attrPayload) (attr, error) {
+func newStringAttr(t attrType, p attrPayload) (Attr, error) {
 	if p.stringData == "" {
-		return attr{}, errors.New("Error creating string attribute: Empty string.")
+		return Attr{}, errors.New("Error creating string attribute: Empty string.")
 	}
 	if len(p.stringData)+TLsize >= math.MaxUint8 {
-		return attr{}, errors.New("Error creating string attribute: Over-length string.")
+		return Attr{}, errors.New("Error creating string attribute: Over-length string.")
 	}
 	var d []byte
 	for _, r := range p.stringData {
 		if r > unicode.MaxASCII || !unicode.IsPrint(rune(r)) {
-			return attr{}, errors.New("Error creating string attribute: Non-string characters present.")
+			return Attr{}, errors.New("Error creating string attribute: Non-string characters present.")
 		}
 		d = append(d, byte(r))
 	}
 	d = append(d, 0)
-	return attr{attrType: t, attrData: d}, nil
+	return Attr{attrType: t, attrData: d}, nil
 }

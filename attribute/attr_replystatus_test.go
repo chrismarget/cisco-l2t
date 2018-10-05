@@ -9,7 +9,7 @@ import (
 
 func TestStringStatus(t *testing.T) {
 	for i := 0; i <= 255; i++ {
-		data := attr{
+		data := Attr{
 			attrType: replyStatusType,
 			attrData: []byte{byte(i)},
 		}
@@ -50,11 +50,11 @@ func TestNewReplyStatusAttrWithString(t *testing.T) {
 			testPayload = append(testPayload, attrPayload{stringData: testString})
 		}
 
-		var expectedResult []attr
+		var expectedResult []Attr
 		for _, v := range stringsToTest {
 			for i, j := range replyStatusToString {
 				if strings.ToLower(j) == strings.ToLower(v) {
-					expectedResult = append(expectedResult, attr{testType, []byte{byte(i)}})
+					expectedResult = append(expectedResult, Attr{testType, []byte{byte(i)}})
 				}
 			}
 		}

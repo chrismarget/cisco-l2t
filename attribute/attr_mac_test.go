@@ -8,7 +8,7 @@ import (
 func TestStringMac(t *testing.T) {
 	attrTypesToTest := getAttrsByCategory(macCategory)
 	for _, testType := range attrTypesToTest {
-		data1 := attr{
+		data1 := Attr{
 			attrType: testType,
 			attrData: []byte{0, 0, 0, 0, 0, 0},
 		}
@@ -21,7 +21,7 @@ func TestStringMac(t *testing.T) {
 			t.Errorf("expected '%s', got '%s'", expected1, result1)
 		}
 
-		data2 := attr{
+		data2 := Attr{
 			attrType: testType,
 			attrData: []byte{255, 255, 255, 255, 255, 255},
 		}
@@ -34,7 +34,7 @@ func TestStringMac(t *testing.T) {
 			t.Errorf("expected '%s', got '%s'", expected2, result2)
 		}
 
-		data3 := attr{
+		data3 := Attr{
 			attrType: testType,
 			attrData: []byte{0, 0, 0, 0, 0},
 		}
@@ -43,7 +43,7 @@ func TestStringMac(t *testing.T) {
 			t.Error("Undersize MAC payload should have generated and error")
 		}
 
-		data4 := attr{
+		data4 := Attr{
 			attrType: testType,
 			attrData: []byte{0, 0, 0, 0, 0, 0, 0},
 		}
@@ -85,9 +85,9 @@ func TestNewMacAttrWithString(t *testing.T) {
 		//expectedAttrData = append(expectedAttrData, []byte{0, 255, 255, 255, 255, 11})
 		//expectedAttrData = append(expectedAttrData, []byte{0, 255, 255, 255, 255, 12})
 
-		var expectedAttr []attr
+		var expectedAttr []Attr
 		for _, v := range expectedAttrData {
-			expectedAttr = append(expectedAttr, attr{attrType: testType, attrData: v})
+			expectedAttr = append(expectedAttr, Attr{attrType: testType, attrData: v})
 		}
 
 		for k, v := range stringsToTest {
@@ -122,9 +122,9 @@ func TestNewMacAttrWithInt(t *testing.T) {
 		expectedAttrData = append(expectedAttrData, []byte{0, 0, 0, 0, 0, 0})
 		expectedAttrData = append(expectedAttrData, []byte{0, 0, 0, 0, 0, 1})
 
-		var expectedAttrs []attr
+		var expectedAttrs []Attr
 		for _, v := range expectedAttrData {
-			expectedAttrs = append(expectedAttrs, attr{attrType: testType, attrData: v})
+			expectedAttrs = append(expectedAttrs, Attr{attrType: testType, attrData: v})
 		}
 
 		for k, v := range intsToTest {

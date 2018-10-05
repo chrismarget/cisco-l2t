@@ -24,8 +24,8 @@ var (
 	}
 )
 
-// stringReplyStatus takes an attr belonging to replyStatusCategory, string-ifys it.
-func stringReplyStatus(a attr) (string, error) {
+// stringReplyStatus takes an Attr belonging to replyStatusCategory, string-ifys it.
+func stringReplyStatus(a Attr) (string, error) {
 	var err error
 	err = checkAttrInCategory(a, replyStatusCategory)
 	if err != nil {
@@ -45,12 +45,12 @@ func stringReplyStatus(a attr) (string, error) {
 	return fmt.Sprintf("%s (%d)", replyStatusUnknown, int(a.attrData[0])), nil
 }
 
-// newReplyStatusAttr returns an attr with attrType t and attrData populated based on
+// newReplyStatusAttr returns an Attr with attrType t and attrData populated based on
 // input payload. Input options are:
 // - stringData (first choice, parses the string)
 // - intData (second choice, value used directly)
-func newReplyStatusAttr(t attrType, p attrPayload) (attr, error) {
-	result := attr{attrType: t}
+func newReplyStatusAttr(t attrType, p attrPayload) (Attr, error) {
+	result := Attr{attrType: t}
 
 	switch {
 	case p.stringData != "":
@@ -64,5 +64,5 @@ func newReplyStatusAttr(t attrType, p attrPayload) (attr, error) {
 		result.attrData = []byte{byte(p.intData)}
 		return result, nil
 	}
-	return attr{}, errors.New("Error creating reply status, no appropriate data supplied.")
+	return Attr{}, errors.New("Error creating reply status, no appropriate data supplied.")
 }

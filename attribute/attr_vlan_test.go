@@ -8,7 +8,7 @@ import (
 func TestStringVlan(t *testing.T) {
 	attrTypesToTest := getAttrsByCategory(vlanCategory)
 	for _, v := range attrTypesToTest {
-		data1 := attr{
+		data1 := Attr{
 			attrType: v,
 			attrData: []byte{0, 10},
 		}
@@ -21,7 +21,7 @@ func TestStringVlan(t *testing.T) {
 			t.Errorf("expected '%s', got '%s'", expected1, result1)
 		}
 
-		data2 := attr{
+		data2 := Attr{
 			attrType: v,
 			attrData: []byte{15, 160},
 		}
@@ -34,7 +34,7 @@ func TestStringVlan(t *testing.T) {
 			t.Errorf("expected '%s', got '%s'", expected2, result2)
 		}
 
-		data3 := attr{
+		data3 := Attr{
 			attrType: v,
 			attrData: []byte{100},
 		}
@@ -43,7 +43,7 @@ func TestStringVlan(t *testing.T) {
 			t.Errorf("Undersize payload should have produced an error")
 		}
 
-		data4 := attr{
+		data4 := Attr{
 			attrType: v,
 			attrData: []byte{0, 0, 0},
 		}
@@ -52,7 +52,7 @@ func TestStringVlan(t *testing.T) {
 			t.Errorf("Oversize payload should have produced an error")
 		}
 
-		data5 := attr{
+		data5 := Attr{
 			attrType: v,
 			attrData: []byte{0, 0},
 		}
@@ -61,7 +61,7 @@ func TestStringVlan(t *testing.T) {
 			t.Errorf("Zero VLAN should have produced an error")
 		}
 
-		data6 := attr{
+		data6 := Attr{
 			attrType: v,
 			attrData: []byte{16, 0},
 		}
@@ -75,8 +75,8 @@ func TestStringVlan(t *testing.T) {
 func TestNewVLANAttr(t *testing.T) {
 	attrTypesToTest := getAttrsByCategory(vlanCategory)
 	for _, testType := range attrTypesToTest {
-		var result attr
-		var expected attr
+		var result Attr
+		var expected Attr
 		var err error
 
 		// VLAN 1
@@ -84,7 +84,7 @@ func TestNewVLANAttr(t *testing.T) {
 		if err != nil {
 			t.Error(err)
 		}
-		expected = attr{attrType: testType, attrData: []byte{0, 1}}
+		expected = Attr{attrType: testType, attrData: []byte{0, 1}}
 		if !reflect.DeepEqual(result, expected) {
 			t.Error("Error: Structures don't match.")
 		}
@@ -94,7 +94,7 @@ func TestNewVLANAttr(t *testing.T) {
 		if err != nil {
 			t.Error(err)
 		}
-		expected = attr{attrType: testType, attrData: []byte{15, 254}}
+		expected = Attr{attrType: testType, attrData: []byte{15, 254}}
 		if !reflect.DeepEqual(result, expected) {
 			t.Error("Error: Structures don't match.")
 		}

@@ -25,8 +25,8 @@ var (
 )
 
 // stringDuplex returns a string representing a port duplex.
-// This function should be called by attr.String()
-func stringDuplex(a attr) (string, error) {
+// This function should be called by Attr.String()
+func stringDuplex(a Attr) (string, error) {
 	err := checkAttrInCategory(a, duplexCategory)
 	if err != nil {
 		return "", err
@@ -47,7 +47,7 @@ func stringDuplex(a attr) (string, error) {
 }
 
 // stringToDuplex takes a string, converts it to a []byte for use in an
-// attr.attrData belonging to duplexCategory
+// Attr.attrData belonging to duplexCategory
 func stringToDuplex(in string) ([]byte, error) {
 	for k, v := range portDuplexToString {
 		if strings.ToLower(v) == strings.ToLower(in) {
@@ -61,7 +61,7 @@ func stringToDuplex(in string) ([]byte, error) {
 }
 
 // intToDuplex takes an integer, returns a []byte for use in an
-// attr.attrData belonging to duplexCategory
+// Attr.attrData belonging to duplexCategory
 func intToDuplex(in int) ([]byte, error) {
 	for k, _ := range portDuplexToString {
 		if k == portDuplex(in) {
@@ -75,27 +75,27 @@ func intToDuplex(in int) ([]byte, error) {
 }
 
 // newDuplexAttr takes an attrType (one that belongs to duplexCategory) and an
-// attrPayload, parses the payload, returns a populated attr.
-func newDuplexAttr(t attrType, p attrPayload) (attr, error) {
-	result := attr{attrType: t}
+// attrPayload, parses the payload, returns a populated Attr.
+func newDuplexAttr(t attrType, p attrPayload) (Attr, error) {
+	result := Attr{attrType: t}
 
 	switch {
 	case p.stringData != "":
 		b, err := stringToDuplex(p.stringData)
 		if err != nil {
-			return attr{}, err
+			return Attr{}, err
 		}
 		result.attrData = b
 		return result, nil
 	case p.intData >= 0:
 		b, err := intToDuplex(p.intData)
 		if err != nil {
-			return attr{}, err
+			return Attr{}, err
 		}
 		result.attrData = b
 		return result, nil
 	default:
 		msg := fmt.Sprintf("Cannot create %s. No appropriate data supplied.", attrTypeString[t])
-		return attr{}, errors.New(msg)
+		return Attr{}, errors.New(msg)
 	}
 }
