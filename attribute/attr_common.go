@@ -113,9 +113,9 @@ var (
 	newAttrFuncByCategory = map[attrCategory]func(attrType, attrPayload) (attr, error) {
 		duplexCategory: newDuplexAttr,
 		ipv4Category:   newIPv4Attr,
-		//macCategory:    newMacAttr,
-		//speedCategory:  newSpeedAttr,
-		//replyStatusCategory: newReplyStatusAttr,
+		macCategory:    newMacAttr,
+		speedCategory:  newSpeedAttr,
+		replyStatusCategory: newReplyStatusAttr,
 		//stringCategory: newStringAttr,
 		//vlanCategory:   newVlanAttr,
 	}
