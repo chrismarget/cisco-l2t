@@ -1,6 +1,9 @@
 package attribute
 
-import "testing"
+import (
+	"reflect"
+	"testing"
+)
 
 func TestStringVlan(t *testing.T) {
 	attrTypesToTest := getAttrsByCategory(vlanCategory)
@@ -65,6 +68,24 @@ func TestStringVlan(t *testing.T) {
 		_, err = data6.String()
 		if err == nil {
 			t.Errorf("> 12-bit VLAN ID should have produced an error")
+		}
+	}
+}
+
+func TestNewVLANAttr(t *testing.T) {
+	attrTypesToTest := getAttrsByCategory(vlanCategory)
+	for _, testType := range attrTypesToTest {
+		var result attr
+		var expected attr
+		var err error
+
+		result, err = NewAttr(testType, attrPayload{intData: 1})
+		if err != nil {
+			t.Error(err)
+		}
+		expected = attr{attrType: testType, attrData: []byte{0, 1}}
+		if !reflect.DeepEqual(result, expected) {
+			t.Error("Error: Structures don't match.")
 		}
 	}
 }

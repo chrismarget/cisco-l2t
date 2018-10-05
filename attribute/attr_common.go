@@ -110,14 +110,14 @@ var (
 		vlanCategory:        stringVlan,
 	}
 
-	newAttrFuncByCategory = map[attrCategory]func(attrType, attrPayload) (attr, error) {
-		duplexCategory: newDuplexAttr,
-		ipv4Category:   newIPv4Attr,
-		macCategory:    newMacAttr,
-		speedCategory:  newSpeedAttr,
+	newAttrFuncByCategory = map[attrCategory]func(attrType, attrPayload) (attr, error){
+		duplexCategory:      newDuplexAttr,
+		ipv4Category:        newIPv4Attr,
+		macCategory:         newMacAttr,
+		speedCategory:       newSpeedAttr,
 		replyStatusCategory: newReplyStatusAttr,
-		//stringCategory: newStringAttr,
-		//vlanCategory:   newVlanAttr,
+		stringCategory:      newStringAttr,
+		vlanCategory:        newVlanAttr,
 	}
 )
 
@@ -126,8 +126,8 @@ type attr struct {
 	attrData []byte
 }
 
-type attrPayload struct{
-	intData int
+type attrPayload struct {
+	intData    int
 	stringData string
 	ipAddrData net.IPAddr
 	hwAddrData net.HardwareAddr
@@ -166,7 +166,7 @@ func (a attr) checkLen() error {
 
 	// l2t attribute length field is only a single byte. We better not have more
 	// data than can be described by that byte.
-	if len(a.attrData) > math.MaxUint8 - TLsize {
+	if len(a.attrData) > math.MaxUint8-TLsize {
 		msg := fmt.Sprintf("Error, attribute has impossible payload size: %d bytes.", len(a.attrData))
 		return errors.New(msg)
 	}
@@ -194,7 +194,7 @@ func (a attr) Bytes() ([]byte, error) {
 
 	var result []byte
 	result = append(result, byte(a.attrType))
-	result = append(result, byte(len(a.attrData) + TLsize))
+	result = append(result, byte(len(a.attrData)+TLsize))
 	result = append(result, a.attrData...)
 	return result, nil
 }
@@ -250,7 +250,7 @@ func NewAttr(t attrType, p attrPayload) (attr, error) {
 	return result, nil
 }
 
-func checkAttrInCategory (a attr, c attrCategory) error {
+func checkAttrInCategory(a attr, c attrCategory) error {
 	pc, _, _, _ := runtime.Caller(1)
 	fname := runtime.FuncForPC(pc).Name()
 

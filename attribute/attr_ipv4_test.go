@@ -58,7 +58,7 @@ func TestNewIPv4AttrStringPayload(t *testing.T) {
 			// string the hard way.
 			octets := strings.Split(testString, ".")
 			var data []byte
-			for _, o := range octets{
+			for _, o := range octets {
 				var i int
 				i, err = strconv.Atoi(o)
 				data = append(data, byte(i))
@@ -73,7 +73,7 @@ func TestNewIPv4AttrStringPayload(t *testing.T) {
 			if err != nil {
 				t.Error(err)
 			}
-			if ! reflect.DeepEqual(result, expected) {
+			if !reflect.DeepEqual(result, expected) {
 				t.Error("Unexpected result in TestNewIPv4Attr(). Structures don't match")
 			}
 		}
@@ -86,7 +86,7 @@ func TestNewIPv4AttrIntPayload(t *testing.T) {
 
 	for _, testType = range attrTypesToTest {
 		intsToTest := []int{0, 3232238091, 4294967295}
-		expectedResults := [][]byte{{0,0,0,0}, {192, 168,10,11}, {255,255,255,255}}
+		expectedResults := [][]byte{{0, 0, 0, 0}, {192, 168, 10, 11}, {255, 255, 255, 255}}
 		for k, _ := range intsToTest {
 			var testPayload attrPayload
 			var expected attr
@@ -103,7 +103,7 @@ func TestNewIPv4AttrIntPayload(t *testing.T) {
 			if err != nil {
 				t.Error(err)
 			}
-			if ! reflect.DeepEqual(result, expected) {
+			if !reflect.DeepEqual(result, expected) {
 				t.Error("Unexpected result in TestNewIPv4Attr(). Structures don't match")
 			}
 		}
@@ -131,9 +131,9 @@ func TestNewIPv4AttrIPAddrPayload(t *testing.T) {
 
 	for _, testType = range attrTypesToTest {
 		iPAddrsToTest := []net.IPAddr{
-			net.IPAddr{IP: []byte{0,0,0,0}},
-			net.IPAddr{IP: []byte{192,168,11,12}},
-			net.IPAddr{IP: []byte{255,255,255,255}},
+			net.IPAddr{IP: []byte{0, 0, 0, 0}},
+			net.IPAddr{IP: []byte{192, 168, 11, 12}},
+			net.IPAddr{IP: []byte{255, 255, 255, 255}},
 		}
 		expectedAttrData := [][]byte{{0, 0, 0, 0}, {192, 168, 11, 12}, {255, 255, 255, 255}}
 		for k, _ := range iPAddrsToTest {
@@ -149,7 +149,7 @@ func TestNewIPv4AttrIPAddrPayload(t *testing.T) {
 			}
 
 			expected = attr{attrType: testType, attrData: expectedAttrData[k]}
-			if ! reflect.DeepEqual(result, expected) {
+			if !reflect.DeepEqual(result, expected) {
 				t.Error("Unexpected result in TestNewIPv4Attr(). Structures don't match")
 			}
 

@@ -5,16 +5,15 @@ import (
 	"testing"
 )
 
-func getAttrsByCategory (category attrCategory) []attrType{
+func getAttrsByCategory(category attrCategory) []attrType {
 	var attrTypesToTest []attrType
-	for k, v := range attrCategoryByType{
+	for k, v := range attrCategoryByType {
 		if v == category {
 			attrTypesToTest = append(attrTypesToTest, k)
 		}
 	}
 	return attrTypesToTest
 }
-
 
 func TestParseL2tAttr(t *testing.T) {
 	data1 := []byte{}
@@ -32,11 +31,11 @@ func TestParseL2tAttr(t *testing.T) {
 		t.Error("data2: oversize l2tattr should have failed to parse")
 	}
 
-	data3 := []byte{1,8,0,0,0,0,0,0}
+	data3 := []byte{1, 8, 0, 0, 0, 0, 0, 0}
 	expected3 := attr{
 		attrType: attrType(1),
-		attrData: []byte{0,0,0,0,0,0},
-			}
+		attrData: []byte{0, 0, 0, 0, 0, 0},
+	}
 	result3, err := ParseL2tAttr(data3)
 	if err != nil {
 		t.Error(err)

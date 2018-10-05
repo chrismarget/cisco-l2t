@@ -8,9 +8,9 @@ import (
 )
 
 const (
-	replyStatusSuccess = "Success"
+	replyStatusSuccess       = "Success"
 	replyStatusNoCDPNeighbor = "No CDP Neighbor"
-	replyStatusUnknown = "Status Unknown"
+	replyStatusUnknown       = "Status Unknown"
 )
 
 var (
