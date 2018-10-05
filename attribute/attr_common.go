@@ -15,6 +15,7 @@ type (
 
 const (
 	TLsize            = 2
+
 	srcMacType        = attrType(1)
 	dstMacType        = attrType(2)
 	vlanType          = attrType(3)
@@ -124,6 +125,9 @@ type attrPayload struct {
 	hwAddrData net.HardwareAddr
 }
 
+// ParseL2tAttr takes an L2T attribute ([]byte) as it comes from the wire,
+// renders it into an attr structure. Length byte is validated, but not
+// part of the structure (measure it if needed).
 func ParseL2tAttr(in []byte) (attr, error) {
 	observedLen := len(in)
 	if observedLen < 2 || observedLen > 255 {
@@ -217,6 +221,10 @@ func (a attr) String() (string, error) {
 	return result, nil
 }
 
+// NewAttr takes an attrType and attrPayload, renders them into an attr
+// structure. Specific requirements for the contents of the attrPayload
+// depend on the supplied attrType (use intData for VLAN, stringData for
+// strings, etc...)
 func NewAttr(t attrType, p attrPayload) (attr, error) {
 	var ok bool
 
@@ -241,6 +249,8 @@ func NewAttr(t attrType, p attrPayload) (attr, error) {
 	return result, nil
 }
 
+// checkAttrInCategory checks whether a particular attr belongs to the supplied
+// category.
 func checkAttrInCategory(a attr, c attrCategory) error {
 	pc, _, _, _ := runtime.Caller(1)
 	fname := runtime.FuncForPC(pc).Name()
