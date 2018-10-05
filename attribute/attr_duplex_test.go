@@ -96,7 +96,7 @@ func TestNewDuplexAttr(t *testing.T) {
 			if err != nil {
 				t.Error(err)
 			}
-			if ! reflect.DeepEqual(result, expected) {
+			if !reflect.DeepEqual(result, expected) {
 				t.Error("Unexpected result in TestNewDuplexAttr() upper case test. Structures don't match")
 
 			}
@@ -110,7 +110,7 @@ func TestNewDuplexAttr(t *testing.T) {
 			if err != nil {
 				t.Error(err)
 			}
-			if ! reflect.DeepEqual(result, expected) {
+			if !reflect.DeepEqual(result, expected) {
 				t.Error("Unexpected result in TestNewDuplexAttr() lower case test. Structures don't match")
 			}
 		}
@@ -126,7 +126,7 @@ func TestNewDuplexAttr(t *testing.T) {
 			if err != nil {
 				t.Error(err)
 			}
-			if ! reflect.DeepEqual(result, expected) {
+			if !reflect.DeepEqual(result, expected) {
 				t.Error("Unexpected result in TestNewDuplexAttr() integer test. Structures don't match")
 			}
 		}

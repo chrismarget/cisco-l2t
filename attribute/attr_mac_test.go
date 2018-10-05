@@ -119,8 +119,8 @@ func TestNewMacAttrWithInt(t *testing.T) {
 		intsToTest = append(intsToTest, 1)
 
 		var expectedAttrData [][]byte
-		expectedAttrData = append(expectedAttrData, []byte{0,0,0,0,0,0})
-		expectedAttrData = append(expectedAttrData, []byte{0,0,0,0,0,1})
+		expectedAttrData = append(expectedAttrData, []byte{0, 0, 0, 0, 0, 0})
+		expectedAttrData = append(expectedAttrData, []byte{0, 0, 0, 0, 0, 1})
 
 		var expectedAttrs []attr
 		for _, v := range expectedAttrData {
@@ -133,7 +133,7 @@ func TestNewMacAttrWithInt(t *testing.T) {
 				t.Error(err)
 			}
 
-			if ! reflect.DeepEqual(result, expectedAttrs[k]) {
+			if !reflect.DeepEqual(result, expectedAttrs[k]) {
 				t.Error("Structures don't match.")
 			}
 		}
