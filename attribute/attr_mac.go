@@ -8,8 +8,8 @@ import (
 	"net"
 )
 
-// stringMac takes an Attr belonging to macCategory, string-ifys it.
-func stringMac(a Attr) (string, error) {
+// stringifyMac takes an Attr belonging to macCategory, string-ifys it.
+func stringifyMac(a Attr) (string, error) {
 	var err error
 	err = checkAttrInCategory(a, macCategory)
 	if err != nil {

@@ -14,7 +14,8 @@ type (
 )
 
 const (
-	TLsize            = 2
+	TLsize     = 2
+	MinAttrLen = 3
 
 	srcMacType        = attrType(1)
 	dstMacType        = attrType(2)
@@ -92,14 +93,14 @@ var (
 		vlanCategory:        4,
 	}
 
-	attrStringfuncByCategory = map[attrCategory]func(Attr) (string, error){
-		duplexCategory:      stringDuplex,
-		ipv4Category:        stringIPv4,
-		macCategory:         stringMac,
+	stringifyAttrFuncByCategory = map[attrCategory]func(Attr) (string, error){
+		duplexCategory:      stringifyDuplex,
+		ipv4Category:        stringifyIPv4,
+		macCategory:         stringifyMac,
 		speedCategory:       stringSpeed,
-		replyStatusCategory: stringReplyStatus,
-		stringCategory:      stringString,
-		vlanCategory:        stringVlan,
+		replyStatusCategory: stringifyReplyStatus,
+		stringCategory:      stringifyString,
+		vlanCategory:        stringifyVlan,
 	}
 
 	newAttrFuncByCategory = map[attrCategory]func(attrType, attrPayload) (Attr, error){
@@ -110,6 +111,16 @@ var (
 		replyStatusCategory: newReplyStatusAttr,
 		stringCategory:      newStringAttr,
 		vlanCategory:        newVlanAttr,
+	}
+
+	validateAttrFuncByCategory = map[attrCategory]func(Attr) error{
+		duplexCategory: validateDuplex,
+		//ipv4Category:        validateIPv4,
+		//macCategory:         validateMac,
+		//speedCategory:       validateSpeed,
+		//replyStatusCategory: validateReplyStatus,
+		//stringCategory:      validateString,
+		//vlanCategory:        validateVlan,
 	}
 )
 
@@ -126,8 +137,10 @@ type attrPayload struct {
 }
 
 // ParseL2tAttr takes an L2T attribute ([]byte) as it comes from the wire,
-// renders it into an Attr structure. Length byte is validated, but not
-// part of the structure (measure it if needed).
+// renders it into an Attr structure. Length byte is validated, but is not
+// part of the structure (measure it if needed). The resulting data is not
+// checked to see whether it makes any sense (too long mac address, unprintable
+// strings, etc...)
 func ParseL2tAttr(in []byte) (Attr, error) {
 	observedLen := len(in)
 	if observedLen < 2 || observedLen > 255 {
@@ -141,10 +154,44 @@ func ParseL2tAttr(in []byte) (Attr, error) {
 		return Attr{}, errors.New(msg)
 	}
 
-	return Attr{
+	result := Attr{
 		attrType: attrType(in[0]),
 		attrData: in[2:],
-	}, nil
+	}
+
+	err := result.validate()
+	if err != nil {
+		return Attr{}, err
+	}
+
+	return result, nil
+}
+
+// validate checks the attribute length against the expected length table.
+// todo: add some payload validation
+func (a Attr) validate() error {
+	err := a.checkLen()
+	if err != nil {
+		return err
+	}
+
+	var cat attrCategory
+	var ok bool
+	if cat, ok = attrCategoryByType[a.attrType]; !ok {
+		msg := fmt.Sprintf("Error: Unknown attribute type %d", a.attrType)
+		return errors.New(msg)
+	}
+
+	//if _, ok := validateAttrFuncByCategory[cat]; !ok {
+	//	msg := fmt.Sprintf("Don't know how to validate '%s' style l2t attributes (type %d)", cat, a.attrType)
+	//	return errors.New(msg)
+	//}
+	//
+	//validateAttrFuncByCategory[cat](a)
+	//if err != nil {
+	//	return err
+	//}
+	return nil
 }
 
 // checkLen returns an error if the attribute's payload length doesn't make
@@ -208,12 +255,12 @@ func (a Attr) String() (string, error) {
 		return "", errors.New(msg)
 	}
 
-	if _, ok := attrStringfuncByCategory[cat]; !ok {
+	if _, ok := stringifyAttrFuncByCategory[cat]; !ok {
 		msg := fmt.Sprintf("Don't know how to string-ify '%s' style l2t attributes (type %d)", cat, a.attrType)
 		return "", errors.New(msg)
 	}
 
-	result, err := attrStringfuncByCategory[cat](a)
+	result, err := stringifyAttrFuncByCategory[cat](a)
 	if err != nil {
 		return "", err
 	}

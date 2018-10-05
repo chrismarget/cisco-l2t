@@ -3,6 +3,7 @@ package attribute
 import (
 	"errors"
 	"fmt"
+	"log"
 	"strings"
 )
 
@@ -24,9 +25,9 @@ var (
 	}
 )
 
-// stringDuplex returns a string representing a port duplex.
+// stringifyDuplex returns a string representing a port duplex.
 // This function should be called by Attr.String()
-func stringDuplex(a Attr) (string, error) {
+func stringifyDuplex(a Attr) (string, error) {
 	err := checkAttrInCategory(a, duplexCategory)
 	if err != nil {
 		return "", err
@@ -98,4 +99,9 @@ func newDuplexAttr(t attrType, p attrPayload) (Attr, error) {
 		msg := fmt.Sprintf("Cannot create %s. No appropriate data supplied.", attrTypeString[t])
 		return Attr{}, errors.New(msg)
 	}
+}
+
+func validateDuplex(in Attr) error {
+	log.Println("validateDuplex")
+	return nil
 }
