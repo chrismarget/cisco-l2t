@@ -44,12 +44,12 @@ func newIPv4Attr(t attrType, p attrPayload) (attr, error) {
 		}
 		p.ipAddrData = net.IPAddr{IP: ip[0]}
 		return newIPv4Attr(t, p)
-	case p.intData > 0:
+	case p.intData >= 0:
 		if p.intData > math.MaxUint32 {
-			msg := fmt.Sprintf("Cannot create %s. input integer data out of range: %d.", attrTypeString[t], p.intData)
+			msg := fmt.Sprintf("Cannot create %s. Input integer data out of range: %d.", attrTypeString[t], p.intData)
 			return attr{}, errors.New(msg)
 		}
-		var b []byte
+		b := make([]byte, 4)
 		binary.BigEndian.PutUint32(b, uint32(p.intData))
 		result.attrData = b
 		return result, nil
