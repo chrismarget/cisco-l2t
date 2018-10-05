@@ -40,15 +40,15 @@ func stringifyDuplex(a Attr) (string, error) {
 
 	var result string
 	var ok bool
-	if result, ok = portDuplexToString[portDuplex(a.attrData[0])]; !ok {
-		msg := fmt.Sprintf("Error, malformed duplex attribute: Value is %d", a.attrData)
+	if result, ok = portDuplexToString[portDuplex(a.AttrData[0])]; !ok {
+		msg := fmt.Sprintf("Error, malformed duplex attribute: Value is %d", a.AttrData)
 		return "", errors.New(msg)
 	}
 	return result, nil
 }
 
 // stringToDuplex takes a string, converts it to a []byte for use in an
-// Attr.attrData belonging to duplexCategory
+// Attr.AttrData belonging to duplexCategory
 func stringToDuplex(in string) ([]byte, error) {
 	for k, v := range portDuplexToString {
 		if strings.ToLower(v) == strings.ToLower(in) {
@@ -62,7 +62,7 @@ func stringToDuplex(in string) ([]byte, error) {
 }
 
 // intToDuplex takes an integer, returns a []byte for use in an
-// Attr.attrData belonging to duplexCategory
+// Attr.AttrData belonging to duplexCategory
 func intToDuplex(in int) ([]byte, error) {
 	for k, _ := range portDuplexToString {
 		if k == portDuplex(in) {
@@ -75,10 +75,10 @@ func intToDuplex(in int) ([]byte, error) {
 	return []byte{}, errors.New(msg)
 }
 
-// newDuplexAttr takes an attrType (one that belongs to duplexCategory) and an
+// newDuplexAttr takes an AttrType (one that belongs to duplexCategory) and an
 // attrPayload, parses the payload, returns a populated Attr.
 func newDuplexAttr(t attrType, p attrPayload) (Attr, error) {
-	result := Attr{attrType: t}
+	result := Attr{AttrType: t}
 
 	switch {
 	case p.stringData != "":
@@ -86,14 +86,14 @@ func newDuplexAttr(t attrType, p attrPayload) (Attr, error) {
 		if err != nil {
 			return Attr{}, err
 		}
-		result.attrData = b
+		result.AttrData = b
 		return result, nil
 	case p.intData >= 0:
 		b, err := intToDuplex(p.intData)
 		if err != nil {
 			return Attr{}, err
 		}
-		result.attrData = b
+		result.AttrData = b
 		return result, nil
 	default:
 		msg := fmt.Sprintf("Cannot create %s. No appropriate data supplied.", attrTypeString[t])

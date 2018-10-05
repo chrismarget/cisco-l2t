@@ -3,10 +3,8 @@ package message
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"github.com/chrismarget/cisco-l2t/attribute"
 	"io"
-	"log"
 )
 
 type (
@@ -43,11 +41,6 @@ var (
 // (all bytes in the message except the header), it'll walk the slice, parse out
 // the attributes.
 func bytesToAttrSlice(in []byte) ([]attribute.Attr, error) {
-	if in[1] < attribute.MinAttrLen {
-		msg := fmt.Sprintf("Error parsing L2T message: Attribute length field exceeds available data: %d", int(in[1]))
-		return nil, errors.New(msg)
-	}
-
 	var result []attribute.Attr
 	inReader := bytes.NewReader(in)
 
@@ -77,7 +70,7 @@ func bytesToAttrSlice(in []byte) ([]attribute.Attr, error) {
 		}
 
 		// Prepare and fill an appropriately sized structure.
-		payload := make([]byte, tl[1] - attribute.TLsize)
+		payload := make([]byte, tl[1]-attribute.TLsize)
 		count, err = inReader.Read(payload)
 		if err != nil {
 			return nil, err
@@ -89,7 +82,6 @@ func bytesToAttrSlice(in []byte) ([]attribute.Attr, error) {
 		}
 
 		// Create an attribute object from the collected data
-		log.Println("lengths: TL ", len(tl), " payload ", payload)
 		attr, err := attribute.ParseL2tAttr(append(tl, payload...))
 		if err != nil {
 			return nil, err

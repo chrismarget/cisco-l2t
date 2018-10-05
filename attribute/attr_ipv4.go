@@ -22,20 +22,20 @@ func stringifyIPv4(a Attr) (string, error) {
 		return "", err
 	}
 
-	return net.IP(a.attrData).String(), nil
+	return net.IP(a.AttrData).String(), nil
 }
 
-// newIPv4Attr returns an Attr with attrType t and attrData populated based on
+// newIPv4Attr returns an Attr with AttrType t and AttrData populated based on
 // input payload. Input options are:
 // - ipAddrData (first choice)
 // - stringData (second choice, causes the function to recurse with ipAddrData)
 // - intData (last choice - needs a 32-bit compatible input, turns it into an IPv4 address)
 func newIPv4Attr(t attrType, p attrPayload) (Attr, error) {
-	result := Attr{attrType: t}
+	result := Attr{AttrType: t}
 
 	switch {
 	case len(p.ipAddrData.IP) > 0:
-		result.attrData = p.ipAddrData.IP.To4()
+		result.AttrData = p.ipAddrData.IP.To4()
 		return result, nil
 	case p.stringData != "":
 		ip, err := net.LookupIP(p.stringData)
@@ -51,7 +51,7 @@ func newIPv4Attr(t attrType, p attrPayload) (Attr, error) {
 		}
 		b := make([]byte, 4)
 		binary.BigEndian.PutUint32(b, uint32(p.intData))
-		result.attrData = b
+		result.AttrData = b
 		return result, nil
 	default:
 		msg := fmt.Sprintf("Cannot create %s. No appropriate data supplied.", attrTypeString[t])

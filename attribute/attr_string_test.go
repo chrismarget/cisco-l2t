@@ -10,8 +10,8 @@ func TestStringString(t *testing.T) {
 	attrTypesToTest := getAttrsByCategory(stringCategory)
 	for _, v := range attrTypesToTest {
 		data1 := Attr{
-			attrType: v,
-			attrData: []byte{65, 0},
+			AttrType: v,
+			AttrData: []byte{65, 0},
 		}
 		expected1 := "A"
 		result1, err := data1.String()
@@ -31,7 +31,7 @@ func TestNewStringAttr(t *testing.T) {
 		stringsToTest = append(stringsToTest, "hello")
 
 		var expectedResults []Attr
-		expectedResults = append(expectedResults, Attr{attrType: testType, attrData: []byte{104, 101, 108, 108, 111, 0}})
+		expectedResults = append(expectedResults, Attr{AttrType: testType, AttrData: []byte{104, 101, 108, 108, 111, 0}})
 
 		for k, _ := range stringsToTest {
 			result, err := NewAttr(testType, attrPayload{stringData: stringsToTest[k]})

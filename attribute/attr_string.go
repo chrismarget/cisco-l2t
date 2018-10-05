@@ -25,13 +25,13 @@ func stringifyString(a Attr) (string, error) {
 		return "", err
 	}
 
-	if len(a.attrData) < minStringLen {
-		msg := fmt.Sprintf("Error rendering string, only got %d byte(s).", len(a.attrData))
+	if len(a.AttrData) < minStringLen {
+		msg := fmt.Sprintf("Error rendering string, only got %d byte(s).", len(a.AttrData))
 		return "", errors.New(msg)
 	}
 
-	trimmed := bytes.Split(a.attrData, []byte{stringTerminator})[0]
-	if len(trimmed) != len(a.attrData)-1 {
+	trimmed := bytes.Split(a.AttrData, []byte{stringTerminator})[0]
+	if len(trimmed) != len(a.AttrData)-1 {
 		return "", errors.New("Error, trimming string terminator.")
 	}
 
@@ -59,5 +59,5 @@ func newStringAttr(t attrType, p attrPayload) (Attr, error) {
 		d = append(d, byte(r))
 	}
 	d = append(d, 0)
-	return Attr{attrType: t, attrData: d}, nil
+	return Attr{AttrType: t, AttrData: d}, nil
 }

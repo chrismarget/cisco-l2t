@@ -24,7 +24,7 @@ func stringifyVlan(a Attr) (string, error) {
 		return "", err
 	}
 
-	vlan := binary.BigEndian.Uint16(a.attrData)
+	vlan := binary.BigEndian.Uint16(a.AttrData)
 	if vlan < minVLAN || vlan > maxVLAN {
 		msg := fmt.Sprintf("Error parsing VLAN number: %d", vlan)
 		return "", errors.New(msg)
@@ -37,8 +37,8 @@ func newVlanAttr(t attrType, p attrPayload) (Attr, error) {
 	if p.intData < minVLAN || p.intData > maxVLAN {
 		return Attr{}, errors.New("Error creating VLAN attribute: Value out of range.")
 	}
-	result.attrType = t
-	result.attrData = make([]byte, 2)
-	binary.BigEndian.PutUint16(result.attrData, uint16(p.intData))
+	result.AttrType = t
+	result.AttrData = make([]byte, 2)
+	binary.BigEndian.PutUint16(result.AttrData, uint16(p.intData))
 	return result, nil
 }

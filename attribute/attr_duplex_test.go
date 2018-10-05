@@ -10,8 +10,8 @@ func TestStringDuplex(t *testing.T) {
 	attrTypesToTest := getAttrsByCategory(duplexCategory)
 	for _, v := range attrTypesToTest {
 		data1 := Attr{
-			attrType: v,
-			attrData: []byte{0},
+			AttrType: v,
+			AttrData: []byte{0},
 		}
 		expected1 := portDuplexToString[autoDuplex]
 		result1, err := data1.String()
@@ -23,8 +23,8 @@ func TestStringDuplex(t *testing.T) {
 		}
 
 		data2 := Attr{
-			attrType: v,
-			attrData: []byte{1},
+			AttrType: v,
+			AttrData: []byte{1},
 		}
 		expected2 := portDuplexToString[halfDuplex]
 		result2, err := data2.String()
@@ -36,8 +36,8 @@ func TestStringDuplex(t *testing.T) {
 		}
 
 		data3 := Attr{
-			attrType: v,
-			attrData: []byte{2},
+			AttrType: v,
+			AttrData: []byte{2},
 		}
 		expected3 := portDuplexToString[fullDuplex]
 		result3, err := data3.String()
@@ -49,8 +49,8 @@ func TestStringDuplex(t *testing.T) {
 		}
 
 		data4 := Attr{
-			attrType: v,
-			attrData: []byte{3},
+			AttrType: v,
+			AttrData: []byte{3},
 		}
 		_, err = data4.String()
 		if err == nil {
@@ -58,8 +58,8 @@ func TestStringDuplex(t *testing.T) {
 		}
 
 		data5 := Attr{
-			attrType: v,
-			attrData: []byte{0, 0},
+			AttrType: v,
+			AttrData: []byte{0, 0},
 		}
 		_, err = data5.String()
 		if err == nil {
@@ -67,8 +67,8 @@ func TestStringDuplex(t *testing.T) {
 		}
 
 		data6 := Attr{
-			attrType: v,
-			attrData: []byte{},
+			AttrType: v,
+			AttrData: []byte{},
 		}
 		_, err = data6.String()
 		if err == nil {
@@ -89,8 +89,8 @@ func TestNewDuplexAttr(t *testing.T) {
 
 			testPayload = attrPayload{stringData: strings.ToUpper(testString)}
 			expected = Attr{
-				attrType: testType,
-				attrData: []byte{byte(testDuplexVal)},
+				AttrType: testType,
+				AttrData: []byte{byte(testDuplexVal)},
 			}
 			result, err = NewAttr(testType, testPayload)
 			if err != nil {
@@ -103,8 +103,8 @@ func TestNewDuplexAttr(t *testing.T) {
 
 			testPayload = attrPayload{stringData: strings.ToLower(testString)}
 			expected = Attr{
-				attrType: testType,
-				attrData: []byte{byte(testDuplexVal)},
+				AttrType: testType,
+				AttrData: []byte{byte(testDuplexVal)},
 			}
 			result, err = NewAttr(testType, testPayload)
 			if err != nil {
@@ -119,8 +119,8 @@ func TestNewDuplexAttr(t *testing.T) {
 		for _, i := range testInts {
 			testPayload = attrPayload{intData: i}
 			expected = Attr{
-				attrType: testType,
-				attrData: []byte{byte(i)},
+				AttrType: testType,
+				AttrData: []byte{byte(i)},
 			}
 			result, err = NewAttr(testType, testPayload)
 			if err != nil {

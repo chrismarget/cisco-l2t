@@ -9,8 +9,8 @@ func TestStringVlan(t *testing.T) {
 	attrTypesToTest := getAttrsByCategory(vlanCategory)
 	for _, v := range attrTypesToTest {
 		data1 := Attr{
-			attrType: v,
-			attrData: []byte{0, 10},
+			AttrType: v,
+			AttrData: []byte{0, 10},
 		}
 		expected1 := "10"
 		result1, err := data1.String()
@@ -22,8 +22,8 @@ func TestStringVlan(t *testing.T) {
 		}
 
 		data2 := Attr{
-			attrType: v,
-			attrData: []byte{15, 160},
+			AttrType: v,
+			AttrData: []byte{15, 160},
 		}
 		expected2 := "4000"
 		result2, err := data2.String()
@@ -35,8 +35,8 @@ func TestStringVlan(t *testing.T) {
 		}
 
 		data3 := Attr{
-			attrType: v,
-			attrData: []byte{100},
+			AttrType: v,
+			AttrData: []byte{100},
 		}
 		_, err = data3.String()
 		if err == nil {
@@ -44,8 +44,8 @@ func TestStringVlan(t *testing.T) {
 		}
 
 		data4 := Attr{
-			attrType: v,
-			attrData: []byte{0, 0, 0},
+			AttrType: v,
+			AttrData: []byte{0, 0, 0},
 		}
 		_, err = data4.String()
 		if err == nil {
@@ -53,8 +53,8 @@ func TestStringVlan(t *testing.T) {
 		}
 
 		data5 := Attr{
-			attrType: v,
-			attrData: []byte{0, 0},
+			AttrType: v,
+			AttrData: []byte{0, 0},
 		}
 		_, err = data5.String()
 		if err == nil {
@@ -62,8 +62,8 @@ func TestStringVlan(t *testing.T) {
 		}
 
 		data6 := Attr{
-			attrType: v,
-			attrData: []byte{16, 0},
+			AttrType: v,
+			AttrData: []byte{16, 0},
 		}
 		_, err = data6.String()
 		if err == nil {
@@ -84,7 +84,7 @@ func TestNewVLANAttr(t *testing.T) {
 		if err != nil {
 			t.Error(err)
 		}
-		expected = Attr{attrType: testType, attrData: []byte{0, 1}}
+		expected = Attr{AttrType: testType, AttrData: []byte{0, 1}}
 		if !reflect.DeepEqual(result, expected) {
 			t.Error("Error: Structures don't match.")
 		}
@@ -94,7 +94,7 @@ func TestNewVLANAttr(t *testing.T) {
 		if err != nil {
 			t.Error(err)
 		}
-		expected = Attr{attrType: testType, attrData: []byte{15, 254}}
+		expected = Attr{AttrType: testType, AttrData: []byte{15, 254}}
 		if !reflect.DeepEqual(result, expected) {
 			t.Error("Error: Structures don't match.")
 		}

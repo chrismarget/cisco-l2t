@@ -125,8 +125,8 @@ var (
 )
 
 type Attr struct {
-	attrType attrType
-	attrData []byte
+	AttrType attrType
+	AttrData []byte
 }
 
 type attrPayload struct {
@@ -155,8 +155,8 @@ func ParseL2tAttr(in []byte) (Attr, error) {
 	}
 
 	result := Attr{
-		attrType: attrType(in[0]),
-		attrData: in[2:],
+		AttrType: attrType(in[0]),
+		AttrData: in[2:],
 	}
 
 	err := result.validate()
@@ -175,15 +175,15 @@ func (a Attr) validate() error {
 		return err
 	}
 
-	var cat attrCategory
-	var ok bool
-	if cat, ok = attrCategoryByType[a.attrType]; !ok {
-		msg := fmt.Sprintf("Error: Unknown attribute type %d", a.attrType)
-		return errors.New(msg)
-	}
+	//var cat attrCategory
+	//var ok bool
+	//if cat, ok = attrCategoryByType[a.AttrType]; !ok {
+	//	msg := fmt.Sprintf("Error: Unknown attribute type %d", a.AttrType)
+	//	return errors.New(msg)
+	//}
 
 	//if _, ok := validateAttrFuncByCategory[cat]; !ok {
-	//	msg := fmt.Sprintf("Don't know how to validate '%s' style l2t attributes (type %d)", cat, a.attrType)
+	//	msg := fmt.Sprintf("Don't know how to validate '%s' style l2t attributes (type %d)", cat, a.AttrType)
 	//	return errors.New(msg)
 	//}
 	//
@@ -200,16 +200,16 @@ func (a Attr) validate() error {
 func (a Attr) checkLen() error {
 	var ok bool
 	var category attrCategory
-	if category, ok = attrCategoryByType[a.attrType]; !ok {
-		return errors.New(fmt.Sprintf("Unknown l2t Attribute type %d", a.attrType))
+	if category, ok = attrCategoryByType[a.AttrType]; !ok {
+		return errors.New(fmt.Sprintf("Unknown l2t Attribute type %d", a.AttrType))
 	}
 
 	expectedLen := attrLenByCategory[category] - TLsize
 
 	// l2t attribute length field is only a single byte. We better not have more
 	// data than can be described by that byte.
-	if len(a.attrData) > math.MaxUint8-TLsize {
-		msg := fmt.Sprintf("Error, attribute has impossible payload size: %d bytes.", len(a.attrData))
+	if len(a.AttrData) > math.MaxUint8-TLsize {
+		msg := fmt.Sprintf("Error, attribute has impossible payload size: %d bytes.", len(a.AttrData))
 		return errors.New(msg)
 	}
 
@@ -219,8 +219,8 @@ func (a Attr) checkLen() error {
 		return nil
 	}
 
-	if len(a.attrData) != expectedLen {
-		msg := fmt.Sprintf("Error, malformed %s attribute: Value length is %d.", attrTypeString[a.attrType], len(a.attrData))
+	if len(a.AttrData) != expectedLen {
+		msg := fmt.Sprintf("Error, malformed %s attribute: Value length is %d.", attrTypeString[a.AttrType], len(a.AttrData))
 		return errors.New(msg)
 	}
 
@@ -235,9 +235,9 @@ func (a Attr) Bytes() ([]byte, error) {
 	}
 
 	var result []byte
-	result = append(result, byte(a.attrType))
-	result = append(result, byte(len(a.attrData)+TLsize))
-	result = append(result, a.attrData...)
+	result = append(result, byte(a.AttrType))
+	result = append(result, byte(len(a.AttrData)+TLsize))
+	result = append(result, a.AttrData...)
 	return result, nil
 }
 
@@ -250,13 +250,13 @@ func (a Attr) String() (string, error) {
 
 	var ok bool
 	var cat attrCategory
-	if cat, ok = attrCategoryByType[a.attrType]; !ok {
-		msg := fmt.Sprintf("Unknown l2t attribute type %d", a.attrType)
+	if cat, ok = attrCategoryByType[a.AttrType]; !ok {
+		msg := fmt.Sprintf("Unknown l2t attribute type %d", a.AttrType)
 		return "", errors.New(msg)
 	}
 
 	if _, ok := stringifyAttrFuncByCategory[cat]; !ok {
-		msg := fmt.Sprintf("Don't know how to string-ify '%s' style l2t attributes (type %d)", cat, a.attrType)
+		msg := fmt.Sprintf("Don't know how to string-ify '%s' style l2t attributes (type %d)", cat, a.AttrType)
 		return "", errors.New(msg)
 	}
 
@@ -268,9 +268,9 @@ func (a Attr) String() (string, error) {
 	return result, nil
 }
 
-// NewAttr takes an attrType and attrPayload, renders them into an Attr
+// NewAttr takes an AttrType and attrPayload, renders them into an Attr
 // structure. Specific requirements for the contents of the attrPayload
-// depend on the supplied attrType (use intData for VLAN, stringData for
+// depend on the supplied AttrType (use intData for VLAN, stringData for
 // strings, etc...)
 func NewAttr(t attrType, p attrPayload) (Attr, error) {
 	var ok bool
@@ -302,8 +302,8 @@ func checkAttrInCategory(a Attr, c attrCategory) error {
 	pc, _, _, _ := runtime.Caller(1)
 	fname := runtime.FuncForPC(pc).Name()
 
-	if attrCategoryByType[a.attrType] != c {
-		msg := fmt.Sprintf("Cannot use %s on attribute with type %d.", fname, a.attrType)
+	if attrCategoryByType[a.AttrType] != c {
+		msg := fmt.Sprintf("Cannot use %s on attribute with type %d.", fname, a.AttrType)
 		return errors.New(msg)
 	}
 

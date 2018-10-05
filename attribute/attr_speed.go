@@ -27,7 +27,7 @@ func stringSpeed(a Attr) (string, error) {
 		return "", err
 	}
 
-	speedVal := binary.BigEndian.Uint32(a.attrData)
+	speedVal := binary.BigEndian.Uint32(a.AttrData)
 	if speedVal == 0 {
 		return autoSpeedString, nil
 	}
@@ -49,7 +49,7 @@ func stringSpeed(a Attr) (string, error) {
 	return strconv.Itoa(int(math.Pow(10, float64(speedVal)))) + speedUnits, nil
 }
 
-// newSpeedAttr returns an Attr with attrType t and attrData populated based on
+// newSpeedAttr returns an Attr with AttrType t and AttrData populated based on
 // input payload. Input options are:
 //
 //   stringData (first choice)
@@ -60,22 +60,22 @@ func stringSpeed(a Attr) (string, error) {
 //     Values 0 < val < 10 are used in the way the l2t packet uses them: Speed is 10^value.
 //     Values >= 10 are assumed to be Mb/s)
 func newSpeedAttr(t attrType, p attrPayload) (Attr, error) {
-	result := Attr{attrType: t}
+	result := Attr{AttrType: t}
 
 	switch {
 	// The zero case isn't handled here because it's the default for type int.
 	// We consider the zero case last
 	case p.intData > 0 && p.intData < 10:
-		result.attrData = make([]byte, 4)
-		binary.BigEndian.PutUint32(result.attrData, uint32(p.intData))
+		result.AttrData = make([]byte, 4)
+		binary.BigEndian.PutUint32(result.AttrData, uint32(p.intData))
 		return result, nil
 	case p.intData >= 10:
 		speedOut := math.Log10(float64(p.intData))
 		if speedOut > math.MaxUint32 {
 			return Attr{}, errors.New("Error: Speed value out of range.")
 		}
-		result.attrData = make([]byte, 4)
-		binary.BigEndian.PutUint32(result.attrData, uint32(speedOut))
+		result.AttrData = make([]byte, 4)
+		binary.BigEndian.PutUint32(result.AttrData, uint32(speedOut))
 		return result, nil
 	case p.stringData != "":
 		inString := strings.ToLower(p.stringData)
@@ -136,8 +136,8 @@ func newSpeedAttr(t attrType, p attrPayload) (Attr, error) {
 			}
 		}
 	case p.intData == 0:
-		result.attrData = make([]byte, 4)
-		binary.BigEndian.PutUint32(result.attrData, uint32(p.intData))
+		result.AttrData = make([]byte, 4)
+		binary.BigEndian.PutUint32(result.AttrData, uint32(p.intData))
 		return result, nil
 	}
 	return Attr{}, errors.New("Error creating speed attribute, no appropriate data supplied.")
