@@ -79,6 +79,7 @@ func TestNewVLANAttr(t *testing.T) {
 		var expected attr
 		var err error
 
+		// VLAN 1
 		result, err = NewAttr(testType, attrPayload{intData: 1})
 		if err != nil {
 			t.Error(err)
@@ -86,6 +87,28 @@ func TestNewVLANAttr(t *testing.T) {
 		expected = attr{attrType: testType, attrData: []byte{0, 1}}
 		if !reflect.DeepEqual(result, expected) {
 			t.Error("Error: Structures don't match.")
+		}
+
+		// VLAN 4094
+		result, err = NewAttr(testType, attrPayload{intData: 4094})
+		if err != nil {
+			t.Error(err)
+		}
+		expected = attr{attrType: testType, attrData: []byte{15, 254}}
+		if !reflect.DeepEqual(result, expected) {
+			t.Error("Error: Structures don't match.")
+		}
+
+		// VLAN 0
+		_, err = NewAttr(testType, attrPayload{intData: 0})
+		if err == nil {
+			t.Error("VLAN 0 should have produced an error.")
+		}
+
+		// VLAN 4095
+		_, err = NewAttr(testType, attrPayload{intData: 4095})
+		if err == nil {
+			t.Error("VLAN 4095 should have produced an error.")
 		}
 	}
 }
