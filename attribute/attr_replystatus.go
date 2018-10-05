@@ -13,6 +13,10 @@ const (
 	replyStatusUnknown       = "Status Unknown"
 )
 
+type (
+	replyStatus byte
+)
+
 var (
 	replyStatusToString = map[replyStatus]string{
 		1: replyStatusSuccess,

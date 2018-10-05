@@ -11,15 +11,6 @@ import (
 type (
 	attrType     byte
 	attrCategory string
-
-	mac         [6]byte
-	devName     string
-	devType     string
-	ip4         [4]byte
-	portName    string
-	portSpeed   [4]byte
-	replyStatus byte
-	nbrDevID    string
 )
 
 const (
