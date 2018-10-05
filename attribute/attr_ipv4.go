@@ -8,9 +8,9 @@ import (
 	"net"
 )
 
-// stringIPv4 returns a string representing the the IPv4 address in
+// stringifyIPv4 returns a string representing the the IPv4 address in
 // dotted-quad notation. This function should be called by Attr.String()
-func stringIPv4(a Attr) (string, error) {
+func stringifyIPv4(a Attr) (string, error) {
 	var err error
 	err = checkAttrInCategory(a, ipv4Category)
 	if err != nil {

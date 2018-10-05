@@ -24,8 +24,8 @@ var (
 	}
 )
 
-// stringReplyStatus takes an Attr belonging to replyStatusCategory, string-ifys it.
-func stringReplyStatus(a Attr) (string, error) {
+// stringifyReplyStatus takes an Attr belonging to replyStatusCategory, string-ifys it.
+func stringifyReplyStatus(a Attr) (string, error) {
 	var err error
 	err = checkAttrInCategory(a, replyStatusCategory)
 	if err != nil {

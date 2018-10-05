@@ -12,7 +12,7 @@ const (
 	maxVLAN = 4094
 )
 
-func stringVlan(a Attr) (string, error) {
+func stringifyVlan(a Attr) (string, error) {
 	var err error
 	err = checkAttrInCategory(a, vlanCategory)
 	if err != nil {

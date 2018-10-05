@@ -13,7 +13,7 @@ const (
 	minStringLen     = 2      // at a minimum we'll have a single character and the terminator
 )
 
-func stringString(a Attr) (string, error) {
+func stringifyString(a Attr) (string, error) {
 	var err error
 	err = checkAttrInCategory(a, stringCategory)
 	if err != nil {
