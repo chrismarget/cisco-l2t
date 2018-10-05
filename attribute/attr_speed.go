@@ -15,7 +15,7 @@ const (
 )
 
 // stringSpeed takes an attribute, returns a nicely formatted string.
-func stringSpeed(a attr) (string, error) {
+func stringSpeed(a Attr) (string, error) {
 	var err error
 	err = checkAttrInCategory(a, speedCategory)
 	if err != nil {
@@ -49,7 +49,7 @@ func stringSpeed(a attr) (string, error) {
 	return strconv.Itoa(int(math.Pow(10, float64(speedVal)))) + speedUnits, nil
 }
 
-// newSpeedAttr returns an attr with attrType t and attrData populated based on
+// newSpeedAttr returns an Attr with attrType t and attrData populated based on
 // input payload. Input options are:
 //
 //   stringData (first choice)
@@ -59,8 +59,8 @@ func stringSpeed(a attr) (string, error) {
 //     Value of 0 returns zeros/auto speed.
 //     Values 0 < val < 10 are used in the way the l2t packet uses them: Speed is 10^value.
 //     Values >= 10 are assumed to be Mb/s)
-func newSpeedAttr(t attrType, p attrPayload) (attr, error) {
-	result := attr{attrType: t}
+func newSpeedAttr(t attrType, p attrPayload) (Attr, error) {
+	result := Attr{attrType: t}
 
 	switch {
 	// The zero case isn't handled here because it's the default for type int.
@@ -72,7 +72,7 @@ func newSpeedAttr(t attrType, p attrPayload) (attr, error) {
 	case p.intData >= 10:
 		speedOut := math.Log10(float64(p.intData))
 		if speedOut > math.MaxUint32 {
-			return attr{}, errors.New("Error: Speed value out of range.")
+			return Attr{}, errors.New("Error: Speed value out of range.")
 		}
 		result.attrData = make([]byte, 4)
 		binary.BigEndian.PutUint32(result.attrData, uint32(speedOut))
@@ -83,7 +83,7 @@ func newSpeedAttr(t attrType, p attrPayload) (attr, error) {
 		if onlyDigits(inString) {
 			in, err := strconv.Atoi(inString)
 			if err != nil {
-				return attr{}, err
+				return Attr{}, err
 			}
 			return newSpeedAttr(t, attrPayload{intData: in})
 		}
@@ -118,7 +118,7 @@ func newSpeedAttr(t attrType, p attrPayload) (attr, error) {
 
 				// Now make sure we've only got math-y characters left in the string.
 				if strings.Trim(trimmed, "0123456789.") != "" {
-					return attr{}, errors.New("Error creating speed attribute, unable to parse string.")
+					return Attr{}, errors.New("Error creating speed attribute, unable to parse string.")
 				}
 
 				// At the end of this section, we'll have turned "10gb/s" into 10000000,
@@ -127,7 +127,7 @@ func newSpeedAttr(t attrType, p attrPayload) (attr, error) {
 				var err error
 				if speedVal, err = strconv.ParseFloat(trimmed, 32); err != nil {
 					log.Println(err.Error())
-					return attr{}, err
+					return Attr{}, err
 				}
 
 				// Now that it's just a numeric value, recurse this function
@@ -140,5 +140,5 @@ func newSpeedAttr(t attrType, p attrPayload) (attr, error) {
 		binary.BigEndian.PutUint32(result.attrData, uint32(p.intData))
 		return result, nil
 	}
-	return attr{}, errors.New("Error creating speed attribute, no appropriate data supplied.")
+	return Attr{}, errors.New("Error creating speed attribute, no appropriate data supplied.")
 }

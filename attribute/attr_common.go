@@ -92,7 +92,7 @@ var (
 		vlanCategory:        4,
 	}
 
-	attrStringfuncByCategory = map[attrCategory]func(attr) (string, error){
+	attrStringfuncByCategory = map[attrCategory]func(Attr) (string, error){
 		duplexCategory:      stringDuplex,
 		ipv4Category:        stringIPv4,
 		macCategory:         stringMac,
@@ -102,7 +102,7 @@ var (
 		vlanCategory:        stringVlan,
 	}
 
-	newAttrFuncByCategory = map[attrCategory]func(attrType, attrPayload) (attr, error){
+	newAttrFuncByCategory = map[attrCategory]func(attrType, attrPayload) (Attr, error){
 		duplexCategory:      newDuplexAttr,
 		ipv4Category:        newIPv4Attr,
 		macCategory:         newMacAttr,
@@ -113,7 +113,7 @@ var (
 	}
 )
 
-type attr struct {
+type Attr struct {
 	attrType attrType
 	attrData []byte
 }
@@ -126,22 +126,22 @@ type attrPayload struct {
 }
 
 // ParseL2tAttr takes an L2T attribute ([]byte) as it comes from the wire,
-// renders it into an attr structure. Length byte is validated, but not
+// renders it into an Attr structure. Length byte is validated, but not
 // part of the structure (measure it if needed).
-func ParseL2tAttr(in []byte) (attr, error) {
+func ParseL2tAttr(in []byte) (Attr, error) {
 	observedLen := len(in)
 	if observedLen < 2 || observedLen > 255 {
 		msg := fmt.Sprintf("Error parsing l2t attribute. Length cannot be %d.", observedLen)
-		return attr{}, errors.New(msg)
+		return Attr{}, errors.New(msg)
 	}
 
 	claimedLen := int(in[1])
 	if observedLen != claimedLen {
 		msg := fmt.Sprintf("Error parsing l2t attribute. Got %d bytes, but header claims %d.", observedLen, claimedLen)
-		return attr{}, errors.New(msg)
+		return Attr{}, errors.New(msg)
 	}
 
-	return attr{
+	return Attr{
 		attrType: attrType(in[0]),
 		attrData: in[2:],
 	}, nil
@@ -150,7 +150,7 @@ func ParseL2tAttr(in []byte) (attr, error) {
 // checkLen returns an error if the attribute's payload length doesn't make
 // sense based on the claimed type. A one-byte MAC address or a seven-byte IP
 // address should produce an error.
-func (a attr) checkLen() error {
+func (a Attr) checkLen() error {
 	var ok bool
 	var category attrCategory
 	if category, ok = attrCategoryByType[a.attrType]; !ok {
@@ -180,8 +180,8 @@ func (a attr) checkLen() error {
 	return nil
 }
 
-// Bytes renders an attr object into wire format as a []byte.
-func (a attr) Bytes() ([]byte, error) {
+// Bytes renders an Attr object into wire format as a []byte.
+func (a Attr) Bytes() ([]byte, error) {
 	err := a.checkLen()
 	if err != nil {
 		return []byte{}, err
@@ -195,7 +195,7 @@ func (a attr) Bytes() ([]byte, error) {
 }
 
 // String looks up the correct l2t string method, calls it, returns the result.
-func (a attr) String() (string, error) {
+func (a Attr) String() (string, error) {
 	err := a.checkLen()
 	if err != nil {
 		return "", err
@@ -221,37 +221,37 @@ func (a attr) String() (string, error) {
 	return result, nil
 }
 
-// NewAttr takes an attrType and attrPayload, renders them into an attr
+// NewAttr takes an attrType and attrPayload, renders them into an Attr
 // structure. Specific requirements for the contents of the attrPayload
 // depend on the supplied attrType (use intData for VLAN, stringData for
 // strings, etc...)
-func NewAttr(t attrType, p attrPayload) (attr, error) {
+func NewAttr(t attrType, p attrPayload) (Attr, error) {
 	var ok bool
 
 	// Check that we know the category
 	if _, ok = attrCategoryByType[t]; !ok {
 		msg := fmt.Sprintf("Unknown l2t attribute type %d", t)
-		return attr{}, errors.New(msg)
+		return Attr{}, errors.New(msg)
 	}
 
 	// Check that we have a "new" function for this category
 	if _, ok = newAttrFuncByCategory[attrCategoryByType[t]]; !ok {
 		msg := fmt.Sprintf("Don't know how to create an attribute of type '%d'", t)
-		return attr{}, errors.New(msg)
+		return Attr{}, errors.New(msg)
 	}
 
 	// Call the appropriate "new" function, pass it input data
 	result, err := newAttrFuncByCategory[attrCategoryByType[t]](t, p)
 	if err != nil {
-		return attr{}, err
+		return Attr{}, err
 	}
 
 	return result, nil
 }
 
-// checkAttrInCategory checks whether a particular attr belongs to the supplied
+// checkAttrInCategory checks whether a particular Attr belongs to the supplied
 // category.
-func checkAttrInCategory(a attr, c attrCategory) error {
+func checkAttrInCategory(a Attr, c attrCategory) error {
 	pc, _, _, _ := runtime.Caller(1)
 	fname := runtime.FuncForPC(pc).Name()
 

@@ -9,7 +9,7 @@ import (
 func TestStringString(t *testing.T) {
 	attrTypesToTest := getAttrsByCategory(stringCategory)
 	for _, v := range attrTypesToTest {
-		data1 := attr{
+		data1 := Attr{
 			attrType: v,
 			attrData: []byte{65, 0},
 		}
@@ -30,8 +30,8 @@ func TestNewStringAttr(t *testing.T) {
 		var stringsToTest []string
 		stringsToTest = append(stringsToTest, "hello")
 
-		var expectedResults []attr
-		expectedResults = append(expectedResults, attr{attrType: testType, attrData: []byte{104, 101, 108, 108, 111, 0}})
+		var expectedResults []Attr
+		expectedResults = append(expectedResults, Attr{attrType: testType, attrData: []byte{104, 101, 108, 108, 111, 0}})
 
 		for k, _ := range stringsToTest {
 			result, err := NewAttr(testType, attrPayload{stringData: stringsToTest[k]})

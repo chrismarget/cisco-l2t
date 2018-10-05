@@ -12,7 +12,7 @@ const (
 	maxVLAN = 4094
 )
 
-func stringVlan(a attr) (string, error) {
+func stringVlan(a Attr) (string, error) {
 	var err error
 	err = checkAttrInCategory(a, vlanCategory)
 	if err != nil {
@@ -32,10 +32,10 @@ func stringVlan(a attr) (string, error) {
 	return strconv.Itoa(int(vlan)), nil
 }
 
-func newVlanAttr(t attrType, p attrPayload) (attr, error) {
-	var result attr
+func newVlanAttr(t attrType, p attrPayload) (Attr, error) {
+	var result Attr
 	if p.intData < minVLAN || p.intData > maxVLAN {
-		return attr{}, errors.New("Error creating VLAN attribute: Value out of range.")
+		return Attr{}, errors.New("Error creating VLAN attribute: Value out of range.")
 	}
 	result.attrType = t
 	result.attrData = make([]byte, 2)
