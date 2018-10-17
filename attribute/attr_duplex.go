@@ -3,7 +3,6 @@ package attribute
 import (
 	"errors"
 	"fmt"
-	"log"
 	"strings"
 )
 
@@ -101,7 +100,17 @@ func newDuplexAttr(t attrType, p attrPayload) (Attr, error) {
 	}
 }
 
-func validateDuplex(in Attr) error {
-	log.Println("validateDuplex")
+// validateDuplex checks the AttrType and AttrData against norms for Duplex type
+// attributes.
+func validateDuplex(a Attr) error {
+	if attrCategoryByType[a.AttrType] != duplexCategory{
+		msg := fmt.Sprintf("Attribute type %d cannot be validated against duplex criteria.", a.AttrType)
+		return errors.New(msg)
+	}
+
+	if _, ok := portDuplexToString[portDuplex(a.AttrData[0])]; !ok {
+		msg := fmt.Sprintf("Attribute failed validataion against duplex criteria: Unknown duplex type: %d", a.AttrData[0])
+		return errors.New(msg)
+	}
 	return nil
 }

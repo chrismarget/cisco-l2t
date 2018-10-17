@@ -66,3 +66,13 @@ func newReplyStatusAttr(t attrType, p attrPayload) (Attr, error) {
 	}
 	return Attr{}, errors.New("Error creating reply status, no appropriate data supplied.")
 }
+
+// validateReplyStatus checks the AttrType and AttrData against norms for
+// ReplyStatus type attributes.
+func validateReplyStatus(a Attr) error {
+	if attrCategoryByType[a.AttrType] != replyStatusCategory{
+		msg := fmt.Sprintf("Attribute type %d cannot be validated against reply status criteria.", a.AttrType)
+		return errors.New(msg)
+	}
+	return nil
+}

@@ -58,3 +58,13 @@ func newIPv4Attr(t attrType, p attrPayload) (Attr, error) {
 		return Attr{}, errors.New(msg)
 	}
 }
+
+// validateIPv4 checks the AttrType and AttrData against norms for IPv4 type
+// attributes.
+func validateIPv4(a Attr) error {
+	if attrCategoryByType[a.AttrType] != ipv4Category{
+		msg := fmt.Sprintf("Attribute type %d cannot be validated against IPv4 criteria.", a.AttrType)
+		return errors.New(msg)
+	}
+	return nil
+}
