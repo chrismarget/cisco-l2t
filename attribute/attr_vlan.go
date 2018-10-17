@@ -42,3 +42,18 @@ func newVlanAttr(t attrType, p attrPayload) (Attr, error) {
 	binary.BigEndian.PutUint16(result.AttrData, uint16(p.intData))
 	return result, nil
 }
+
+// validateVlan checks the AttrType and AttrData against norms for VLAN type
+// attributes.
+func validateVlan(a Attr) error {
+	if attrCategoryByType[a.AttrType] != vlanCategory{
+		msg := fmt.Sprintf("Attribute type %d cannot be validated against VLAN criteria.", a.AttrType)
+		return errors.New(msg)
+	}
+
+	vlan := binary.BigEndian.Uint32(a.AttrData)
+	if vlan > maxVLAN || vlan < minVLAN {
+		return errors.New("Error: VLAN value out of range.")
+	}
+	return nil
+}

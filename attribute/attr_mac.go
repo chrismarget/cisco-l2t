@@ -54,3 +54,13 @@ func newMacAttr(t attrType, p attrPayload) (Attr, error) {
 	}
 	return Attr{}, nil
 }
+
+// validateMac checks the AttrType and AttrData against norms for MAC type
+// attributes.
+func validateMac(a Attr) error {
+	if attrCategoryByType[a.AttrType] != macCategory{
+		msg := fmt.Sprintf("Attribute type %d cannot be validated against MAC criteria.", a.AttrType)
+		return errors.New(msg)
+	}
+	return nil
+}

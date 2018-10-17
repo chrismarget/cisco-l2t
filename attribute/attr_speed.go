@@ -2,6 +2,7 @@ package attribute
 
 import (
 	"encoding/binary"
+	"fmt"
 	"github.com/getlantern/errors"
 	"log"
 	"math"
@@ -12,6 +13,7 @@ import (
 
 const (
 	autoSpeedString = "Auto"
+	maxSpeed        = 1000000
 )
 
 // stringSpeed takes an attribute, returns a nicely formatted string.
@@ -28,25 +30,29 @@ func stringSpeed(a Attr) (string, error) {
 	}
 
 	speedVal := binary.BigEndian.Uint32(a.AttrData)
-	if speedVal == 0 {
-		return autoSpeedString, nil
+	return stringFromInt(speedVal), nil
+}
+
+func stringFromInt(in uint32) string {
+	if in == 0 {
+		return autoSpeedString
 	}
 
-	// Default speed units is "Mb/s". speedVal is logarithmic, so large
-	// values should switch units and decrement value accordingly
+	// Default speed units is "Mb/s". Value of input "in" is logarithmic, so
+	// large values should switch units and decrement value accordingly
 	var speedUnits string
 	switch {
-	case speedVal >= 3 && speedVal < 6:
+	case in >= 3 && in < 6:
 		speedUnits = "Gb/s"
-		speedVal -= 3
-	case speedVal >= 6:
+		in -= 3
+	case in >= 6:
 		speedUnits = "Tb/s"
-		speedVal -= 0
+		in -= 0
 	default:
 		speedUnits = "Mb/s"
 	}
 
-	return strconv.Itoa(int(math.Pow(10, float64(speedVal)))) + speedUnits, nil
+	return strconv.Itoa(int(math.Pow(10, float64(in)))) + speedUnits
 }
 
 // newSpeedAttr returns an Attr with AttrType t and AttrData populated based on
@@ -141,4 +147,20 @@ func newSpeedAttr(t attrType, p attrPayload) (Attr, error) {
 		return result, nil
 	}
 	return Attr{}, errors.New("Error creating speed attribute, no appropriate data supplied.")
+}
+
+// validateSpeed checks the AttrType and AttrData against norms for Speed type
+// attributes.
+func validateSpeed(a Attr) error {
+	if attrCategoryByType[a.AttrType] != speedCategory {
+		msg := fmt.Sprintf("Attribute type %d cannot be validated against speed criteria.", a.AttrType)
+		return errors.New(msg)
+	}
+
+	speed := binary.BigEndian.Uint32(a.AttrData)
+	if speed > maxSpeed {
+		msg := fmt.Sprintf("Speed validation failed. Wire value %d exceeds maximum speed %s", speed, stringFromInt(maxSpeed))
+		return errors.New(msg)
+	}
+	return nil
 }

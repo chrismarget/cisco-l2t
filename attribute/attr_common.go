@@ -114,13 +114,13 @@ var (
 	}
 
 	validateAttrFuncByCategory = map[attrCategory]func(Attr) error{
-		duplexCategory: validateDuplex,
-		//ipv4Category:        validateIPv4,
-		//macCategory:         validateMac,
-		//speedCategory:       validateSpeed,
-		//replyStatusCategory: validateReplyStatus,
-		//stringCategory:      validateString,
-		//vlanCategory:        validateVlan,
+		duplexCategory:      validateDuplex,
+		ipv4Category:        validateIPv4,
+		macCategory:         validateMac,
+		speedCategory:       validateSpeed,
+		replyStatusCategory: validateReplyStatus,
+		stringCategory:      validateString,
+		vlanCategory:        validateVlan,
 	}
 )
 
@@ -136,11 +136,11 @@ type attrPayload struct {
 	hwAddrData net.HardwareAddr
 }
 
-// ParseL2tAttr takes an L2T attribute ([]byte) as it comes from the wire,
-// renders it into an Attr structure. Length byte is validated, but is not
-// part of the structure (measure it if needed). The resulting data is not
-// checked to see whether it makes any sense (too long mac address, unprintable
-// strings, etc...)
+// ParseL2tAttr takes an L2T attribute as it comes from the wire ([]byte),
+// renders it into an Attr structure. The length byte is validated, but is not
+// part of the returned structure (measure it if needed). The resulting data is
+// not checked to see whether it makes any sense (too long mac address,
+// unprintable strings, etc...)
 func ParseL2tAttr(in []byte) (Attr, error) {
 	observedLen := len(in)
 	if observedLen < 2 || observedLen > 255 {
@@ -159,7 +159,7 @@ func ParseL2tAttr(in []byte) (Attr, error) {
 		AttrData: in[2:],
 	}
 
-	err := result.validate()
+	err := result.Validate()
 	if err != nil {
 		return Attr{}, err
 	}
@@ -167,30 +167,29 @@ func ParseL2tAttr(in []byte) (Attr, error) {
 	return result, nil
 }
 
-// validate checks the attribute length against the expected length table.
-// todo: add some payload validation
-func (a Attr) validate() error {
+// Validate checks the attribute length against the expected length table.
+func (a Attr) Validate() error {
 	err := a.checkLen()
 	if err != nil {
 		return err
 	}
 
-	//var cat attrCategory
-	//var ok bool
-	//if cat, ok = attrCategoryByType[a.AttrType]; !ok {
-	//	msg := fmt.Sprintf("Error: Unknown attribute type %d", a.AttrType)
-	//	return errors.New(msg)
-	//}
+	var cat attrCategory
+	var ok bool
+	if cat, ok = attrCategoryByType[a.AttrType]; !ok {
+		msg := fmt.Sprintf("Validation Error: Unknown attribute type %d", a.AttrType)
+		return errors.New(msg)
+	}
 
-	//if _, ok := validateAttrFuncByCategory[cat]; !ok {
-	//	msg := fmt.Sprintf("Don't know how to validate '%s' style l2t attributes (type %d)", cat, a.AttrType)
-	//	return errors.New(msg)
-	//}
-	//
-	//validateAttrFuncByCategory[cat](a)
-	//if err != nil {
-	//	return err
-	//}
+	if _, ok := validateAttrFuncByCategory[cat]; !ok {
+		msg := fmt.Sprintf("Don't know how to Validate '%s' style l2t attributes (type %d)", cat, a.AttrType)
+		return errors.New(msg)
+	}
+
+	validateAttrFuncByCategory[cat](a)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 

@@ -32,7 +32,7 @@ func stringifyString(a Attr) (string, error) {
 
 	trimmed := bytes.Split(a.AttrData, []byte{stringTerminator})[0]
 	if len(trimmed) != len(a.AttrData)-1 {
-		return "", errors.New("Error, trimming string terminator.")
+		return "", errors.New("Error trimming string terminator.")
 	}
 
 	for _, v := range trimmed {
@@ -60,4 +60,26 @@ func newStringAttr(t attrType, p attrPayload) (Attr, error) {
 	}
 	d = append(d, 0)
 	return Attr{AttrType: t, AttrData: d}, nil
+}
+
+// validateString checks the AttrType and AttrData against norms for String type
+// attributes.
+func validateString(a Attr) error {
+	if attrCategoryByType[a.AttrType] != stringCategory{
+		msg := fmt.Sprintf("Attribute type %d cannot be validated against string criteria.", a.AttrType)
+		return errors.New(msg)
+	}
+
+	trimmed := bytes.Split(a.AttrData, []byte{stringTerminator})[0]
+	if len(trimmed) != len(a.AttrData)-1 {
+		return errors.New("Error validating string termination.")
+	}
+
+	for _, v := range trimmed {
+		if v > unicode.MaxASCII || !unicode.IsPrint(rune(v)) {
+			return errors.New("Error, string is not printable.")
+		}
+	}
+
+	return nil
 }
