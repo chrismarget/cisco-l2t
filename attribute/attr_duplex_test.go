@@ -1,6 +1,7 @@
 package attribute
 
 import (
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -128,6 +129,43 @@ func TestNewDuplexAttr(t *testing.T) {
 			}
 			if !reflect.DeepEqual(result, expected) {
 				t.Error("Unexpected result in TestNewDuplexAttr() integer test. Structures don't match")
+			}
+		}
+	}
+}
+
+func TestValidateDuplex(t *testing.T) {
+	duplexTypes := []attrType{}
+	nonDuplexTypes := []attrType{}
+	for i := 0; i <= 255; i++ {
+		if attrCategoryByType[attrType(i)] == duplexCategory {
+			duplexTypes = append(duplexTypes, attrType(i))
+		} else {
+			nonDuplexTypes = append(nonDuplexTypes, attrType(i))
+		}
+	}
+
+	var err error
+	for _, testType := range nonDuplexTypes {
+		a := Attr{AttrType: testType}
+		err = validateDuplex(a)
+		if err == nil {
+			t.Error("Duplex validation of non-duplex attribute should produce an error.")
+		}
+	}
+
+	goodDuplex := map[portDuplex]bool{0: true, 1: true, 2: true}
+	for _, testType := range duplexTypes {
+		for i := 0; i <= 255; i++ {
+			a := Attr{AttrType: testType, AttrData: []byte{byte(i)}}
+			err := validateDuplex(a)
+			switch {
+			case goodDuplex[portDuplex(i)] && err != nil:
+				msg := fmt.Sprintf("Good duplex value %d should not have produced an error: %s", i, err)
+				t.Error(msg)
+			case !goodDuplex[portDuplex(i)] && err == nil:
+				msg := fmt.Sprintf("Bogus duplex value %d should have produced an error.", i)
+				t.Error(msg)
 			}
 		}
 	}

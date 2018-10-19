@@ -39,11 +39,14 @@ func TestNewReplyStatusAttrWithString(t *testing.T) {
 	for _, testType := range attrTypesToTest {
 		var stringsToTest []string
 		stringsToTest = append(stringsToTest, replyStatusSuccess)
-		stringsToTest = append(stringsToTest, replyStatusNoCDPNeighbor)
+		stringsToTest = append(stringsToTest, replyStatusSrcNotFound)
+		stringsToTest = append(stringsToTest, replyStatusDstNotFound)
 		stringsToTest = append(stringsToTest, strings.ToUpper(replyStatusSuccess))
-		stringsToTest = append(stringsToTest, strings.ToUpper(replyStatusNoCDPNeighbor))
+		stringsToTest = append(stringsToTest, strings.ToUpper(replyStatusSrcNotFound))
+		stringsToTest = append(stringsToTest, strings.ToUpper(replyStatusDstNotFound))
 		stringsToTest = append(stringsToTest, strings.ToLower(replyStatusSuccess))
-		stringsToTest = append(stringsToTest, strings.ToLower(replyStatusNoCDPNeighbor))
+		stringsToTest = append(stringsToTest, strings.ToLower(replyStatusSrcNotFound))
+		stringsToTest = append(stringsToTest, strings.ToLower(replyStatusDstNotFound))
 
 		var testPayload []attrPayload
 		for _, testString := range stringsToTest {
