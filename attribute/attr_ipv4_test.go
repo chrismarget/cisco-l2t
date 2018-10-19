@@ -1,6 +1,7 @@
 package attribute
 
 import (
+	"fmt"
 	"net"
 	"reflect"
 	"strconv"
@@ -153,6 +154,28 @@ func TestNewIPv4AttrIPAddrPayload(t *testing.T) {
 				t.Error("Unexpected result in TestNewIPv4Attr(). Structures don't match")
 			}
 
+		}
+	}
+}
+
+func TestValidateIPv4(t *testing.T) {
+	iPv4Types := map[attrType]bool{}
+	for i := 0; i <= 255; i++ {
+		if attrCategoryByType[attrType(i)] == ipv4Category {
+			iPv4Types[attrType(i)] = true
+		}
+	}
+
+	for i := 0; i <= 255; i++ {
+		a := Attr{AttrType: attrType(i), AttrData: []byte{0, 0, 0, 0}}
+		err := validateIPv4(a)
+		switch {
+		case iPv4Types[attrType(i)] && err != nil:
+			msg := fmt.Sprintf("Attribute type %d should not produce IPv4 validation errors: %s", i, err)
+			t.Error(msg)
+		case !iPv4Types[attrType(i)] && err == nil:
+			msg := fmt.Sprintf("Attribute type %d should have produced an IPv4 validation errors.", i)
+			t.Error(msg)
 		}
 	}
 }
