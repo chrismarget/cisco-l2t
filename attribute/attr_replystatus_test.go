@@ -19,8 +19,10 @@ func TestStringStatus(t *testing.T) {
 		switch i {
 		case 1:
 			expected = "Success (1)"
-		case 9:
-			expected = "No CDP Neighbor (9)"
+		case 7:
+			expected = "Source Mac address not found (7)"
+		case 8:
+			expected = "Destination Mac address not found (8)"
 		default:
 			expected = "Status Unknown (" + strconv.Itoa(i) + ")"
 		}
