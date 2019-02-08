@@ -174,7 +174,7 @@ func TestValidateIPv4(t *testing.T) {
 			msg := fmt.Sprintf("Attribute type %d should not produce IPv4 validation errors: %s", i, err)
 			t.Error(msg)
 		case !iPv4Types[attrType(i)] && err == nil:
-			msg := fmt.Sprintf("Attribute type %d should have produced an IPv4 validation errors.", i)
+			msg := fmt.Sprintf("Attribute type %d should have produced IPv4 validation errors.", i)
 			t.Error(msg)
 		}
 	}

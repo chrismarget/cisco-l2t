@@ -1,6 +1,7 @@
 package attribute
 
 import (
+	"fmt"
 	"reflect"
 	"strconv"
 	"strings"
@@ -83,4 +84,40 @@ func TestNewReplyStatusAttrWithBogusString(t *testing.T) {
 		}
 	}
 
+}
+
+func TestValidateReplyStatus(t *testing.T) {
+	replyStatusTypes := map[attrType]bool{}
+	for i := 0; i <= 255; i++ {
+		if attrCategoryByType[attrType(i)] == replyStatusCategory {
+			replyStatusTypes[attrType(i)] = true
+		}
+	}
+
+	validReplyStatuses := map[replyStatus]bool{}
+	for i := 0; i <= 255; i++ {
+		if _, ok := replyStatusToString[replyStatus(i)]; ok {
+			validReplyStatuses[replyStatus(i)] = true
+		}
+	}
+
+	// Loop over attribte types to test
+	for at := 0; at <= 255; at++ {
+		// Loop over reply statuses to test
+		for rs := 0; rs <= 255; rs++ {
+			a := Attr{AttrType: attrType(at), AttrData: []byte{byte(rs)}}
+			err := validateReplyStatus(a)
+			switch {
+			case replyStatusTypes[attrType(at)] && validReplyStatuses[replyStatus(rs)] && err != nil:
+				msg := fmt.Sprintf("Attribute type %d with status code %d should not produce ReplyStatus validation errors: %s", at, rs, err)
+				t.Error(msg)
+			case !replyStatusTypes[attrType(at)] && err == nil:
+				msg := fmt.Sprintf("Attribute type %d should have produced ReplyStatus validation errors.", at)
+				t.Error(msg)
+			case !validReplyStatuses[replyStatus(rs)] && err == nil:
+				msg := fmt.Sprintf("Reply Status code %d should have produced ReplyStatus validation errors.", rs)
+				t.Error(msg)
+			}
+		}
+	}
 }

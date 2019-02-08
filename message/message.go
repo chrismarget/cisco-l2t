@@ -2,7 +2,9 @@ package message
 
 import (
 	"bytes"
+	"encoding/binary"
 	"errors"
+	"fmt"
 	"github.com/chrismarget/cisco-l2t/attribute"
 	"io"
 )
@@ -12,9 +14,9 @@ type (
 )
 
 const (
-	l2tV1 = 1
-	//l2tPort = 2228
-	l2tV1MsgHeaderLen = 5
+	Version1 = 1
+	//udpPort = 2228
+	v1HeaderLen = 5
 
 	requestDst = msgType(1)
 	requestSrc = msgType(2)
@@ -23,9 +25,9 @@ const (
 )
 
 type Msg struct {
-	l2tMsgType byte
-	l2tVer     byte
-	attrs      []attribute.Attr
+	msgType msgType
+	msgVer  int
+	attrs   []attribute.Attr
 }
 
 var (
@@ -52,7 +54,7 @@ func bytesToAttrSlice(in []byte) ([]attribute.Attr, error) {
 		// Read the Type/Length bytes
 		count, err = inReader.Read(tl)
 		if err != nil {
-			// EOF is okay here... That just means we're done.
+			// EOF is okay here... That just means we're done picking out TLVs.
 			if err == io.EOF {
 				break
 			}
@@ -92,31 +94,46 @@ func bytesToAttrSlice(in []byte) ([]attribute.Attr, error) {
 	return result, nil
 }
 
-//// ParseMsg takes a []byte (probably from the network), renders it into a Msg.
-//func ParseMsg(in []byte) (Msg, error){
-//	if len(in) < l2tV1MsgHeaderLen {
-//		msg := fmt.Sprintf("Error parsing L2T message, only got %d bytes.", len(in))
-//		return Msg{}, errors.New(msg)
-//	}
-//
-//	msgType := msgType(in[0])
-//	ver := int(in[1])
-//    claimedLen := int(binary.BigEndian.Uint16(in[2:4]))
-//    observedLen := len(in)
-//    attrCount := int(in[4])
-//
-//	var ok bool
-//	_, ok = msgTypeToString[msgType], !ok
-//
-//	switch {
-//	case ver != l2tV1:
-//		msg := fmt.Sprintf("Error: Unknown L2T version %d", ver)
-//		return Msg{}, errors.New(msg)
-//	case !ok:
-//		msg := fmt.Sprintf("Error: Unknown L2T type %d", msgType)
-//		return Msg{}, errors.New(msg)
-//	case observedLen != claimedLen:
-//		msg := fmt.Sprintf("Error: Incorrect L2T message length (header: %d, observed: %d", observedLen, claimedLen)
-//		return Msg{}, errors.New(msg)
-//	}
-//}
+func (m *msgType) Validate() bool {
+	return true
+}
+
+// ParseMsg takes a []byte (probably from the network), renders it into a Msg.
+// Message format is:
+//   1 byte L2T message type
+//   1 byte L2T message protocol version
+//   2 bytes overall message length (bytes)
+//   1 byte message attribute count
+//   payload (TLV data for n attributes)
+func ParseMsg(in []byte) (Msg, error) {
+	if len(in) < v1HeaderLen {
+		msg := fmt.Sprintf("Error parsing L2T message, only got %d bytes.", len(in))
+		return Msg{}, errors.New(msg)
+	}
+
+	var result Msg
+	result.msgType = msgType(in[0])
+	result.msgVer = int(in[1])
+
+	msgType := msgType(in[0])
+	ver := int(in[1])
+	claimedLen := int(binary.BigEndian.Uint16(in[2:4]))
+	observedLen := len(in)
+	attrCount := int(in[4])
+	tlvPayload := in[5:]
+
+	var ok bool
+	_, ok = msgTypeToString[msgType], !ok
+
+	switch {
+	case ver != Version1:
+		msg := fmt.Sprintf("Error: Unknown L2T version %d", ver)
+		return Msg{}, errors.New(msg)
+	case !ok:
+		msg := fmt.Sprintf("Error: Unknown L2T type %d", msgType)
+		return Msg{}, errors.New(msg)
+	case observedLen != claimedLen:
+		msg := fmt.Sprintf("Error: Incorrect L2T message length (header: %d, observed: %d", observedLen, claimedLen)
+		return Msg{}, errors.New(msg)
+	}
+}

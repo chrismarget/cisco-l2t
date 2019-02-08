@@ -116,8 +116,8 @@ func newSpeedAttr(t attrType, p attrPayload) (Attr, error) {
 				// Found one! Trim the suffix and whitespace from the string.
 				trimmed := strings.TrimSpace(strings.TrimSuffix(inString, suffix))
 
-				// If all we got was "mb/s" or "auto", set the speed value to
-				// "0" so we can do math on it later.
+				// If all we got was a suffix (maybe "mb/s", more likely "auto"),
+				// set the speed value to "0" so we can do math on it later.
 				if trimmed == "" {
 					trimmed = "0"
 				}
@@ -136,8 +136,8 @@ func newSpeedAttr(t attrType, p attrPayload) (Attr, error) {
 					return Attr{}, err
 				}
 
-				// Now that it's just a numeric value, recurse this function
-				// with "intData" payload type.
+				// Now that the speed is stored in units of Mb/s in speedVal,
+				// recurse this function with "intData" payload type.
 				return newSpeedAttr(t, attrPayload{intData: int(speedVal) * multiplier})
 			}
 		}
