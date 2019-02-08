@@ -97,7 +97,7 @@ var (
 		duplexCategory:      stringifyDuplex,
 		ipv4Category:        stringifyIPv4,
 		macCategory:         stringifyMac,
-		speedCategory:       stringSpeed,
+		speedCategory:       stringifySpeed,
 		replyStatusCategory: stringifyReplyStatus,
 		stringCategory:      stringifyString,
 		vlanCategory:        stringifyVlan,

@@ -16,8 +16,8 @@ const (
 	maxSpeed        = 1000000
 )
 
-// stringSpeed takes an attribute, returns a nicely formatted string.
-func stringSpeed(a Attr) (string, error) {
+// stringifySpeed takes an attribute, returns a nicely formatted string.
+func stringifySpeed(a Attr) (string, error) {
 	var err error
 	err = checkAttrInCategory(a, speedCategory)
 	if err != nil {
@@ -30,29 +30,25 @@ func stringSpeed(a Attr) (string, error) {
 	}
 
 	speedVal := binary.BigEndian.Uint32(a.AttrData)
-	return stringFromInt(speedVal), nil
-}
-
-func stringFromInt(in uint32) string {
-	if in == 0 {
-		return autoSpeedString
+	if speedVal == 0 {
+		return autoSpeedString, nil
 	}
 
 	// Default speed units is "Mb/s". Value of input "in" is logarithmic, so
 	// large values should switch units and decrement value accordingly
 	var speedUnits string
 	switch {
-	case in >= 3 && in < 6:
+	case speedVal >= 3 && speedVal < 6:
 		speedUnits = "Gb/s"
-		in -= 3
-	case in >= 6:
+		speedVal -= 3
+	case speedVal >= 6:
 		speedUnits = "Tb/s"
-		in -= 0
+		speedVal -= 0
 	default:
 		speedUnits = "Mb/s"
 	}
 
-	return strconv.Itoa(int(math.Pow(10, float64(in)))) + speedUnits
+	return strconv.Itoa(int(math.Pow(10, float64(speedVal)))) + speedUnits, nil
 }
 
 // newSpeedAttr returns an Attr with AttrType t and AttrData populated based on
