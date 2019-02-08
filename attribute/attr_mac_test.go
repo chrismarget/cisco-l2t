@@ -1,6 +1,7 @@
 package attribute
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 )
@@ -136,6 +137,28 @@ func TestNewMacAttrWithInt(t *testing.T) {
 			if !reflect.DeepEqual(result, expectedAttrs[k]) {
 				t.Error("Structures don't match.")
 			}
+		}
+	}
+}
+
+func TestValidateMac(t *testing.T) {
+	macTypes := map[attrType]bool{}
+	for i := 0; i <= 255; i++ {
+		if attrCategoryByType[attrType(i)] == macCategory {
+			macTypes[attrType(i)] = true
+		}
+	}
+
+	for i := 0; i <= 255; i++ {
+		a := Attr{AttrType: attrType(i), AttrData: []byte{0, 0, 0, 0, 0, 0}}
+		err := validateMac(a)
+		switch {
+		case macTypes[attrType(i)] && err != nil:
+			msg := fmt.Sprintf("Attribute type %d should not produce MAC validation errors: %s", i, err)
+			t.Error(msg)
+		case !macTypes[attrType(i)] && err == nil:
+			msg := fmt.Sprintf("Attribute type %d should have produced MAC validation errors.", i)
+			t.Error(msg)
 		}
 	}
 }

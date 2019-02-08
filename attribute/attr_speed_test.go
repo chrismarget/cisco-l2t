@@ -302,3 +302,13 @@ func TestNewSpeedAttrWithString(t *testing.T) {
 		}
 	}
 }
+
+func TestValidateSpeed(t *testing.T) {
+	speedTypes := map[attrType]bool{}
+	for i := 0; i <= 255; i++ {
+		if attrCategoryByType[attrType(i)] == speedCategory {
+			speedTypes[attrType(i)] = true
+		}
+	}
+}
+

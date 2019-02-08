@@ -126,5 +126,9 @@ func validateReplyStatus(a Attr) error {
 		msg := fmt.Sprintf("Attribute type %d cannot be validated against reply status criteria.", a.AttrType)
 		return errors.New(msg)
 	}
+	if _, ok := replyStatusToString[replyStatus(a.AttrData[0])]; !ok {
+		msg := fmt.Sprintf("Unknown reply status %d.", int(a.AttrData[0]))
+		return errors.New(msg)
+	}
 	return nil
 }
