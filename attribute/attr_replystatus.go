@@ -2,9 +2,7 @@ package attribute
 
 import (
 	"fmt"
-	"github.com/getlantern/errors"
-	"math"
-	"strings"
+	"strconv"
 )
 
 //Some stuff I found by strings-ing a binary:
@@ -76,59 +74,87 @@ var (
 	}
 )
 
-// stringifyReplyStatus takes an Attr belonging to replyStatusCategory, string-ifys it.
-func stringifyReplyStatus(a Attr) (string, error) {
-	var err error
-	err = checkAttrInCategory(a, replyStatusCategory)
-	if err != nil {
-		return "", err
-	}
-
-	err = a.checkLen()
-	if err != nil {
-		return "", err
-	}
-
-	if msg, ok := replyStatusToString[replyStatus(a.AttrData[0])]; ok {
-		return fmt.Sprintf("%s (%d)", msg, int(a.AttrData[0])), nil
-
-	}
-
-	return fmt.Sprintf("%s (%d)", replyStatusUnknown, int(a.AttrData[0])), nil
+type replyStatusAttribute struct {
+	attrType attrType
+	attrData []byte
 }
 
-// newReplyStatusAttr returns an Attr with AttrType t and AttrData populated based on
-// input payload. Input options are:
-// - stringData (first choice, parses the string)
-// - intData (second choice, value used directly)
-func newReplyStatusAttr(t attrType, p attrPayload) (Attr, error) {
-	result := Attr{AttrType: t}
-
-	switch {
-	case p.stringData != "":
-		for k, v := range replyStatusToString {
-			if strings.ToLower(p.stringData) == strings.ToLower(v) {
-				result.AttrData = []byte{byte(k)}
-				return result, nil
-			}
-		}
-	case p.intData >= 0 && p.intData < math.MaxUint8:
-		result.AttrData = []byte{byte(p.intData)}
-		return result, nil
-	}
-	return Attr{}, errors.New("Error creating reply status attribute, no appropriate data supplied.")
+func (o replyStatusAttribute) Type() attrType {
+	return o.attrType
 }
 
-// validateReplyStatus checks the AttrType and AttrData against norms for
-// ReplyStatus type attributes.
-func validateReplyStatus(a Attr) error {
-	if attrCategoryByType[a.AttrType] != replyStatusCategory {
-		msg := fmt.Sprintf("Attribute type %d cannot be validated against reply status criteria.", a.AttrType)
-		return errors.New(msg)
+func (o replyStatusAttribute) Len() int {
+	return TLsize + len(o.attrData)
+}
+
+func (o replyStatusAttribute) String() string {
+	if status, ok := replyStatusToString[replyStatus(o.attrData[0])]; ok {
+		return status
 	}
-	if _, ok := replyStatusToString[replyStatus(a.AttrData[0])]; !ok {
-		msg := fmt.Sprintf("Unknown reply status %d.", int(a.AttrData[0]))
-		return errors.New(msg)
+	return fmt.Sprintf("Unknown reply status %d", strconv.Itoa(int(o.attrData[0])))
+}
+
+func (o replyStatusAttribute) Validate() error {
+	err := checkTypeLen(o, replyStatusCategory)
+	if err != nil {
+		return err
 	}
 	return nil
 }
+
+//// stringifyReplyStatus takes an Attr belonging to replyStatusCategory, string-ifys it.
+//func stringifyReplyStatus(a Attr) (string, error) {
+//	var err error
+//	err = checkAttrInCategory(a, replyStatusCategory)
+//	if err != nil {
+//		return "", err
+//	}
+//
+//	err = a.checkLen()
+//	if err != nil {
+//		return "", err
+//	}
+//
+//	if msg, ok := replyStatusToString[replyStatus(a.AttrData[0])]; ok {
+//		return fmt.Sprintf("%s (%d)", msg, int(a.AttrData[0])), nil
+//
+//	}
+//
+//	return fmt.Sprintf("%s (%d)", replyStatusUnknown, int(a.AttrData[0])), nil
+//}
+
+//// newReplyStatusAttr returns an Attr with AttrType t and AttrData populated based on
+//// input payload. Input options are:
+//// - stringData (first choice, parses the string)
+//// - intData (second choice, value used directly)
+//func newReplyStatusAttr(t attrType, p attrPayload) (Attr, error) {
+//	result := Attr{AttrType: t}
+//
+//	switch {
+//	case p.stringData != "":
+//		for k, v := range replyStatusToString {
+//			if strings.ToLower(p.stringData) == strings.ToLower(v) {
+//				result.AttrData = []byte{byte(k)}
+//				return result, nil
+//			}
+//		}
+//	case p.intData >= 0 && p.intData < math.MaxUint8:
+//		result.AttrData = []byte{byte(p.intData)}
+//		return result, nil
+//	}
+//	return Attr{}, errors.New("Error creating reply status attribute, no appropriate data supplied.")
+//}
+
+//// validateReplyStatus checks the AttrType and AttrData against norms for
+//// ReplyStatus type attributes.
+//func validateReplyStatus(a Attr) error {
+//	if attrCategoryByType[a.AttrType] != replyStatusCategory {
+//		msg := fmt.Sprintf("Attribute type %d cannot be validated against reply status criteria.", a.AttrType)
+//		return errors.New(msg)
+//	}
+//	if _, ok := replyStatusToString[replyStatus(a.AttrData[0])]; !ok {
+//		msg := fmt.Sprintf("Unknown reply status %d.", int(a.AttrData[0]))
+//		return errors.New(msg)
+//	}
+//	return nil
+//}

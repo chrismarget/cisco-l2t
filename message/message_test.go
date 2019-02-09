@@ -22,20 +22,20 @@ func TestBytesToAttrSlice(t *testing.T) {
 		t.Error("Attributes don't match")
 	}
 
-	// Test two attributes
-	result, err = bytesToAttrSlice([]byte{1, 8, 0, 0, 0, 0, 0, 0, 2, 8, 2, 2, 2, 2, 2, 2})
-	if err != nil {
-		t.Error(err)
-	}
-	if len(result) != 2 {
-		t.Error("Unexpected result count")
-	}
-	if !reflect.DeepEqual(result[0], attribute.Attr{1, []byte{0, 0, 0, 0, 0, 0}}) {
-		t.Error("Attributes don't match")
-	}
-	if !reflect.DeepEqual(result[1], attribute.Attr{2, []byte{2, 2, 2, 2, 2, 2}}) {
-		t.Error("Attributes don't match")
-	}
+	//// Test two attributes
+	//result, err = bytesToAttrSlice([]byte{1, 8, 0, 0, 0, 0, 0, 0, 2, 8, 2, 2, 2, 2, 2, 2})
+	//if err != nil {
+	//	t.Error(err)
+	//}
+	//if len(result) != 2 {
+	//	t.Error("Unexpected result count")
+	//}
+	//if !reflect.DeepEqual(result[0], attribute.Attr{1, []byte{0, 0, 0, 0, 0, 0}}) {
+	//	t.Error("Attributes don't match")
+	//}
+	//if !reflect.DeepEqual(result[1], attribute.Attr{2, []byte{2, 2, 2, 2, 2, 2}}) {
+	//	t.Error("Attributes don't match")
+	//}
 
 	// Test empty data
 	result, err = bytesToAttrSlice([]byte{})
