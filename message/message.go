@@ -107,33 +107,33 @@ func (m *msgType) Validate() bool {
 //   payload (TLV data for n attributes)
 func ParseMsg(in []byte) (Msg, error) {
 	if len(in) < v1HeaderLen {
-		msg := fmt.Sprintf("Error parsing L2T message, only got %d bytes.", len(in))
-		return Msg{}, errors.New(msg)
+		return Msg{}, fmt.Errorf("error parsing L2T message, got %d bytes, header alone is %d bytes", len(in), v1HeaderLen)
+	}
+
+	claimedLen := int(binary.BigEndian.Uint16(in[2:4]))
+	if claimedLen != len(in) {
+		return Msg{}, fmt.Errorf("error parsing L2T message, got %d bytes, header claims %d bytes", len(in), claimedLen)
 	}
 
 	var result Msg
 	result.msgType = msgType(in[0])
 	result.msgVer = int(in[1])
 
-	msgType := msgType(in[0])
-	ver := int(in[1])
-	claimedLen := int(binary.BigEndian.Uint16(in[2:4]))
-	observedLen := len(in)
-	attrCount := int(in[4])
-	tlvPayload := in[5:]
+	//	attrCount := int(in[4])
+	//	tlvPayload := in[5:]
 
-	var ok bool
-	_, ok = msgTypeToString[msgType], !ok
+	//	var ok bool
+	//	_, ok = msgTypeToString[msgType], !ok
 
-	switch {
-	case ver != Version1:
-		msg := fmt.Sprintf("Error: Unknown L2T version %d", ver)
-		return Msg{}, errors.New(msg)
-	case !ok:
-		msg := fmt.Sprintf("Error: Unknown L2T type %d", msgType)
-		return Msg{}, errors.New(msg)
-	case observedLen != claimedLen:
-		msg := fmt.Sprintf("Error: Incorrect L2T message length (header: %d, observed: %d", observedLen, claimedLen)
-		return Msg{}, errors.New(msg)
-	}
+	//switch {
+	//case result.msgVer != Version1:
+	//	return Msg{}, fmt.Errorf("unknown L2T version %d", ver)
+	//case !ok:
+	//	msg := fmt.Sprintf("unknown L2T type %d", msgType)
+	//	return Msg{}, errors.New(msg)
+	//case observedLen != claimedLen:
+	//	msg := fmt.Sprintf("incorrect L2T message length (header: %d, observed: %d", observedLen, claimedLen)
+	//	return Msg{}, errors.New(msg)
+	//}
+	return Msg{}, nil
 }

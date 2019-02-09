@@ -1,59 +1,58 @@
 package attribute
 
 import (
-	"fmt"
 	"reflect"
 	"testing"
 )
 
-func TestStringMac(t *testing.T) {
-	attrTypesToTest := getAttrsByCategory(macCategory)
-	for _, testType := range attrTypesToTest {
-		data1 := Attr{
-			AttrType: testType,
-			AttrData: []byte{0, 0, 0, 0, 0, 0},
-		}
-		expected1 := "00:00:00:00:00:00"
-		result1, err := data1.String()
-		if err != nil {
-			t.Error(err)
-		}
-		if result1 != expected1 {
-			t.Errorf("expected '%s', got '%s'", expected1, result1)
-		}
-
-		data2 := Attr{
-			AttrType: testType,
-			AttrData: []byte{255, 255, 255, 255, 255, 255},
-		}
-		expected2 := "ff:ff:ff:ff:ff:ff"
-		result2, err := data2.String()
-		if err != nil {
-			t.Error(err)
-		}
-		if result2 != expected2 {
-			t.Errorf("expected '%s', got '%s'", expected2, result2)
-		}
-
-		data3 := Attr{
-			AttrType: testType,
-			AttrData: []byte{0, 0, 0, 0, 0},
-		}
-		_, err = data3.String()
-		if err == nil {
-			t.Error("Undersize MAC payload should have generated and error")
-		}
-
-		data4 := Attr{
-			AttrType: testType,
-			AttrData: []byte{0, 0, 0, 0, 0, 0, 0},
-		}
-		_, err = data4.String()
-		if err == nil {
-			t.Error("Oversize MAC payload should have generated and error")
-		}
-	}
-}
+//func TestStringMac(t *testing.T) {
+//	attrTypesToTest := getAttrsByCategory(macCategory)
+//	for _, testType := range attrTypesToTest {
+//		data1 := Attr{
+//			AttrType: testType,
+//			AttrData: []byte{0, 0, 0, 0, 0, 0},
+//		}
+//		expected1 := "00:00:00:00:00:00"
+//		result1, err := data1.String()
+//		if err != nil {
+//			t.Error(err)
+//		}
+//		if result1 != expected1 {
+//			t.Errorf("expected '%s', got '%s'", expected1, result1)
+//		}
+//
+//		data2 := Attr{
+//			AttrType: testType,
+//			AttrData: []byte{255, 255, 255, 255, 255, 255},
+//		}
+//		expected2 := "ff:ff:ff:ff:ff:ff"
+//		result2, err := data2.String()
+//		if err != nil {
+//			t.Error(err)
+//		}
+//		if result2 != expected2 {
+//			t.Errorf("expected '%s', got '%s'", expected2, result2)
+//		}
+//
+//		data3 := Attr{
+//			AttrType: testType,
+//			AttrData: []byte{0, 0, 0, 0, 0},
+//		}
+//		_, err = data3.String()
+//		if err == nil {
+//			t.Error("Undersize MAC payload should have generated and error")
+//		}
+//
+//		data4 := Attr{
+//			AttrType: testType,
+//			AttrData: []byte{0, 0, 0, 0, 0, 0, 0},
+//		}
+//		_, err = data4.String()
+//		if err == nil {
+//			t.Error("Oversize MAC payload should have generated and error")
+//		}
+//	}
+//}
 
 func TestNewMacAttrWithString(t *testing.T) {
 	attrTypesToTest := getAttrsByCategory(macCategory)
@@ -149,16 +148,16 @@ func TestValidateMac(t *testing.T) {
 		}
 	}
 
-	for i := 0; i <= 255; i++ {
-		a := Attr{AttrType: attrType(i), AttrData: []byte{0, 0, 0, 0, 0, 0}}
-		err := validateMac(a)
-		switch {
-		case macTypes[attrType(i)] && err != nil:
-			msg := fmt.Sprintf("Attribute type %d should not produce MAC validation errors: %s", i, err)
-			t.Error(msg)
-		case !macTypes[attrType(i)] && err == nil:
-			msg := fmt.Sprintf("Attribute type %d should have produced MAC validation errors.", i)
-			t.Error(msg)
-		}
-	}
+	//for i := 0; i <= 255; i++ {
+	//	a := Attr{AttrType: attrType(i), AttrData: []byte{0, 0, 0, 0, 0, 0}}
+	//	err := validateMac(a)
+	//	switch {
+	//	case macTypes[attrType(i)] && err != nil:
+	//		msg := fmt.Sprintf("Attribute type %d should not produce MAC validation errors: %s", i, err)
+	//		t.Error(msg)
+	//	case !macTypes[attrType(i)] && err == nil:
+	//		msg := fmt.Sprintf("Attribute type %d should have produced MAC validation errors.", i)
+	//		t.Error(msg)
+	//	}
+	//}
 }

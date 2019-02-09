@@ -93,14 +93,24 @@ var (
 		vlanCategory:        4,
 	}
 
+	attrCategoryString = map[attrCategory]string{
+		duplexCategory:      "interface duplex",
+		ipv4Category:        "IPv4 address",
+		macCategory:         "MAC address",
+		speedCategory:       "interface speed",
+		replyStatusCategory: "reply status",
+		stringCategory:      "string",
+		vlanCategory:        "VLAN",
+	}
+
 	stringifyAttrFuncByCategory = map[attrCategory]func(Attr) (string, error){
-		duplexCategory:      stringifyDuplex,
-		ipv4Category:        stringifyIPv4,
-		macCategory:         stringifyMac,
+		duplexCategory: stringifyDuplex,
+		ipv4Category:   stringifyIPv4,
+		//macCategory:         stringifyMac,
 		speedCategory:       stringifySpeed,
 		replyStatusCategory: stringifyReplyStatus,
 		stringCategory:      stringifyString,
-		vlanCategory:        stringifyVlan,
+		//vlanCategory:        stringifyVlan,
 	}
 
 	newAttrFuncByCategory = map[attrCategory]func(attrType, attrPayload) (Attr, error){
@@ -114,15 +124,51 @@ var (
 	}
 
 	validateAttrFuncByCategory = map[attrCategory]func(Attr) error{
-		duplexCategory:      validateDuplex,
-		ipv4Category:        validateIPv4,
-		macCategory:         validateMac,
+		duplexCategory: validateDuplex,
+		ipv4Category:   validateIPv4,
+		//macCategory:         validateMac,
 		speedCategory:       validateSpeed,
 		replyStatusCategory: validateReplyStatus,
 		stringCategory:      validateString,
-		vlanCategory:        validateVlan,
+		//vlanCategory:        validateVlan,
 	}
 )
+
+// UnmarshalAttribute returns an Attribute of the appropriate
+// kind, depending on what's in the first byte (attribute type marker)
+func UnmarshalAttribute(b []byte) (Attribute, error) {
+	if len(b) < MinAttrLen {
+		return nil, fmt.Errorf("cannot unmarshal attribute with only %d bytes (%d byte minimum)", len(b), MinAttrLen)
+	}
+
+	t := attrType(b[0])
+	switch {
+
+	case attrCategoryByType[t] == duplexCategory:
+		return &duplexAttribute{attrType: t, attrData: b[1:]}, nil
+	case attrCategoryByType[t] == ipv4Category:
+		return &ipv4Attribute{attrType: t, attrData: b[1:]}, nil
+	case attrCategoryByType[t] == macCategory:
+		return &macAttribute{attrType: t, attrData: b[1:]}, nil
+	case attrCategoryByType[t] == replyStatusCategory:
+		return &replyStatusAttribute{attrType: t, attrData: b[1:]}, nil
+	case attrCategoryByType[t] == speedCategory:
+		return &speedAttribute{attrType: t, attrData: b[1:]}, nil
+	case attrCategoryByType[t] == stringCategory:
+		return &stringAttribute{attrType: t, attrData: b[1:]}, nil
+	case attrCategoryByType[t] == vlanCategory:
+		return &vlanAttribute{attrType: t, attrData: b[1:]}, nil
+
+	}
+	return nil, nil
+}
+
+type Attribute interface {
+	Type() attrType
+	Len() int
+	String() string
+	Validate() error
+}
 
 type Attr struct {
 	AttrType attrType
@@ -306,5 +352,28 @@ func checkAttrInCategory(a Attr, c attrCategory) error {
 		return errors.New(msg)
 	}
 
+	return nil
+}
+
+// checkTypeLen checks an attribute's Attribute.Type() and Attribute.Len()
+// output against norms for the supplied category.
+func checkTypeLen(a Attribute, category attrCategory) error {
+	if a.Len() < MinAttrLen {
+		return fmt.Errorf("attribute to small: got %d bytes, need at least %d bytes", a.Len(), MinAttrLen)
+	}
+
+	if attrCategoryByType[a.Type()] != category {
+		return fmt.Errorf("expected '%s' category attribute, got '%s'", attrCategoryString[attrCategoryByType[a.Type()]], attrTypeString[a.Type()])
+	}
+
+	expectedLen := attrLenByCategory[attrCategoryByType[a.Type()]]
+	// Some attribute types have variable lengths.
+	// Their attrLenByCategory entry is -1 (unknown).
+	// Don't try to check them against the expected size table.
+	if expectedLen >= MinAttrLen {
+		if a.Len() != expectedLen {
+			return fmt.Errorf("%s attribute should be exactly %d bytes, got %d bytes", attrTypeString[a.Type()], expectedLen, a.Len())
+		}
+	}
 	return nil
 }
