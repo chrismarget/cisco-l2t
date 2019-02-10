@@ -4,11 +4,6 @@ import (
 	"net"
 )
 
-const (
-	srcMacPrefix = "Source MAC address "
-	dstMacPrefix = "Destination MAC address "
-)
-
 type macAttribute struct {
 	attrType attrType
 	attrData []byte
@@ -27,15 +22,15 @@ func (o macAttribute) String() string {
 
 	switch o.attrType {
 	case srcMacType:
-		return srcMacPrefix + address
+		return address
 	case dstMacType:
-		return dstMacPrefix + address
+		return address
 	}
 	return ""
 }
 
 func (o macAttribute) Validate() error {
-	err := checkTypeLen(o, vlanCategory)
+	err := checkTypeLen(o, macCategory)
 	if err != nil {
 		return err
 	}

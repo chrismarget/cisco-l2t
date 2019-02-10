@@ -1,9 +1,6 @@
 package attribute
 
-import (
-	"encoding/binary"
-	"fmt"
-)
+import "fmt"
 
 type (
 	portDuplex byte
@@ -17,9 +14,9 @@ const (
 
 var (
 	portDuplexToString = map[portDuplex]string{
-		autoDuplex: "auto",
-		halfDuplex: "half",
-		fullDuplex: "full",
+		autoDuplex: "Auto",
+		halfDuplex: "Half",
+		fullDuplex: "Full",
 	}
 )
 
@@ -46,9 +43,8 @@ func (o duplexAttribute) Validate() error {
 		return err
 	}
 
-	vlan := binary.BigEndian.Uint16(o.attrData)
-	if vlan > maxVLAN || vlan < minVLAN {
-		return fmt.Errorf("VLAN %d value out of range", vlan)
+	if _, ok := portDuplexToString[portDuplex(o.attrData[0])]; !ok {
+		return fmt.Errorf("`%#x' not a valid payload for %s", o.attrData[0], attrTypeString[o.attrType])
 	}
 
 	return nil

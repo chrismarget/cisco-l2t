@@ -1,11 +1,5 @@
 package attribute
 
-import (
-	"fmt"
-	"reflect"
-	"testing"
-)
-
 //func TestStringVlan(t *testing.T) {
 //	attrTypesToTest := getAttrsByCategory(vlanCategory)
 //	for _, v := range attrTypesToTest {
@@ -73,53 +67,53 @@ import (
 //	}
 //}
 
-func TestNewVLANAttr(t *testing.T) {
-	attrTypesToTest := getAttrsByCategory(vlanCategory)
-	for _, testType := range attrTypesToTest {
-		var result Attr
-		var expected Attr
-		var err error
-
-		// VLAN 1
-		result, err = NewAttr(testType, attrPayload{intData: 1})
-		if err != nil {
-			t.Error(err)
-		}
-		expected = Attr{AttrType: testType, AttrData: []byte{0, 1}}
-		if !reflect.DeepEqual(result, expected) {
-			t.Error("Error: Structures don't match.")
-		}
-
-		// VLAN 4094
-		result, err = NewAttr(testType, attrPayload{intData: 4094})
-		if err != nil {
-			t.Error(err)
-		}
-		expected = Attr{AttrType: testType, AttrData: []byte{15, 254}}
-		if !reflect.DeepEqual(result, expected) {
-			t.Error("Error: Structures don't match.")
-		}
-
-		// VLAN 0
-		_, err = NewAttr(testType, attrPayload{intData: 0})
-		if err == nil {
-			t.Error("VLAN 0 should have produced an error.")
-		}
-
-		// VLAN 4095
-		_, err = NewAttr(testType, attrPayload{intData: 4095})
-		if err == nil {
-			t.Error("VLAN 4095 should have produced an error.")
-		}
-	}
-}
-
-func TestFoo(t *testing.T) {
-	o := vlan{attrType: 3, attrData: []byte{5, 5}}
-	err := o.validate()
-	if err != nil {
-		t.Fatal(err)
-	}
-	fmt.Println(o.string())
-
-}
+//func TestNewVLANAttr(t *testing.T) {
+//	attrTypesToTest := getAttrsByCategory(vlanCategory)
+//	for _, testType := range attrTypesToTest {
+//		var result Attr
+//		var expected Attr
+//		var err error
+//
+//		// VLAN 1
+//		result, err = NewAttr(testType, attrPayload{intData: 1})
+//		if err != nil {
+//			t.Error(err)
+//		}
+//		expected = Attr{AttrType: testType, AttrData: []byte{0, 1}}
+//		if !reflect.DeepEqual(result, expected) {
+//			t.Error("Error: Structures don't match.")
+//		}
+//
+//		// VLAN 4094
+//		result, err = NewAttr(testType, attrPayload{intData: 4094})
+//		if err != nil {
+//			t.Error(err)
+//		}
+//		expected = Attr{AttrType: testType, AttrData: []byte{15, 254}}
+//		if !reflect.DeepEqual(result, expected) {
+//			t.Error("Error: Structures don't match.")
+//		}
+//
+//		// VLAN 0
+//		_, err = NewAttr(testType, attrPayload{intData: 0})
+//		if err == nil {
+//			t.Error("VLAN 0 should have produced an error.")
+//		}
+//
+//		// VLAN 4095
+//		_, err = NewAttr(testType, attrPayload{intData: 4095})
+//		if err == nil {
+//			t.Error("VLAN 4095 should have produced an error.")
+//		}
+//	}
+//}
+//
+//func TestFoo(t *testing.T) {
+//	o := vlan{attrType: 3, attrData: []byte{5, 5}}
+//	err := o.validate()
+//	if err != nil {
+//		t.Fatal(err)
+//	}
+//	fmt.Println(o.string())
+//
+//}

@@ -2,6 +2,7 @@ package attribute
 
 import (
 	"encoding/binary"
+	"fmt"
 	"math"
 	"reflect"
 	"strconv"
@@ -10,6 +11,7 @@ import (
 const (
 	autoSpeedString = "Auto"
 	maxSpeedMbps    = 100000000
+	maxSpeedWireFormat = 9
 )
 
 type speedAttribute struct {
@@ -40,10 +42,16 @@ func (o speedAttribute) Validate() error {
 		return err
 	}
 
-	speedVal := binary.BigEndian.Uint32(o.attrData)
-	if speedVal > maxSpeedMbps {
 
+	if binary.BigEndian.Uint32(o.attrData) > maxSpeedWireFormat {
+		return fmt.Errorf("wire format speed `%d' exceeds maximum value (%d)", binary.BigEndian.Uint32(o.attrData) , maxSpeedWireFormat )
 	}
+
+	speedVal := int(math.Pow(10, float64(binary.BigEndian.Uint32(o.attrData))))
+	if speedVal > maxSpeedMbps {
+		return fmt.Errorf("interface speed `%d' exceeds maximum value (%d)", speedVal, maxSpeedMbps )
+	}
+
 	return nil
 }
 

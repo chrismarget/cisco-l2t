@@ -61,7 +61,25 @@ var (
 		srcIPv4Type:       "L2_ATTR_SRC_IP",         // 4 Byte IP Address
 		replyStatusType:   "L2_ATTR_REPLY_STATUS",   // 1 Byte reply status
 		nbrDevIDType:      "L2_ATTR_NBR_DEV_ID",     // Null terminated string
+	}
 
+	attrTypePrettyString = map[attrType]string{
+		srcMacType:        "source MAC address",
+		dstMacType:        "destination MAC address",
+		vlanType:          "VLAN",
+		devNameType:       "device name",
+		devTypeType:       "device type",
+		devIPv4Type:       "device IPv4 address",
+		inPortNameType:    "ingress port name",
+		outPortNameType:   "egress port name",
+		inPortSpeedType:   "ingress port speed",
+		outPortSpeedType:  "egress port speed",
+		inPortDuplexType:  "ingress port duplex",
+		outPortDuplexType: "egress port duplex",
+		nbrIPv4Type:       "neighbor IPv4 address",
+		srcIPv4Type:       "source IPv4 address",
+		replyStatusType:   "reply status",
+		nbrDevIDType:      "neighbor device ID",
 	}
 
 	attrCategoryByType = map[attrType]attrCategory{
@@ -103,35 +121,35 @@ var (
 		vlanCategory:        "VLAN",
 	}
 
-	stringifyAttrFuncByCategory = map[attrCategory]func(Attr) (string, error){
-		duplexCategory: stringifyDuplex,
-		ipv4Category:   stringifyIPv4,
-		//macCategory:         stringifyMac,
-		speedCategory:       stringifySpeed,
-		replyStatusCategory: stringifyReplyStatus,
-		stringCategory:      stringifyString,
-		//vlanCategory:        stringifyVlan,
-	}
-
-	newAttrFuncByCategory = map[attrCategory]func(attrType, attrPayload) (Attr, error){
-		duplexCategory:      newDuplexAttr,
-		ipv4Category:        newIPv4Attr,
-		macCategory:         newMacAttr,
-		speedCategory:       newSpeedAttr,
-		replyStatusCategory: newReplyStatusAttr,
-		stringCategory:      newStringAttr,
-		vlanCategory:        newVlanAttr,
-	}
-
-	validateAttrFuncByCategory = map[attrCategory]func(Attr) error{
-		duplexCategory: validateDuplex,
-		ipv4Category:   validateIPv4,
-		//macCategory:         validateMac,
-		speedCategory:       validateSpeed,
-		replyStatusCategory: validateReplyStatus,
-		stringCategory:      validateString,
-		//vlanCategory:        validateVlan,
-	}
+	//stringifyAttrFuncByCategory = map[attrCategory]func(Attr) (string, error){
+	//	duplexCategory: stringifyDuplex,
+	//	ipv4Category:   stringifyIPv4,
+	//	macCategory:         stringifyMac,
+	//	speedCategory:       stringifySpeed,
+	//	replyStatusCategory: stringifyReplyStatus,
+	//	stringCategory:      stringifyString,
+	//	vlanCategory:        stringifyVlan,
+	//}
+	//
+	//newAttrFuncByCategory = map[attrCategory]func(attrType, attrPayload) (Attr, error){
+	//	duplexCategory:      newDuplexAttr,
+	//	ipv4Category:        newIPv4Attr,
+	//	macCategory:         newMacAttr,
+	//	speedCategory:       newSpeedAttr,
+	//	replyStatusCategory: newReplyStatusAttr,
+	//	stringCategory:      newStringAttr,
+	//	vlanCategory:        newVlanAttr,
+	//}
+	//
+	//validateAttrFuncByCategory = map[attrCategory]func(Attr) error{
+	//	duplexCategory: validateDuplex,
+	//	ipv4Category:   validateIPv4,
+	//	macCategory:         validateMac,
+	//	speedCategory:       validateSpeed,
+	//	replyStatusCategory: validateReplyStatus,
+	//	stringCategory:      validateString,
+	//	vlanCategory:        validateVlan,
+	//}
 )
 
 // UnmarshalAttribute returns an Attribute of the appropriate
@@ -182,62 +200,62 @@ type attrPayload struct {
 	hwAddrData net.HardwareAddr
 }
 
-// ParseL2tAttr takes an L2T attribute as it comes from the wire ([]byte),
-// renders it into an Attr structure. The length byte is validated, but is not
-// part of the returned structure (measure it if needed). The resulting data is
-// not checked to see whether it makes any sense (too long mac address,
-// unprintable strings, etc...)
-func ParseL2tAttr(in []byte) (Attr, error) {
-	observedLen := len(in)
-	if observedLen < 2 || observedLen > 255 {
-		msg := fmt.Sprintf("Error parsing l2t attribute. Length cannot be %d.", observedLen)
-		return Attr{}, errors.New(msg)
-	}
+//// ParseL2tAttr takes an L2T attribute as it comes from the wire ([]byte),
+//// renders it into an Attr structure. The length byte is validated, but is not
+//// part of the returned structure (measure it if needed). The resulting data is
+//// not checked to see whether it makes any sense (too long mac address,
+//// unprintable strings, etc...)
+//func ParseL2tAttr(in []byte) (Attr, error) {
+//	observedLen := len(in)
+//	if observedLen < 2 || observedLen > 255 {
+//		msg := fmt.Sprintf("Error parsing l2t attribute. Length cannot be %d.", observedLen)
+//		return Attr{}, errors.New(msg)
+//	}
+//
+//	claimedLen := int(in[1])
+//	if observedLen != claimedLen {
+//		msg := fmt.Sprintf("Error parsing l2t attribute. Got %d bytes, but header claims %d.", observedLen, claimedLen)
+//		return Attr{}, errors.New(msg)
+//	}
+//
+//	result := Attr{
+//		AttrType: attrType(in[0]),
+//		AttrData: in[2:],
+//	}
+//
+//	err := result.Validate()
+//	if err != nil {
+//		return Attr{}, err
+//	}
+//
+//	return result, nil
+//}
 
-	claimedLen := int(in[1])
-	if observedLen != claimedLen {
-		msg := fmt.Sprintf("Error parsing l2t attribute. Got %d bytes, but header claims %d.", observedLen, claimedLen)
-		return Attr{}, errors.New(msg)
-	}
-
-	result := Attr{
-		AttrType: attrType(in[0]),
-		AttrData: in[2:],
-	}
-
-	err := result.Validate()
-	if err != nil {
-		return Attr{}, err
-	}
-
-	return result, nil
-}
-
-// Validate checks the attribute length against the expected length table.
-func (a Attr) Validate() error {
-	err := a.checkLen()
-	if err != nil {
-		return err
-	}
-
-	var cat attrCategory
-	var ok bool
-	if cat, ok = attrCategoryByType[a.AttrType]; !ok {
-		msg := fmt.Sprintf("Validation Error: Unknown attribute type %d", a.AttrType)
-		return errors.New(msg)
-	}
-
-	if _, ok := validateAttrFuncByCategory[cat]; !ok {
-		msg := fmt.Sprintf("Don't know how to Validate '%s' style l2t attributes (type %d)", cat, a.AttrType)
-		return errors.New(msg)
-	}
-
-	validateAttrFuncByCategory[cat](a)
-	if err != nil {
-		return err
-	}
-	return nil
-}
+//// Validate checks the attribute length against the expected length table.
+//func (a Attr) Validate() error {
+//	err := a.checkLen()
+//	if err != nil {
+//		return err
+//	}
+//
+//	var cat attrCategory
+//	var ok bool
+//	if cat, ok = attrCategoryByType[a.AttrType]; !ok {
+//		msg := fmt.Sprintf("Validation Error: Unknown attribute type %d", a.AttrType)
+//		return errors.New(msg)
+//	}
+//
+//	if _, ok := validateAttrFuncByCategory[cat]; !ok {
+//		msg := fmt.Sprintf("Don't know how to Validate '%s' style l2t attributes (type %d)", cat, a.AttrType)
+//		return errors.New(msg)
+//	}
+//
+//	validateAttrFuncByCategory[cat](a)
+//	if err != nil {
+//		return err
+//	}
+//	return nil
+//}
 
 // checkLen returns an error if the attribute's payload length doesn't make
 // sense based on the claimed type. A one-byte MAC address or a seven-byte IP
@@ -286,60 +304,60 @@ func (a Attr) Bytes() ([]byte, error) {
 	return result, nil
 }
 
-// String looks up the correct l2t string method, calls it, returns the result.
-func (a Attr) String() (string, error) {
-	err := a.checkLen()
-	if err != nil {
-		return "", err
-	}
+//// String looks up the correct l2t string method, calls it, returns the result.
+//func (a Attr) String() (string, error) {
+//	err := a.checkLen()
+//	if err != nil {
+//		return "", err
+//	}
+//
+//	var ok bool
+//	var cat attrCategory
+//	if cat, ok = attrCategoryByType[a.AttrType]; !ok {
+//		msg := fmt.Sprintf("Unknown l2t attribute type %d", a.AttrType)
+//		return "", errors.New(msg)
+//	}
+//
+//	if _, ok := stringifyAttrFuncByCategory[cat]; !ok {
+//		msg := fmt.Sprintf("Don't know how to string-ify '%s' style l2t attributes (type %d)", cat, a.AttrType)
+//		return "", errors.New(msg)
+//	}
+//
+//	result, err := stringifyAttrFuncByCategory[cat](a)
+//	if err != nil {
+//		return "", err
+//	}
+//
+//	return result, nil
+//}
 
-	var ok bool
-	var cat attrCategory
-	if cat, ok = attrCategoryByType[a.AttrType]; !ok {
-		msg := fmt.Sprintf("Unknown l2t attribute type %d", a.AttrType)
-		return "", errors.New(msg)
-	}
-
-	if _, ok := stringifyAttrFuncByCategory[cat]; !ok {
-		msg := fmt.Sprintf("Don't know how to string-ify '%s' style l2t attributes (type %d)", cat, a.AttrType)
-		return "", errors.New(msg)
-	}
-
-	result, err := stringifyAttrFuncByCategory[cat](a)
-	if err != nil {
-		return "", err
-	}
-
-	return result, nil
-}
-
-// NewAttr takes an AttrType and attrPayload, renders them into an Attr
-// structure. Specific requirements for the contents of the attrPayload
-// depend on the supplied AttrType (use intData for VLAN, stringData for
-// strings, etc...)
-func NewAttr(t attrType, p attrPayload) (Attr, error) {
-	var ok bool
-
-	// Check that we know the category
-	if _, ok = attrCategoryByType[t]; !ok {
-		msg := fmt.Sprintf("Unknown l2t attribute type %d", t)
-		return Attr{}, errors.New(msg)
-	}
-
-	// Check that we have a "new" function for this category
-	if _, ok = newAttrFuncByCategory[attrCategoryByType[t]]; !ok {
-		msg := fmt.Sprintf("Don't know how to create an attribute of type '%d'", t)
-		return Attr{}, errors.New(msg)
-	}
-
-	// Call the appropriate "new" function, pass it input data
-	result, err := newAttrFuncByCategory[attrCategoryByType[t]](t, p)
-	if err != nil {
-		return Attr{}, err
-	}
-
-	return result, nil
-}
+//// NewAttr takes an AttrType and attrPayload, renders them into an Attr
+//// structure. Specific requirements for the contents of the attrPayload
+//// depend on the supplied AttrType (use intData for VLAN, stringData for
+//// strings, etc...)
+//func NewAttr(t attrType, p attrPayload) (Attr, error) {
+//	var ok bool
+//
+//	// Check that we know the category
+//	if _, ok = attrCategoryByType[t]; !ok {
+//		msg := fmt.Sprintf("Unknown l2t attribute type %d", t)
+//		return Attr{}, errors.New(msg)
+//	}
+//
+//	// Check that we have a "new" function for this category
+//	if _, ok = newAttrFuncByCategory[attrCategoryByType[t]]; !ok {
+//		msg := fmt.Sprintf("Don't know how to create an attribute of type '%d'", t)
+//		return Attr{}, errors.New(msg)
+//	}
+//
+//	// Call the appropriate "new" function, pass it input data
+//	result, err := newAttrFuncByCategory[attrCategoryByType[t]](t, p)
+//	if err != nil {
+//		return Attr{}, err
+//	}
+//
+//	return result, nil
+//}
 
 // checkAttrInCategory checks whether a particular Attr belongs to the supplied
 // category.
