@@ -10,6 +10,7 @@ import (
 
 const (
 	stringTerminator = byte('\x00') // strings are null-teriminated
+	maxStringWithoutTerminator = 252
 )
 
 type stringAttribute struct {

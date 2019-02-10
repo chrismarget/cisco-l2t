@@ -2,7 +2,6 @@ package attribute
 
 import (
 	"fmt"
-	"strconv"
 )
 
 //Some stuff I found by strings-ing a binary:
@@ -43,7 +42,7 @@ const (
 	replyStatusSuccess = "Success"
 	//	replyStatusDstNotFound = "Destination Mac address not found"
 	//	replyStatusSrcNotFound = "Source Mac address not found"
-	replyStatusUnknown = "Status Unknown"
+	replyStatusUnknown = "Status unknown"
 
 	// The following strings were found together by strings-ing an IOS image.
 	// Leap of faith makes me think they're reply status attribute messages.
@@ -91,7 +90,7 @@ func (o replyStatusAttribute) String() string {
 	if status, ok := replyStatusToString[replyStatus(o.attrData[0])]; ok {
 		return status
 	}
-	return fmt.Sprintf("Unknown reply status %d", strconv.Itoa(int(o.attrData[0])))
+	return fmt.Sprintf("%s (%d)", replyStatusUnknown, o.attrData[0])
 }
 
 func (o replyStatusAttribute) Validate() error {
