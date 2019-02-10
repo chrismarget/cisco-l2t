@@ -1,119 +1,84 @@
 package attribute
 
-//func TestStringVlan(t *testing.T) {
-//	attrTypesToTest := getAttrsByCategory(vlanCategory)
-//	for _, v := range attrTypesToTest {
-//		data1 := Attr{
-//			AttrType: v,
-//			AttrData: []byte{0, 10},
-//		}
-//		expected1 := "10"
-//		result1, err := data1.String()
-//		if err != nil {
-//			t.Error(err)
-//		}
-//		if result1 != expected1 {
-//			t.Errorf("expected '%s', got '%s'", expected1, result1)
-//		}
-//
-//		data2 := Attr{
-//			AttrType: v,
-//			AttrData: []byte{15, 160},
-//		}
-//		expected2 := "4000"
-//		result2, err := data2.String()
-//		if err != nil {
-//			t.Error(err)
-//		}
-//		if result2 != expected2 {
-//			t.Errorf("expected '%s', got '%s'", expected2, result2)
-//		}
-//
-//		data3 := Attr{
-//			AttrType: v,
-//			AttrData: []byte{100},
-//		}
-//		_, err = data3.String()
-//		if err == nil {
-//			t.Errorf("Undersize payload should have produced an error")
-//		}
-//
-//		data4 := Attr{
-//			AttrType: v,
-//			AttrData: []byte{0, 0, 0},
-//		}
-//		_, err = data4.String()
-//		if err == nil {
-//			t.Errorf("Oversize payload should have produced an error")
-//		}
-//
-//		data5 := Attr{
-//			AttrType: v,
-//			AttrData: []byte{0, 0},
-//		}
-//		_, err = data5.String()
-//		if err == nil {
-//			t.Errorf("Zero VLAN should have produced an error")
-//		}
-//
-//		data6 := Attr{
-//			AttrType: v,
-//			AttrData: []byte{16, 0},
-//		}
-//		_, err = data6.String()
-//		if err == nil {
-//			t.Errorf("> 12-bit VLAN ID should have produced an error")
-//		}
-//	}
-//}
+import (
+	"encoding/binary"
+	"fmt"
+	"strconv"
+	"testing"
+)
 
-//func TestNewVLANAttr(t *testing.T) {
-//	attrTypesToTest := getAttrsByCategory(vlanCategory)
-//	for _, testType := range attrTypesToTest {
-//		var result Attr
-//		var expected Attr
-//		var err error
-//
-//		// VLAN 1
-//		result, err = NewAttr(testType, attrPayload{intData: 1})
-//		if err != nil {
-//			t.Error(err)
-//		}
-//		expected = Attr{AttrType: testType, AttrData: []byte{0, 1}}
-//		if !reflect.DeepEqual(result, expected) {
-//			t.Error("Error: Structures don't match.")
-//		}
-//
-//		// VLAN 4094
-//		result, err = NewAttr(testType, attrPayload{intData: 4094})
-//		if err != nil {
-//			t.Error(err)
-//		}
-//		expected = Attr{AttrType: testType, AttrData: []byte{15, 254}}
-//		if !reflect.DeepEqual(result, expected) {
-//			t.Error("Error: Structures don't match.")
-//		}
-//
-//		// VLAN 0
-//		_, err = NewAttr(testType, attrPayload{intData: 0})
-//		if err == nil {
-//			t.Error("VLAN 0 should have produced an error.")
-//		}
-//
-//		// VLAN 4095
-//		_, err = NewAttr(testType, attrPayload{intData: 4095})
-//		if err == nil {
-//			t.Error("VLAN 4095 should have produced an error.")
-//		}
-//	}
-//}
-//
-//func TestFoo(t *testing.T) {
-//	o := vlan{attrType: 3, attrData: []byte{5, 5}}
-//	err := o.validate()
-//	if err != nil {
-//		t.Fatal(err)
-//	}
-//	fmt.Println(o.string())
-//
-//}
+func TestVlanAttribute_String(t *testing.T) {
+	vlanStringTestData := make(map[string][]byte, maxVLAN)
+
+	// fill vlanStringTestData with values like:
+	// "1025" -> []byte{04, 01}
+	for i := minVLAN; i <= maxVLAN; i++ {
+		b := make([]byte, 2)
+		binary.BigEndian.PutUint16(b, uint16(i))
+		vlanStringTestData[strconv.Itoa(i)] = b
+	}
+
+	_ = vlanStringTestData
+
+	for _, vlanAttrType := range  getAttrsByCategory(vlanCategory) {
+		for expected, data := range vlanStringTestData {
+			testAttr := vlanAttribute{
+				attrType: vlanAttrType,
+				attrData: data,
+			}
+			result := testAttr.String()
+			if result != expected {
+				t.Fatalf("expected %s, got %s", expected, result)
+			}
+		}
+	}
+}
+
+func TestVlanAttribute_Validate_WithGoodData(t *testing.T) {
+	var goodData [][]byte
+	for i := minVLAN; i <= maxVLAN; i++ {
+		b := make([]byte, 2)
+		binary.BigEndian.PutUint16(b, uint16(i))
+		goodData = append(goodData, b)
+	}
+
+	for _, vlanAttrType := range  getAttrsByCategory(vlanCategory) {
+		for _, testData := range goodData {
+			testAttr := vlanAttribute{
+				attrType: vlanAttrType,
+				attrData: testData,
+			}
+			err := testAttr.Validate()
+			if err != nil {
+				t.Fatalf(err.Error()+"\n"+"Supposed good data %s produced error for %s.",
+					fmt.Sprintf("%v", []byte(testAttr.attrData)), attrTypeString[vlanAttrType])
+			}
+		}
+	}
+}
+
+func TestVlanAttribute_Validate_WithBadData(t *testing.T) {
+	badData := [][]byte{
+		nil,
+		[]byte{},
+		[]byte{0},
+		[]byte{0, 0},
+		[]byte{255, 255},
+		[]byte{0, 0, 0},
+	}
+
+	for _, vlanAttrType := range getAttrsByCategory(vlanCategory) {
+		for _, testData := range badData {
+			testAttr := vlanAttribute{
+				attrType: vlanAttrType,
+				attrData: testData,
+			}
+
+			err := testAttr.Validate()
+			if err == nil {
+				t.Fatalf("Bad data %s in %s did not error.",
+					fmt.Sprintf("%v", []byte(testAttr.attrData)), attrTypeString[vlanAttrType])
+			}
+		}
+	}
+}

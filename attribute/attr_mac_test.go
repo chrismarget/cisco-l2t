@@ -51,7 +51,7 @@ func TestMacAttribute_Validate_WithGoodData(t *testing.T) {
 }
 
 func TestMacAttribute_Validate_WithBadData(t *testing.T) {
-	goodData := [][]byte {
+	badData := [][]byte {
 		nil,
 		[]byte{},
 		[]byte{0},
@@ -63,7 +63,7 @@ func TestMacAttribute_Validate_WithBadData(t *testing.T) {
 	}
 
 	for _, macAttrType := range  getAttrsByCategory(macCategory) {
-		for _, testData := range goodData {
+		for _, testData := range badData {
 			testAttr := macAttribute{
 				attrType: macAttrType,
 				attrData: testData,

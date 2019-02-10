@@ -2,7 +2,6 @@ package attribute
 
 import (
 	"fmt"
-	"log"
 	"math/rand"
 	"testing"
 	"time"
@@ -140,7 +139,6 @@ func TestStringAttribute_Validate_WithBadData(t *testing.T) {
 			}
 
 			err := testAttr.Validate()
-			log.Println("testing", attrTypeString[testAttr.attrType], "with", testAttr.attrData)
 			if err == nil {
 				t.Fatalf("Bad data %s in %s did not error.",
 					fmt.Sprintf("%v", []byte(testAttr.attrData)), attrTypeString[stringAttrType])

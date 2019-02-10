@@ -26,7 +26,7 @@ func (o vlanAttribute) Len() int {
 
 func (o vlanAttribute) String() string {
 	vlan := binary.BigEndian.Uint16(o.attrData[0:2])
-	return "VLAN " + strconv.Itoa(int(vlan))
+	return strconv.Itoa(int(vlan))
 }
 
 func (o vlanAttribute) Validate() error {
