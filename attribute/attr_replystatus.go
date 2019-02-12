@@ -76,11 +76,11 @@ var (
 )
 
 type replyStatusAttribute struct {
-	attrType attrType
+	attrType AttrType
 	attrData []byte
 }
 
-func (o replyStatusAttribute) Type() attrType {
+func (o replyStatusAttribute) Type() AttrType {
 	return o.attrType
 }
 

@@ -25,11 +25,11 @@ var (
 )
 
 type duplexAttribute struct {
-	attrType attrType
+	attrType AttrType
 	attrData []byte
 }
 
-func (o duplexAttribute) Type() attrType {
+func (o duplexAttribute) Type() AttrType {
 	return o.attrType
 }
 

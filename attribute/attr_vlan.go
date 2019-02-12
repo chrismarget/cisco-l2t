@@ -12,11 +12,11 @@ const (
 )
 
 type vlanAttribute struct {
-	attrType attrType
+	attrType AttrType
 	attrData []byte
 }
 
-func (o vlanAttribute) Type() attrType {
+func (o vlanAttribute) Type() AttrType {
 	return o.attrType
 }
 
