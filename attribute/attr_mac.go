@@ -59,7 +59,7 @@ func (o *defaultAttrBuilder) newMacAttribute() (Attribute, error) {
 		return nil, fmt.Errorf("cannot build, no attribute payload found for category %s attribute", attrCategoryString[macCategory])
 	}
 
-	a := macAttribute {
+	a := macAttribute{
 		attrType: o.attrType,
 		attrData: macAddr,
 	}
@@ -71,4 +71,3 @@ func (o *defaultAttrBuilder) newMacAttribute() (Attribute, error) {
 
 	return a, nil
 }
-

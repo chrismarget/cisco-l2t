@@ -81,7 +81,7 @@ func TestReplyStatusAttribute_Validate_WithBadData(t *testing.T) {
 }
 
 func TestNewAttrBuilder_ReplyStatus(t *testing.T) {
-	for _, replyStatusAttrType := range  getAttrsByCategory(replyStatusCategory) {
+	for _, replyStatusAttrType := range getAttrsByCategory(replyStatusCategory) {
 		for k, v := range replyStatusToString {
 			expected := []byte{byte(replyStatusAttrType), 3, byte(k)}
 			byInt, err := NewAttrBuilder().SetType(replyStatusAttrType).SetInt(uint32(k)).Build()

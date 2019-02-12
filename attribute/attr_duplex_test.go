@@ -17,7 +17,7 @@ func TestDuplexAttribute_String(t *testing.T) {
 		}
 	)
 
-	for _, duplexAttrType := range  getAttrsByCategory(duplexCategory) {
+	for _, duplexAttrType := range getAttrsByCategory(duplexCategory) {
 		for expected, data := range duplexStringTestData {
 			testAttr := duplexAttribute{
 				attrType: duplexAttrType,
@@ -32,12 +32,12 @@ func TestDuplexAttribute_String(t *testing.T) {
 }
 
 func TestDuplexAttribute_Validate_WithGoodData(t *testing.T) {
-	goodData := [][]byte {
+	goodData := [][]byte{
 		[]byte{0},
 		[]byte{1},
 		[]byte{2},
 	}
-	for _, duplexAttrType := range  getAttrsByCategory(duplexCategory) {
+	for _, duplexAttrType := range getAttrsByCategory(duplexCategory) {
 		for _, testData := range goodData {
 			testAttr := duplexAttribute{
 				attrType: duplexAttrType,
@@ -53,17 +53,17 @@ func TestDuplexAttribute_Validate_WithGoodData(t *testing.T) {
 }
 
 func TestDuplexAttribute_Validate_WithBadData(t *testing.T) {
-	badData := [][]byte {
+	badData := [][]byte{
 		nil,
 		[]byte{},
-		[]byte{0,0},
+		[]byte{0, 0},
 	}
 
 	for i := 3; i <= math.MaxUint8; i++ {
 		badData = append(badData, []byte{byte(i)})
 	}
 
-	for _, duplexAttrType := range  getAttrsByCategory(duplexCategory) {
+	for _, duplexAttrType := range getAttrsByCategory(duplexCategory) {
 		for _, testData := range badData {
 			testAttr := duplexAttribute{
 				attrType: duplexAttrType,
@@ -80,7 +80,7 @@ func TestDuplexAttribute_Validate_WithBadData(t *testing.T) {
 }
 
 func TestNewAttrBuilder_Duplex(t *testing.T) {
-	for _, duplexAttrType := range  getAttrsByCategory(duplexCategory) {
+	for _, duplexAttrType := range getAttrsByCategory(duplexCategory) {
 		for k, v := range portDuplexToString {
 			expected := []byte{byte(duplexAttrType), 3, byte(k)}
 			byInt, err := NewAttrBuilder().SetType(duplexAttrType).SetInt(uint32(k)).Build()

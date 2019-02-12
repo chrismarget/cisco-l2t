@@ -42,7 +42,7 @@ func (o *defaultAttrBuilder) newIpv4Attribute() (Attribute, error) {
 	switch {
 	case o.stringHasBeenSet:
 		b := net.ParseIP(o.stringPayload)
-		ipv4Bytes = b[len(b) - 4:]
+		ipv4Bytes = b[len(b)-4:]
 	case o.bytesHasBeenSet:
 		if len(o.bytesPayload) != 4 {
 			return nil, fmt.Errorf("attempt to configure IPv4 attribute with %d byte payload", len(o.bytesPayload))
@@ -54,7 +54,7 @@ func (o *defaultAttrBuilder) newIpv4Attribute() (Attribute, error) {
 		return nil, fmt.Errorf("cannot build, no attribute payload found for category %s attribute", attrCategoryString[ipv4Category])
 	}
 
-	a := ipv4Attribute {
+	a := ipv4Attribute{
 		attrType: o.attrType,
 		attrData: ipv4Bytes,
 	}

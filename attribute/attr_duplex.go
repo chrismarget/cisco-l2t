@@ -70,7 +70,7 @@ func (o *defaultAttrBuilder) newDuplexAttribute() (Attribute, error) {
 				success = true
 			}
 		}
-		if ! success {
+		if !success {
 			return nil, fmt.Errorf("string payload `%s' unrecognized for duplex type", o.stringPayload)
 		}
 	case o.intHasBeenSet:
@@ -80,7 +80,7 @@ func (o *defaultAttrBuilder) newDuplexAttribute() (Attribute, error) {
 				success = true
 			}
 		}
-		if ! success {
+		if !success {
 			return nil, fmt.Errorf("int payload `%d' unrecognized for duplex type", o.intPayload)
 		}
 	case o.bytesHasBeenSet:
@@ -92,7 +92,7 @@ func (o *defaultAttrBuilder) newDuplexAttribute() (Attribute, error) {
 		return nil, fmt.Errorf("cannot build, no attribute payload found for category %s attribute", attrCategoryString[duplexCategory])
 	}
 
-	a := duplexAttribute {
+	a := duplexAttribute{
 		attrType: o.attrType,
 		attrData: []byte{duplexByte},
 	}
@@ -104,4 +104,3 @@ func (o *defaultAttrBuilder) newDuplexAttribute() (Attribute, error) {
 
 	return a, nil
 }
-

@@ -67,7 +67,7 @@ func (o *defaultAttrBuilder) newVlanAttribute() (Attribute, error) {
 		return nil, fmt.Errorf("cannot build, no attribute payload found for category %s attribute", attrCategoryString[vlanCategory])
 	}
 
-	a := vlanAttribute {
+	a := vlanAttribute{
 		attrType: o.attrType,
 		attrData: vlanBytes,
 	}
@@ -79,4 +79,3 @@ func (o *defaultAttrBuilder) newVlanAttribute() (Attribute, error) {
 
 	return a, nil
 }
-
