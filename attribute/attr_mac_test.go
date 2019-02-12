@@ -10,13 +10,13 @@ import (
 func TestMacAttribute_String(t *testing.T) {
 	var (
 		macStringTestData = map[string][]byte{
-			"00:00:00:00:00:00": []byte{0,0,0,0,0,0},
-			"01:02:03:04:05:06": []byte{1,2,3,4,5,6},
-			"ff:ff:ff:ff:ff:ff": []byte{255,255,255,255,255,255},
+			"00:00:00:00:00:00": []byte{0, 0, 0, 0, 0, 0},
+			"01:02:03:04:05:06": []byte{1, 2, 3, 4, 5, 6},
+			"ff:ff:ff:ff:ff:ff": []byte{255, 255, 255, 255, 255, 255},
 		}
 	)
 
-	for _, macAttrType := range  getAttrsByCategory(macCategory) {
+	for _, macAttrType := range getAttrsByCategory(macCategory) {
 		for expected, data := range macStringTestData {
 			testAttr := macAttribute{
 				attrType: macAttrType,
@@ -31,13 +31,13 @@ func TestMacAttribute_String(t *testing.T) {
 }
 
 func TestMacAttribute_Validate_WithGoodData(t *testing.T) {
-	goodData := [][]byte {
-		[]byte{0,0,0,0,0,0},
-		[]byte{1,2,3,4,5,6},
-		[]byte{255,255,255,255,255,255},
+	goodData := [][]byte{
+		[]byte{0, 0, 0, 0, 0, 0},
+		[]byte{1, 2, 3, 4, 5, 6},
+		[]byte{255, 255, 255, 255, 255, 255},
 	}
 
-	for _, macAttrType := range  getAttrsByCategory(macCategory) {
+	for _, macAttrType := range getAttrsByCategory(macCategory) {
 		for _, testData := range goodData {
 			testAttr := macAttribute{
 				attrType: macAttrType,
@@ -53,18 +53,18 @@ func TestMacAttribute_Validate_WithGoodData(t *testing.T) {
 }
 
 func TestMacAttribute_Validate_WithBadData(t *testing.T) {
-	badData := [][]byte {
+	badData := [][]byte{
 		nil,
 		[]byte{},
 		[]byte{0},
-		[]byte{0,0},
-		[]byte{0,0,0},
-		[]byte{0,0,0,0},
-		[]byte{0,0,0,0,0},
-		[]byte{0,0,0,0,0,0,0},
+		[]byte{0, 0},
+		[]byte{0, 0, 0},
+		[]byte{0, 0, 0, 0},
+		[]byte{0, 0, 0, 0, 0},
+		[]byte{0, 0, 0, 0, 0, 0, 0},
 	}
 
-	for _, macAttrType := range  getAttrsByCategory(macCategory) {
+	for _, macAttrType := range getAttrsByCategory(macCategory) {
 		for _, testData := range badData {
 			testAttr := macAttribute{
 				attrType: macAttrType,
