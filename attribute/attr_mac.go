@@ -6,11 +6,11 @@ import (
 )
 
 type macAttribute struct {
-	attrType attrType
+	attrType AttrType
 	attrData []byte
 }
 
-func (o macAttribute) Type() attrType {
+func (o macAttribute) Type() AttrType {
 	return o.attrType
 }
 
@@ -22,9 +22,9 @@ func (o macAttribute) String() string {
 	address := net.HardwareAddr(o.attrData).String()
 
 	switch o.attrType {
-	case srcMacType:
+	case SrcMacType:
 		return address
-	case dstMacType:
+	case DstMacType:
 		return address
 	}
 	return ""

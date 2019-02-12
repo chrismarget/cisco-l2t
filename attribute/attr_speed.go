@@ -19,11 +19,11 @@ const (
 )
 
 type speedAttribute struct {
-	attrType attrType
+	attrType AttrType
 	attrData []byte
 }
 
-func (o speedAttribute) Type() attrType {
+func (o speedAttribute) Type() AttrType {
 	return o.attrType
 }
 

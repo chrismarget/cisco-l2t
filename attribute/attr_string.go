@@ -15,11 +15,11 @@ const (
 )
 
 type stringAttribute struct {
-	attrType attrType
+	attrType AttrType
 	attrData []byte
 }
 
-func (o stringAttribute) Type() attrType {
+func (o stringAttribute) Type() AttrType {
 	return o.attrType
 }
 

@@ -1,19 +1,136 @@
 package message
 
+import (
+	"github.com/chrismarget/cisco-l2t/attribute"
+)
+
 type (
-	msgType int
+	msgType   uint8
+	msgVer    uint8
+	msgLen    uint16
+	attrCount uint8
 )
 
 const (
-	Version1 = 1
-	//udpPort = 2228
-	v1HeaderLen = 5
+	version1    = msgVer(1)
+	udpPort     = 2228
+	v1HeaderLen = uint16(5)
 
 	requestDst = msgType(1)
 	requestSrc = msgType(2)
 	replyDst   = msgType(3)
 	replySrc   = msgType(4)
 )
+
+type Msg interface {
+	Type() msgType
+	Ver() msgVer
+	Len() msgLen
+	AttrCount() attrCount
+	Validate() error
+	Attributes() []attribute.Attribute
+}
+
+type defaultMsg struct {
+	msgType msgType
+	msgVer  msgVer
+	attrs   []attribute.Attribute
+	msgLen  msgLen
+}
+
+func (o defaultMsg) Type() msgType {
+	return o.Type()
+}
+
+func (o defaultMsg) Ver() msgVer {
+	return o.msgVer
+}
+
+func (o defaultMsg) Len() msgLen {
+	if o.msgLen > 0 {
+		return o.msgLen
+	}
+	l := v1HeaderLen
+	for _, a := range o.attrs {
+		l += uint16(a.Len())
+	}
+	return msgLen(l)
+}
+
+func (o defaultMsg) AttrCount() attrCount {
+	return attrCount(len(o.attrs))
+}
+
+func (o defaultMsg) Validate() error {
+	return nil
+}
+
+func (o defaultMsg) Attributes() []attribute.Attribute {
+	return o.attrs
+}
+
+type MsgBuilder interface {
+	SetType(msgType)
+	SetVer(msgVer)
+	Attr(attribute.Attribute)
+	Build() (Msg, error)
+}
+
+type defaultMsgBuilder struct {
+	msgType msgType
+	msgVer  msgVer
+	attrs   []attribute.Attribute
+}
+
+func NewMsgBuilder() MsgBuilder {
+	return &defaultMsgBuilder{}
+}
+
+func (o *defaultMsgBuilder) SetType(t msgType) {
+	o.msgType = t
+}
+
+func (o *defaultMsgBuilder) SetVer(v msgVer) {
+	o.msgVer = v
+}
+
+func (o *defaultMsgBuilder) Attr(a attribute.Attribute) {
+	o.attrs = append(o.attrs, a)
+}
+
+func (o *defaultMsgBuilder) Build() (Msg, error) {
+	if o.msgVer == 0 {
+		o.msgVer = version1
+	}
+	if o.msgType == 0 {
+		o.msgType = requestSrc
+	}
+	m := defaultMsg{
+		msgType: o.msgType,
+		msgVer:  o.msgVer,
+		attrs:   o.attrs,
+	}
+	return m, nil
+}
+
+func orderAttributesMsgRequestSrc(in []attribute.Attribute) (attribute.Attribute, error) {
+	var out []attribute.Attribute
+	correctOrder := []attribute.AttrType{
+		attribute.DstMacType,
+		attribute.SrcMacType,
+		attribute.VlanType,
+		attribute.DevIPv4Type,
+		attribute.NbrDevIDType,
+	}
+	optionalAttribute := []attribute.AttrType{
+		attribute.NbrDevIDType,
+		attribute.VlanType,
+	}
+	_ = out
+	_ = correctOrder
+	_ = optionalAttribute
+return nil, nil
+}
 
 //type Msg struct {
 //	msgType msgType

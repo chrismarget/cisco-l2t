@@ -7,11 +7,11 @@ import (
 )
 
 type ipv4Attribute struct {
-	attrType attrType
+	attrType AttrType
 	attrData []byte
 }
 
-func (o ipv4Attribute) Type() attrType {
+func (o ipv4Attribute) Type() AttrType {
 	return o.attrType
 }
 
