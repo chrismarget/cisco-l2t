@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	stringTerminator = byte('\x00') // strings are null-teriminated
+	stringTerminator           = byte('\x00') // strings are null-teriminated
 	maxStringWithoutTerminator = 252
 )
 
@@ -81,7 +81,7 @@ func (o *defaultAttrBuilder) newStringAttribute() (Attribute, error) {
 		return nil, fmt.Errorf("cannot build, no attribute payload found for category %s attribute", attrCategoryString[stringCategory])
 	}
 
-	a := stringAttribute {
+	a := stringAttribute{
 		attrType: o.attrType,
 		attrData: stringBytes,
 	}
