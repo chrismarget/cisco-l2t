@@ -2,40 +2,112 @@ package attribute
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
-	"github.com/getlantern/errors"
-	"log"
 	"math"
-	"regexp"
+	"reflect"
 	"strconv"
 	"strings"
+	"unicode"
 )
 
 const (
-	autoSpeedString = "Auto"
-	maxSpeed        = 1000000
+	autoSpeedString        = "Auto"
+	megaBitPerSecondSuffix = "Mbps"
+	maxSpeedMbps           = 100000000
+	maxSpeedWireFormat     = 9
 )
 
-// stringifySpeed takes an attribute, returns a nicely formatted string.
-func stringifySpeed(a Attr) (string, error) {
+type speedAttribute struct {
+	attrType attrType
+	attrData []byte
+}
+
+func (o speedAttribute) Type() attrType {
+	return o.attrType
+}
+
+func (o speedAttribute) Len() uint8 {
+	return uint8(TLsize + len(o.attrData))
+}
+
+func (o speedAttribute) String() string {
+	// 32-bit zero is a special case
+	if reflect.DeepEqual(o.attrData, []byte{0, 0, 0, 0}) {
+		return autoSpeedString
+	}
+
+	return speedBytesToString(o.attrData)
+}
+
+func (o speedAttribute) Validate() error {
+	err := checkTypeLen(o, speedCategory)
+	if err != nil {
+		return err
+	}
+
+	if binary.BigEndian.Uint32(o.attrData) > maxSpeedWireFormat {
+		return fmt.Errorf("wire format speed `%d' exceeds maximum value (%d)", binary.BigEndian.Uint32(o.attrData), maxSpeedWireFormat)
+	}
+
+	speedVal := int(math.Pow(10, float64(binary.BigEndian.Uint32(o.attrData))))
+	if speedVal > maxSpeedMbps {
+		return fmt.Errorf("interface speed `%d' exceeds maximum value (%d)", speedVal, maxSpeedMbps)
+	}
+
+	return nil
+}
+
+func (o speedAttribute) Bytes() []byte {
+	return o.attrData
+}
+
+// newSpeedAttribute returns a new attribute from speedCategory
+func (o *defaultAttrBuilder) newSpeedAttribute() (Attribute, error) {
 	var err error
-	err = checkAttrInCategory(a, speedCategory)
+	var speedBytes []byte
+	switch {
+	case o.stringHasBeenSet:
+		speedBytes, err = stringToSpeedBytes(o.stringPayload)
+		if err != nil {
+			return nil, err
+		}
+	case o.bytesHasBeenSet:
+		speedBytes = o.bytesPayload
+	case o.intHasBeenSet:
+		speedBytes, err = stringToSpeedBytes(strconv.Itoa(int(o.intPayload)) + megaBitPerSecondSuffix)
+		if err != nil {
+			return nil, err
+		}
+	default:
+		return nil, fmt.Errorf("cannot build, no attribute payload found for category %s attribute", attrCategoryString[speedCategory])
+	}
+
+	a := speedAttribute{
+		attrType: o.attrType,
+		attrData: speedBytes,
+	}
+
+	err = a.Validate()
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	err = a.checkLen()
-	if err != nil {
-		return "", err
-	}
+	return a, nil
+}
 
-	speedVal := binary.BigEndian.Uint32(a.AttrData)
-	if speedVal == 0 {
-		return autoSpeedString, nil
-	}
-
-	// Default speed units is "Mb/s". Value of input "in" is logarithmic, so
-	// large values should switch units and decrement value accordingly
+// speedBytesToString takes an input speed in wire format,
+// returns a string.
+//
+// {0,0,0,0} -> "Auto"
+//
+// {0,0,0,1} -> 10Mb/s
+//
+// {0,0,0,4} -> 10Gb/s
+func speedBytesToString(b []byte) string {
+	// Default speed units is "Mb/s". Value of speedVal is logarithmic.
+	// With large values we switch units and decrement the value accordingly.
+	speedVal := binary.BigEndian.Uint32(b)
 	var speedUnits string
 	switch {
 	case speedVal >= 3 && speedVal < 6:
@@ -43,120 +115,89 @@ func stringifySpeed(a Attr) (string, error) {
 		speedVal -= 3
 	case speedVal >= 6:
 		speedUnits = "Tb/s"
-		speedVal -= 0
+		speedVal -= 6
 	default:
 		speedUnits = "Mb/s"
 	}
 
-	return strconv.Itoa(int(math.Pow(10, float64(speedVal)))) + speedUnits, nil
+	return strconv.Itoa(int(math.Pow(10, float64(speedVal)))) + speedUnits
 }
 
-// newSpeedAttr returns an Attr with AttrType t and AttrData populated based on
-// input payload. Input options are:
+// stringToSpeedBytes takes an input string, returns
+// speed as an Uint32 expressed in Mb/s
 //
-//   stringData (first choice)
-//     If present, we parse the string
+// Auto -> 0
 //
-//   intData (second choice)
-//     Value of 0 returns zeros/auto speed.
-//     Values 0 < val < 10 are used in the way the l2t packet uses them: Speed is 10^value.
-//     Values >= 10 are assumed to be Mb/s)
-func newSpeedAttr(t attrType, p attrPayload) (Attr, error) {
-	result := Attr{AttrType: t}
-
-	switch {
-	// The zero case isn't handled here because it's the default for type int.
-	// We consider the zero case last
-	case p.intData > 0 && p.intData < 10:
-		result.AttrData = make([]byte, 4)
-		binary.BigEndian.PutUint32(result.AttrData, uint32(p.intData))
-		return result, nil
-	case p.intData >= 10:
-		speedOut := math.Log10(float64(p.intData))
-		if speedOut > math.MaxUint32 {
-			return Attr{}, errors.New("Error: Speed value out of range.")
+// 10Mb/s -> 10
+//
+// 10Gb/s -> 10000
+func stringToSpeedBytes(s string) ([]byte, error) {
+	// Did we get valid characters?
+	for _, v := range s {
+		if v > unicode.MaxASCII || !unicode.IsPrint(rune(v)) {
+			return nil, errors.New("string contains invalid characters")
 		}
-		result.AttrData = make([]byte, 4)
-		binary.BigEndian.PutUint32(result.AttrData, uint32(speedOut))
-		return result, nil
-	case p.stringData != "":
-		inString := strings.ToLower(p.stringData)
-		var onlyDigits = regexp.MustCompile(`^[0-9]+$`).MatchString
-		if onlyDigits(inString) {
-			in, err := strconv.Atoi(inString)
+	}
+
+	// normalize instring
+	s = strings.TrimSpace(strings.ToLower(s))
+
+	var suffixToMultiplier = map[string]int{
+		"auto": 0,
+		"mb/s": 1,
+		"mbps": 1,
+		"mbs":  1,
+		"mb":   1,
+		"gb/s": 1000,
+		"gbps": 1000,
+		"gbs":  1000,
+		"gb":   1000,
+		"tb/s": 1000000,
+		"tbps": 1000000,
+		"tbs":  1000000,
+		"tb":   1000000,
+	}
+
+	// Loop over suffixes, see if the supplied string matches one.
+	for suffix, multiplier := range suffixToMultiplier {
+		if strings.HasSuffix(s, suffix) {
+			// Found one! Trim the suffix and whitespace from the string.
+			trimmed := strings.TrimSpace(strings.TrimSuffix(s, suffix))
+
+			// If all we got was a suffix (maybe "mb/s", more likely "auto"),
+			// set the speed value to "0" so we can do math on it later.
+			if trimmed == "" {
+				trimmed = "0"
+			}
+
+			// Now make sure we've only got math-y characters left in the string.
+			if strings.Trim(trimmed, "0123456789.") != "" {
+				return nil, fmt.Errorf("cannot parse `%s' as an interface speed", s)
+			}
+
+			// speedFloat will contain the value previously expressed by
+			// the passed string, ignoring the suffix:
+			//
+			// If "100Gb/s", speedFloat will be float64(100)
+			speedFloat, err := strconv.ParseFloat(trimmed, 32)
 			if err != nil {
-				return Attr{}, err
+				return nil, err
 			}
-			return newSpeedAttr(t, attrPayload{intData: in})
+
+			// speedFloatMbps will contain the value previously expressed by
+			// the passed string, corrected to account for the suffix:
+			//
+			// If "100Gb/s", speedFloat will be float64(100000)
+			speedFloatMbps := speedFloat * float64(multiplier)
+
+			// speedBytes will contain the value from the passed string
+			// expressed in wire format.
+			speedBytes := make([]byte, 4)
+			binary.BigEndian.PutUint32(speedBytes, uint32(math.Log10(speedFloatMbps)))
+
+			return speedBytes, nil
 		}
-
-		var suffixToMultiplier = map[string]int{
-			"auto": 0,
-			"mb/s": 1,
-			"mbps": 1,
-			"mbs":  1,
-			"mb":   1,
-			"gb/s": 1000,
-			"gbps": 1000,
-			"gbs":  1000,
-			"gb":   1000,
-			"tb/s": 1000000,
-			"tbps": 1000000,
-			"tbs":  1000000,
-			"tb":   1000000,
-		}
-
-		// Loop over suffixes, see if the supplied string matches one.
-		for suffix, multiplier := range suffixToMultiplier {
-			if strings.HasSuffix(inString, suffix) {
-				// Found one! Trim the suffix and whitespace from the string.
-				trimmed := strings.TrimSpace(strings.TrimSuffix(inString, suffix))
-
-				// If all we got was a suffix (maybe "mb/s", more likely "auto"),
-				// set the speed value to "0" so we can do math on it later.
-				if trimmed == "" {
-					trimmed = "0"
-				}
-
-				// Now make sure we've only got math-y characters left in the string.
-				if strings.Trim(trimmed, "0123456789.") != "" {
-					return Attr{}, errors.New("Error creating speed attribute, unable to parse string.")
-				}
-
-				// At the end of this section, we'll have turned "10gb/s" into 10000000,
-				// stored it in speedVal.
-				var speedVal float64
-				var err error
-				if speedVal, err = strconv.ParseFloat(trimmed, 32); err != nil {
-					log.Println(err.Error())
-					return Attr{}, err
-				}
-
-				// Now that the speed is stored in units of Mb/s in speedVal,
-				// recurse this function with "intData" payload type.
-				return newSpeedAttr(t, attrPayload{intData: int(speedVal) * multiplier})
-			}
-		}
-	case p.intData == 0:
-		result.AttrData = make([]byte, 4)
-		binary.BigEndian.PutUint32(result.AttrData, uint32(p.intData))
-		return result, nil
-	}
-	return Attr{}, errors.New("Error creating speed attribute, no appropriate data supplied.")
-}
-
-// validateSpeed checks the AttrType and AttrData against norms for Speed type
-// attributes.
-func validateSpeed(a Attr) error {
-	if attrCategoryByType[a.AttrType] != speedCategory {
-		msg := fmt.Sprintf("Attribute type %d cannot be validated against speed criteria.", a.AttrType)
-		return errors.New(msg)
 	}
 
-	speed := binary.BigEndian.Uint32(a.AttrData)
-	if speed > maxSpeed {
-		msg := fmt.Sprintf("Speed validation failed. Wire value %d exceeds maximum speed %s", speed, stringFromInt(maxSpeed))
-		return errors.New(msg)
-	}
-	return nil
+	return nil, fmt.Errorf("cannot parse speed string: `%s'", s)
 }

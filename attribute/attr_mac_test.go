@@ -1,164 +1,148 @@
 package attribute
 
 import (
+	"bytes"
 	"fmt"
-	"reflect"
+	"log"
 	"testing"
 )
 
-func TestStringMac(t *testing.T) {
-	attrTypesToTest := getAttrsByCategory(macCategory)
-	for _, testType := range attrTypesToTest {
-		data1 := Attr{
-			AttrType: testType,
-			AttrData: []byte{0, 0, 0, 0, 0, 0},
+func TestMacAttribute_String(t *testing.T) {
+	var (
+		macStringTestData = map[string][]byte{
+			"00:00:00:00:00:00": []byte{0,0,0,0,0,0},
+			"01:02:03:04:05:06": []byte{1,2,3,4,5,6},
+			"ff:ff:ff:ff:ff:ff": []byte{255,255,255,255,255,255},
 		}
-		expected1 := "00:00:00:00:00:00"
-		result1, err := data1.String()
-		if err != nil {
-			t.Error(err)
-		}
-		if result1 != expected1 {
-			t.Errorf("expected '%s', got '%s'", expected1, result1)
-		}
+	)
 
-		data2 := Attr{
-			AttrType: testType,
-			AttrData: []byte{255, 255, 255, 255, 255, 255},
-		}
-		expected2 := "ff:ff:ff:ff:ff:ff"
-		result2, err := data2.String()
-		if err != nil {
-			t.Error(err)
-		}
-		if result2 != expected2 {
-			t.Errorf("expected '%s', got '%s'", expected2, result2)
-		}
-
-		data3 := Attr{
-			AttrType: testType,
-			AttrData: []byte{0, 0, 0, 0, 0},
-		}
-		_, err = data3.String()
-		if err == nil {
-			t.Error("Undersize MAC payload should have generated and error")
-		}
-
-		data4 := Attr{
-			AttrType: testType,
-			AttrData: []byte{0, 0, 0, 0, 0, 0, 0},
-		}
-		_, err = data4.String()
-		if err == nil {
-			t.Error("Oversize MAC payload should have generated and error")
+	for _, macAttrType := range  getAttrsByCategory(macCategory) {
+		for expected, data := range macStringTestData {
+			testAttr := macAttribute{
+				attrType: macAttrType,
+				attrData: data,
+			}
+			result := testAttr.String()
+			if result != expected {
+				t.Fatalf("expected %s, got %s", expected, result)
+			}
 		}
 	}
 }
 
-func TestNewMacAttrWithString(t *testing.T) {
-	attrTypesToTest := getAttrsByCategory(macCategory)
-	for _, testType := range attrTypesToTest {
-		var stringsToTest []string
-		stringsToTest = append(stringsToTest, "00:ff:ff:ff:ff:01")
-		stringsToTest = append(stringsToTest, "00:FF:FF:FF:FF:02")
-		//stringsToTest = append(stringsToTest, "0:ff:ff:ff:ff:3")
-		//stringsToTest = append(stringsToTest, "0:FF:FF:FF:FF:4")
-		stringsToTest = append(stringsToTest, "00-ff-ff-ff-ff-05")
-		stringsToTest = append(stringsToTest, "00-FF-FF-FF-FF-06")
-		//stringsToTest = append(stringsToTest, "0-ff-ff-ff-ff-7")
-		//stringsToTest = append(stringsToTest, "0-FF-FF-FF-FF-8")
-		stringsToTest = append(stringsToTest, "00ff.ffff.ff09")
-		stringsToTest = append(stringsToTest, "00FF.FFFF.FF0A")
-		//stringsToTest = append(stringsToTest, "ff.ffff.ff0b")
-		//stringsToTest = append(stringsToTest, "FF.FFFF.FF0C")
+func TestMacAttribute_Validate_WithGoodData(t *testing.T) {
+	goodData := [][]byte {
+		[]byte{0,0,0,0,0,0},
+		[]byte{1,2,3,4,5,6},
+		[]byte{255,255,255,255,255,255},
+	}
 
-		var expectedAttrData [][]byte
-		expectedAttrData = append(expectedAttrData, []byte{0, 255, 255, 255, 255, 1})
-		expectedAttrData = append(expectedAttrData, []byte{0, 255, 255, 255, 255, 2})
-		//expectedAttrData = append(expectedAttrData, []byte{0, 255, 255, 255, 255, 3})
-		//expectedAttrData = append(expectedAttrData, []byte{0, 255, 255, 255, 255, 4})
-		expectedAttrData = append(expectedAttrData, []byte{0, 255, 255, 255, 255, 5})
-		expectedAttrData = append(expectedAttrData, []byte{0, 255, 255, 255, 255, 6})
-		//expectedAttrData = append(expectedAttrData, []byte{0, 255, 255, 255, 255, 7})
-		//expectedAttrData = append(expectedAttrData, []byte{0, 255, 255, 255, 255, 8})
-		expectedAttrData = append(expectedAttrData, []byte{0, 255, 255, 255, 255, 9})
-		expectedAttrData = append(expectedAttrData, []byte{0, 255, 255, 255, 255, 10})
-		//expectedAttrData = append(expectedAttrData, []byte{0, 255, 255, 255, 255, 11})
-		//expectedAttrData = append(expectedAttrData, []byte{0, 255, 255, 255, 255, 12})
-
-		var expectedAttr []Attr
-		for _, v := range expectedAttrData {
-			expectedAttr = append(expectedAttr, Attr{AttrType: testType, AttrData: v})
-		}
-
-		for k, v := range stringsToTest {
-			result, err := NewAttr(testType, attrPayload{stringData: v})
+	for _, macAttrType := range  getAttrsByCategory(macCategory) {
+		for _, testData := range goodData {
+			testAttr := macAttribute{
+				attrType: macAttrType,
+				attrData: testData,
+			}
+			err := testAttr.Validate()
 			if err != nil {
-				t.Error(err)
-			}
-
-			if !reflect.DeepEqual(result, expectedAttr[k]) {
-				t.Error("Structures don't match.")
-			}
-		}
-	}
-
-	for _, testType := range attrTypesToTest {
-		testString := "bogus"
-		_, err := NewAttr(testType, attrPayload{stringData: testString})
-		if err == nil {
-			t.Error("Error: Bogus string should have produced an error.")
-		}
-	}
-}
-
-func TestNewMacAttrWithInt(t *testing.T) {
-	attrTypesToTest := getAttrsByCategory(macCategory)
-	for _, testType := range attrTypesToTest {
-		var intsToTest []int
-		intsToTest = append(intsToTest, 0)
-		intsToTest = append(intsToTest, 1)
-
-		var expectedAttrData [][]byte
-		expectedAttrData = append(expectedAttrData, []byte{0, 0, 0, 0, 0, 0})
-		expectedAttrData = append(expectedAttrData, []byte{0, 0, 0, 0, 0, 1})
-
-		var expectedAttrs []Attr
-		for _, v := range expectedAttrData {
-			expectedAttrs = append(expectedAttrs, Attr{AttrType: testType, AttrData: v})
-		}
-
-		for k, v := range intsToTest {
-			result, err := NewAttr(testType, attrPayload{intData: v})
-			if err != nil {
-				t.Error(err)
-			}
-
-			if !reflect.DeepEqual(result, expectedAttrs[k]) {
-				t.Error("Structures don't match.")
+				t.Fatalf(err.Error()+"\n"+"Supposed good data %s produced error for %s.",
+					fmt.Sprintf("%v", []byte(testAttr.attrData)), attrTypeString[macAttrType])
 			}
 		}
 	}
 }
 
-func TestValidateMac(t *testing.T) {
-	macTypes := map[attrType]bool{}
-	for i := 0; i <= 255; i++ {
-		if attrCategoryByType[attrType(i)] == macCategory {
-			macTypes[attrType(i)] = true
-		}
+func TestMacAttribute_Validate_WithBadData(t *testing.T) {
+	badData := [][]byte {
+		nil,
+		[]byte{},
+		[]byte{0},
+		[]byte{0,0},
+		[]byte{0,0,0},
+		[]byte{0,0,0,0},
+		[]byte{0,0,0,0,0},
+		[]byte{0,0,0,0,0,0,0},
 	}
 
-	for i := 0; i <= 255; i++ {
-		a := Attr{AttrType: attrType(i), AttrData: []byte{0, 0, 0, 0, 0, 0}}
-		err := validateMac(a)
-		switch {
-		case macTypes[attrType(i)] && err != nil:
-			msg := fmt.Sprintf("Attribute type %d should not produce MAC validation errors: %s", i, err)
-			t.Error(msg)
-		case !macTypes[attrType(i)] && err == nil:
-			msg := fmt.Sprintf("Attribute type %d should have produced MAC validation errors.", i)
-			t.Error(msg)
+	for _, macAttrType := range  getAttrsByCategory(macCategory) {
+		for _, testData := range badData {
+			testAttr := macAttribute{
+				attrType: macAttrType,
+				attrData: testData,
+			}
+
+			err := testAttr.Validate()
+			if err == nil {
+				t.Fatalf("Bad data %s in %s did not error.",
+					fmt.Sprintf("%v", []byte(testAttr.attrData)), attrTypeString[macAttrType])
+			}
+		}
+	}
+}
+
+func TestNewAttrBuilder_Mac(t *testing.T) {
+	stringData1 := "00:01:02:FD:FE:FF"
+	stringData2 := "00:01:02:fd:fe:ff"
+	stringData3 := "00-01-02-FD-FE-FF"
+	stringData4 := "00-01-02-fd-fe-ff"
+	stringData5 := "0001.02FD.FEFF"
+	stringData6 := "0001.02fd.feff"
+	byteData := []byte{0, 1, 2, 253, 254, 255}
+	for _, macAttrType := range getAttrsByCategory(macCategory) {
+		expected := []byte{byte(macAttrType), 8, 0, 1, 2, 253, 254, 255}
+		byString1, err := NewAttrBuilder().SetType(macAttrType).SetString(stringData1).Build()
+		if err != nil {
+			t.Fatal(err)
+		}
+		byString2, err := NewAttrBuilder().SetType(macAttrType).SetString(stringData2).Build()
+		if err != nil {
+			t.Fatal(err)
+		}
+		byString3, err := NewAttrBuilder().SetType(macAttrType).SetString(stringData3).Build()
+		if err != nil {
+			t.Fatal(err)
+		}
+		byString4, err := NewAttrBuilder().SetType(macAttrType).SetString(stringData4).Build()
+		if err != nil {
+			t.Fatal(err)
+		}
+		byString5, err := NewAttrBuilder().SetType(macAttrType).SetString(stringData5).Build()
+		if err != nil {
+			t.Fatal(err)
+		}
+		byString6, err := NewAttrBuilder().SetType(macAttrType).SetString(stringData6).Build()
+		if err != nil {
+			t.Fatal(err)
+		}
+		byByte, err := NewAttrBuilder().SetType(macAttrType).SetBytes(byteData).Build()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if bytes.Compare(expected, MarshalAttribute(byByte)) != 0 {
+			log.Println(expected)
+			log.Println(byByte.Bytes())
+			t.Fatal("Attributes don't match")
+		}
+		if bytes.Compare(byByte.Bytes(), byString1.Bytes()) != 0 {
+			t.Fatal("Attributes don't match")
+		}
+		if bytes.Compare(byString1.Bytes(), byString2.Bytes()) != 0 {
+			t.Fatal("Attributes don't match")
+		}
+		if bytes.Compare(byString2.Bytes(), byString3.Bytes()) != 0 {
+			t.Fatal("Attributes don't match")
+		}
+		if bytes.Compare(byString3.Bytes(), byString4.Bytes()) != 0 {
+			t.Fatal("Attributes don't match")
+		}
+		if bytes.Compare(byString4.Bytes(), byString5.Bytes()) != 0 {
+			t.Fatal("Attributes don't match")
+		}
+		if bytes.Compare(byString5.Bytes(), byString6.Bytes()) != 0 {
+			t.Fatal("Attributes don't match")
+		}
+		if bytes.Compare(byString6.Bytes(), byByte.Bytes()) != 0 {
+			t.Fatal("Attributes don't match")
 		}
 	}
 }
