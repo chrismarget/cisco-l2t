@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"strconv"
 	"strings"
 	"unicode"
 )
@@ -22,8 +23,8 @@ func (o stringAttribute) Type() attrType {
 	return o.attrType
 }
 
-func (o stringAttribute) Len() int {
-	return TLsize + len(o.attrData)
+func (o stringAttribute) Len() uint8 {
+	return uint8(TLsize + len(o.attrData))
 }
 
 func (o stringAttribute) String() string {
@@ -37,7 +38,7 @@ func (o stringAttribute) Validate() error {
 	}
 
 	// Underlength?
-	if o.Len() < TLsize+len(string(stringTerminator)) {
+	if int(o.Len()) < TLsize+len(string(stringTerminator)) {
 		return fmt.Errorf("underlength string: got %d bytes (min %d)", o.Len(), TLsize+len(string(stringTerminator)))
 	}
 
@@ -62,68 +63,33 @@ func (o stringAttribute) Validate() error {
 	return nil
 }
 
-//func stringifyString(a Attr) (string, error) {
-//	var err error
-//	err = checkAttrInCategory(a, stringCategory)
-//	if err != nil {
-//		return "", err
-//	}
-//
-//	err = a.checkLen()
-//	if err != nil {
-//		return "", err
-//	}
-//
-//	trimmed := bytes.Split(a.AttrData, []byte{stringTerminator})[0]
-//	if len(trimmed) != len(a.AttrData)-1 {
-//		return "", errors.New("Error trimming string terminator.")
-//	}
-//
-//	for _, v := range trimmed {
-//		if v > unicode.MaxASCII || !unicode.IsPrint(rune(v)) {
-//			return "", errors.New("Error, string is not printable.")
-//		}
-//	}
-//
-//	return string(trimmed), nil
-//}
+func (o stringAttribute) Bytes() []byte {
+	return o.attrData
+}
 
-//func newStringAttr(t attrType, p attrPayload) (Attr, error) {
-//	if p.stringData == "" {
-//		return Attr{}, errors.New("Error creating string attribute: Empty string.")
-//	}
-//	if len(p.stringData)+TLsize >= math.MaxUint8 {
-//		return Attr{}, errors.New("Error creating string attribute: Over-length string.")
-//	}
-//	var d []byte
-//	for _, r := range p.stringData {
-//		if r > unicode.MaxASCII || !unicode.IsPrint(rune(r)) {
-//			return Attr{}, errors.New("Error creating string attribute: Non-string characters present.")
-//		}
-//		d = append(d, byte(r))
-//	}
-//	d = append(d, 0)
-//	return Attr{AttrType: t, AttrData: d}, nil
-//}
+// newsStringAttribute returns a new attribute from stringCategory
+func (o *defaultAttrBuilder) newStringAttribute() (Attribute, error) {
+	var stringBytes []byte
+	switch {
+	case o.bytesHasBeenSet:
+		stringBytes = o.bytesPayload
+	case o.intHasBeenSet:
+		stringBytes = []byte(strconv.Itoa(int(o.intPayload)) + string(stringTerminator))
+	case o.stringHasBeenSet:
+		stringBytes = []byte(o.stringPayload + string(stringTerminator))
+	default:
+		return nil, fmt.Errorf("cannot build, no attribute payload found for category %s attribute", attrCategoryString[stringCategory])
+	}
 
-//// validateString checks the AttrType and AttrData against norms for String type
-//// attributes.
-//func validateString(a Attr) error {
-//	if attrCategoryByType[a.AttrType] != stringCategory{
-//		msg := fmt.Sprintf("Attribute type %d cannot be validated against string criteria.", a.AttrType)
-//		return errors.New(msg)
-//	}
-//
-//	trimmed := bytes.Split(a.AttrData, []byte{stringTerminator})[0]
-//	if len(trimmed) != len(a.AttrData)-1 {
-//		return errors.New("Error validating string termination.")
-//	}
-//
-//	for _, v := range trimmed {
-//		if v > unicode.MaxASCII || !unicode.IsPrint(rune(v)) {
-//			return errors.New("Error, string is not printable.")
-//		}
-//	}
-//
-//	return nil
-//}
+	a := stringAttribute {
+		attrType: o.attrType,
+		attrData: stringBytes,
+	}
+
+	err := a.Validate()
+	if err != nil {
+		return nil, err
+	}
+
+	return a, nil
+}

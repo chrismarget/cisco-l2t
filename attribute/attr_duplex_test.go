@@ -1,8 +1,10 @@
 package attribute
 
 import (
+	"bytes"
 	"fmt"
 	"math"
+	"strings"
 	"testing"
 )
 
@@ -77,3 +79,48 @@ func TestDuplexAttribute_Validate_WithBadData(t *testing.T) {
 	}
 }
 
+func TestNewAttrBuilder_Duplex(t *testing.T) {
+	for _, duplexAttrType := range  getAttrsByCategory(duplexCategory) {
+		for k, v := range portDuplexToString {
+			expected := []byte{byte(duplexAttrType), 3, byte(k)}
+			byInt, err := NewAttrBuilder().SetType(duplexAttrType).SetInt(uint32(k)).Build()
+			if err != nil {
+				t.Fatal(err)
+			}
+			byString, err := NewAttrBuilder().SetType(duplexAttrType).SetString(v).Build()
+			if err != nil {
+				t.Fatal(err)
+			}
+			byStringLower, err := NewAttrBuilder().SetType(duplexAttrType).SetString(strings.ToLower(v)).Build()
+			if err != nil {
+				t.Fatal(err)
+			}
+			byStringUpper, err := NewAttrBuilder().SetType(duplexAttrType).SetString(strings.ToUpper(v)).Build()
+			if err != nil {
+				t.Fatal(err)
+			}
+			byByte, err := NewAttrBuilder().SetType(duplexAttrType).SetBytes([]byte{byte(k)}).Build()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if bytes.Compare(expected, MarshalAttribute(byInt)) != 0 {
+				t.Fatal("Attributes don't match")
+			}
+			if bytes.Compare(byInt.Bytes(), byString.Bytes()) != 0 {
+				t.Fatal("Attributes don't match")
+			}
+			if bytes.Compare(byString.Bytes(), byStringLower.Bytes()) != 0 {
+				t.Fatal("Attributes don't match")
+			}
+			if bytes.Compare(byStringLower.Bytes(), byStringUpper.Bytes()) != 0 {
+				t.Fatal("Attributes don't match")
+			}
+			if bytes.Compare(byStringUpper.Bytes(), byByte.Bytes()) != 0 {
+				t.Fatal("Attributes don't match")
+			}
+			if bytes.Compare(byByte.Bytes(), byInt.Bytes()) != 0 {
+				t.Fatal("Attributes don't match")
+			}
+		}
+	}
+}

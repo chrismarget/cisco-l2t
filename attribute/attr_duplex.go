@@ -1,6 +1,10 @@
 package attribute
 
-import "fmt"
+import (
+	"fmt"
+	"github.com/getlantern/errors"
+	"strings"
+)
 
 type (
 	portDuplex byte
@@ -29,8 +33,8 @@ func (o duplexAttribute) Type() attrType {
 	return o.attrType
 }
 
-func (o duplexAttribute) Len() int {
-	return TLsize + len(o.attrData)
+func (o duplexAttribute) Len() uint8 {
+	return uint8(TLsize + len(o.attrData))
 }
 
 func (o duplexAttribute) String() string {
@@ -50,93 +54,54 @@ func (o duplexAttribute) Validate() error {
 	return nil
 }
 
-//// stringifyDuplex returns a string representing a port duplex.
-//// This function should be called by Attr.String()
-//func stringifyDuplex(a Attr) (string, error) {
-//	err := checkAttrInCategory(a, duplexCategory)
-//	if err != nil {
-//		return "", err
-//	}
-//
-//	err = a.checkLen()
-//	if err != nil {
-//		return "", err
-//	}
-//
-//	var result string
-//	var ok bool
-//	if result, ok = portDuplexToString[portDuplex(a.AttrData[0])]; !ok {
-//		msg := fmt.Sprintf("Error, malformed duplex attribute: Value is %d", a.AttrData)
-//		return "", errors.New(msg)
-//	}
-//	return result, nil
-//}
+func (o duplexAttribute) Bytes() []byte {
+	return o.attrData
+}
 
-//// stringToDuplex takes a string, converts it to a []byte for use in an
-//// Attr.AttrData belonging to duplexCategory
-//func stringToDuplex(in string) ([]byte, error) {
-//	for k, v := range portDuplexToString {
-//		if strings.ToLower(v) == strings.ToLower(in) {
-//			result := []byte{byte(k)}
-//			return result, nil
-//		}
-//	}
-//
-//	msg := fmt.Sprintf("Error parsing duplex string: '%s'", in)
-//	return []byte{}, errors.New(msg)
-//}
+// newDuplexAttribute returns a new attribute from duplexCategory
+func (o *defaultAttrBuilder) newDuplexAttribute() (Attribute, error) {
+	var duplexByte byte
+	var success bool
+	switch {
+	case o.stringHasBeenSet:
+		for portDuplex, duplexString := range portDuplexToString {
+			if strings.ToLower(o.stringPayload) == strings.ToLower(duplexString) {
+				duplexByte = byte(portDuplex)
+				success = true
+			}
+		}
+		if ! success {
+			return nil, fmt.Errorf("string payload `%s' unrecognized for duplex type", o.stringPayload)
+		}
+	case o.intHasBeenSet:
+		for portDuplex, _ := range portDuplexToString {
+			if uint8(o.intPayload) == uint8(portDuplex) {
+				duplexByte = byte(portDuplex)
+				success = true
+			}
+		}
+		if ! success {
+			return nil, fmt.Errorf("int payload `%d' unrecognized for duplex type", o.intPayload)
+		}
+	case o.bytesHasBeenSet:
+		if len(o.bytesPayload) != 1 {
+			return nil, errors.New("bytes payload invalid length for creating duplex attribute")
+		}
+		duplexByte = o.bytesPayload[0]
+	default:
+		return nil, fmt.Errorf("cannot build, no attribute payload found for category %s attribute", attrCategoryString[duplexCategory])
+	}
 
-//// intToDuplex takes an integer, returns a []byte for use in an
-//// Attr.AttrData belonging to duplexCategory
-//func intToDuplex(in int) ([]byte, error) {
-//	for k, _ := range portDuplexToString {
-//		if k == portDuplex(in) {
-//			result := []byte{byte(k)}
-//			return result, nil
-//		}
-//	}
-//
-//	msg := fmt.Sprintf("Error parsing duplex integer: '%d'", in)
-//	return []byte{}, errors.New(msg)
-//}
+	a := duplexAttribute {
+		attrType: o.attrType,
+		attrData: []byte{duplexByte},
+	}
 
-//// newDuplexAttr takes an AttrType (one that belongs to duplexCategory) and an
-//// attrPayload, parses the payload, returns a populated Attr.
-//func newDuplexAttr(t attrType, p attrPayload) (Attr, error) {
-//	result := Attr{AttrType: t}
-//
-//	switch {
-//	case p.stringData != "":
-//		b, err := stringToDuplex(p.stringData)
-//		if err != nil {
-//			return Attr{}, err
-//		}
-//		result.AttrData = b
-//		return result, nil
-//	case p.intData >= 0:
-//		b, err := intToDuplex(p.intData)
-//		if err != nil {
-//			return Attr{}, err
-//		}
-//		result.AttrData = b
-//		return result, nil
-//	default:
-//		msg := fmt.Sprintf("Cannot create %s. No appropriate data supplied.", attrTypeString[t])
-//		return Attr{}, errors.New(msg)
-//	}
-//}
+	err := a.Validate()
+	if err != nil {
+		return nil, err
+	}
 
-//// validateDuplex checks the AttrType and AttrData against norms for Duplex type
-//// attributes.
-//func validateDuplex(a Attr) error {
-//	if attrCategoryByType[a.AttrType] != duplexCategory{
-//		msg := fmt.Sprintf("Attribute type %d cannot be validated against duplex criteria.", a.AttrType)
-//		return errors.New(msg)
-//	}
-//
-//	if _, ok := portDuplexToString[portDuplex(a.AttrData[0])]; !ok {
-//		msg := fmt.Sprintf("Attribute failed validataion against duplex criteria: Unknown duplex type: %d", a.AttrData[0])
-//		return errors.New(msg)
-//	}
-//	return nil
-//}
+	return a, nil
+}
+

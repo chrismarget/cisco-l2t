@@ -1,7 +1,9 @@
 package attribute
 
 import (
+	"bytes"
 	"fmt"
+	"log"
 	"math/rand"
 	"testing"
 	"time"
@@ -143,6 +145,40 @@ func TestStringAttribute_Validate_WithBadData(t *testing.T) {
 				t.Fatalf("Bad data %s in %s did not error.",
 					fmt.Sprintf("%v", []byte(testAttr.attrData)), attrTypeString[stringAttrType])
 			}
+		}
+	}
+}
+
+func TestNewAttrBuilder_String(t *testing.T) {
+	intData := uint32(1234567890)
+	stringData := "1234567890"
+	byteData := []byte{49 ,50 ,51 ,52 ,53 ,54 ,55 ,56 ,57, 48, 00}
+	for _, stringAttrType := range getAttrsByCategory(stringCategory) {
+		expected := []byte{byte(stringAttrType), 13, 49 ,50 ,51 ,52 ,53 ,54 ,55 ,56 ,57, 48, 00}
+		byInt, err := NewAttrBuilder().SetType(stringAttrType).SetInt(intData).Build()
+		if err != nil {
+			t.Fatal(err)
+		}
+		byString, err := NewAttrBuilder().SetType(stringAttrType).SetString(stringData).Build()
+		if err != nil {
+			t.Fatal(err)
+		}
+		byByte, err := NewAttrBuilder().SetType(stringAttrType).SetBytes(byteData).Build()
+		if err != nil {
+			log.Println("here")
+			t.Fatal(err)
+		}
+		if bytes.Compare(expected, MarshalAttribute(byInt)) != 0 {
+			t.Fatal("Attributes don't match 1")
+		}
+		if bytes.Compare(byInt.Bytes(), byString.Bytes()) != 0 {
+			t.Fatal("Attributes don't match 2")
+		}
+		if bytes.Compare(byString.Bytes(), byByte.Bytes()) != 0 {
+			t.Fatal("Attributes don't match 3")
+		}
+		if bytes.Compare(byByte.Bytes(), byInt.Bytes()) != 0 {
+			t.Fatal("Attributes don't match 4")
 		}
 	}
 }
