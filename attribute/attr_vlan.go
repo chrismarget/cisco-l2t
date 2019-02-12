@@ -20,8 +20,8 @@ func (o vlanAttribute) Type() attrType {
 	return o.attrType
 }
 
-func (o vlanAttribute) Len() int {
-	return TLsize + len(o.attrData)
+func (o vlanAttribute) Len() uint8 {
+	return uint8(TLsize + len(o.attrData))
 }
 
 func (o vlanAttribute) String() string {
@@ -43,13 +43,40 @@ func (o vlanAttribute) Validate() error {
 	return nil
 }
 
-//func newVlanAttr(t attrType, p attrPayload) (Attr, error) {
-//	var result Attr
-//	if p.intData < minVLAN || p.intData > maxVLAN {
-//		return Attr{}, errors.New("Error creating VLAN attribute: Value out of range.")
-//	}
-//	result.AttrType = t
-//	result.AttrData = make([]byte, 2)
-//	binary.BigEndian.PutUint16(result.AttrData, uint16(p.intData))
-//	return result, nil
-//}
+func (o vlanAttribute) Bytes() []byte {
+	return o.attrData
+}
+
+// newVlanAttribute returns a new attribute from vlanCategory
+func (o *defaultAttrBuilder) newVlanAttribute() (Attribute, error) {
+	var err error
+	vlanBytes := make([]byte, 2)
+	switch {
+	case o.stringHasBeenSet:
+		vlan, err := strconv.Atoi(o.stringPayload)
+		if err != nil {
+			return nil, err
+		}
+		binary.BigEndian.PutUint16(vlanBytes, uint16(vlan))
+	case o.intHasBeenSet:
+		vlan := int(o.intPayload)
+		binary.BigEndian.PutUint16(vlanBytes, uint16(vlan))
+	case o.bytesHasBeenSet:
+		vlanBytes = o.bytesPayload
+	default:
+		return nil, fmt.Errorf("cannot build, no attribute payload found for category %s attribute", attrCategoryString[vlanCategory])
+	}
+
+	a := vlanAttribute {
+		attrType: o.attrType,
+		attrData: vlanBytes,
+	}
+
+	err = a.Validate()
+	if err != nil {
+		return nil, err
+	}
+
+	return a, nil
+}
+

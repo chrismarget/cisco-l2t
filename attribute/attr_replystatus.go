@@ -2,6 +2,8 @@ package attribute
 
 import (
 	"fmt"
+	"log"
+	"strings"
 )
 
 //Some stuff I found by strings-ing a binary:
@@ -82,8 +84,8 @@ func (o replyStatusAttribute) Type() attrType {
 	return o.attrType
 }
 
-func (o replyStatusAttribute) Len() int {
-	return TLsize + len(o.attrData)
+func (o replyStatusAttribute) Len() uint8 {
+	return uint8(TLsize + len(o.attrData))
 }
 
 func (o replyStatusAttribute) String() string {
@@ -96,64 +98,51 @@ func (o replyStatusAttribute) String() string {
 func (o replyStatusAttribute) Validate() error {
 	err := checkTypeLen(o, replyStatusCategory)
 	if err != nil {
+		log.Println("err")
 		return err
 	}
 	return nil
 }
 
-//// stringifyReplyStatus takes an Attr belonging to replyStatusCategory, string-ifys it.
-//func stringifyReplyStatus(a Attr) (string, error) {
-//	var err error
-//	err = checkAttrInCategory(a, replyStatusCategory)
-//	if err != nil {
-//		return "", err
-//	}
-//
-//	err = a.checkLen()
-//	if err != nil {
-//		return "", err
-//	}
-//
-//	if msg, ok := replyStatusToString[replyStatus(a.AttrData[0])]; ok {
-//		return fmt.Sprintf("%s (%d)", msg, int(a.AttrData[0])), nil
-//
-//	}
-//
-//	return fmt.Sprintf("%s (%d)", replyStatusUnknown, int(a.AttrData[0])), nil
-//}
+func (o replyStatusAttribute) Bytes() []byte {
+	return o.attrData
+}
 
-//// newReplyStatusAttr returns an Attr with AttrType t and AttrData populated based on
-//// input payload. Input options are:
-//// - stringData (first choice, parses the string)
-//// - intData (second choice, value used directly)
-//func newReplyStatusAttr(t attrType, p attrPayload) (Attr, error) {
-//	result := Attr{AttrType: t}
-//
-//	switch {
-//	case p.stringData != "":
-//		for k, v := range replyStatusToString {
-//			if strings.ToLower(p.stringData) == strings.ToLower(v) {
-//				result.AttrData = []byte{byte(k)}
-//				return result, nil
-//			}
-//		}
-//	case p.intData >= 0 && p.intData < math.MaxUint8:
-//		result.AttrData = []byte{byte(p.intData)}
-//		return result, nil
-//	}
-//	return Attr{}, errors.New("Error creating reply status attribute, no appropriate data supplied.")
-//}
+// newReplyStatusAttribute returns a new attribute from replyStatusCategory
+func (o *defaultAttrBuilder) newReplyStatusAttribute() (Attribute, error) {
+	var replyStatusByte byte
+	var success bool
+	switch {
+	case o.stringHasBeenSet:
+		for replyStatus, replyStatusString := range replyStatusToString {
+			if strings.ToLower(o.stringPayload) == strings.ToLower(replyStatusString) {
+				replyStatusByte = byte(replyStatus)
+				success = true
+			}
+		}
+		if !success {
+			return nil, fmt.Errorf("string payload `%s' unrecognized for reply status type", o.stringPayload)
+		}
+	case o.intHasBeenSet:
+		replyStatusByte = uint8(o.intPayload)
+	case o.bytesHasBeenSet:
+		if len(o.bytesPayload) != 1 {
+			return nil, fmt.Errorf("cannot use %d bytes to build a reply status attribute", len(o.bytesPayload))
+		}
+		replyStatusByte = o.bytesPayload[0]
+	default:
+		return nil, fmt.Errorf("cannot build, no attribute payload found for category %s attribute", attrCategoryString[replyStatusCategory])
+	}
 
-//// validateReplyStatus checks the AttrType and AttrData against norms for
-//// ReplyStatus type attributes.
-//func validateReplyStatus(a Attr) error {
-//	if attrCategoryByType[a.AttrType] != replyStatusCategory {
-//		msg := fmt.Sprintf("Attribute type %d cannot be validated against reply status criteria.", a.AttrType)
-//		return errors.New(msg)
-//	}
-//	if _, ok := replyStatusToString[replyStatus(a.AttrData[0])]; !ok {
-//		msg := fmt.Sprintf("Unknown reply status %d.", int(a.AttrData[0]))
-//		return errors.New(msg)
-//	}
-//	return nil
-//}
+	a := replyStatusAttribute{
+		attrType: o.attrType,
+		attrData: []byte{replyStatusByte},
+	}
+
+	err := a.Validate()
+	if err != nil {
+		return nil, err
+	}
+
+	return a, nil
+}

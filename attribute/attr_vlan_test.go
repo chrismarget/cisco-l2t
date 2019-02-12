@@ -1,6 +1,7 @@
 package attribute
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"strconv"
@@ -78,6 +79,43 @@ func TestVlanAttribute_Validate_WithBadData(t *testing.T) {
 			if err == nil {
 				t.Fatalf("Bad data %s in %s did not error.",
 					fmt.Sprintf("%v", []byte(testAttr.attrData)), attrTypeString[vlanAttrType])
+			}
+		}
+	}
+}
+
+
+func TestNewAttrBuilder_Vlan(t *testing.T) {
+	for _, vlanAttrType := range  getAttrsByCategory(vlanCategory) {
+		var v uint16
+		vBytes := make([]byte, 2)
+		for v = 1; v <= 4094; v++ {
+			binary.BigEndian.PutUint16(vBytes, v)
+			expectedMarshal := []byte{byte(vlanAttrType), 4, vBytes[0], vBytes[1]}
+			byInt, err := NewAttrBuilder().SetType(vlanAttrType).SetInt(uint32(v)).Build()
+			if err != nil {
+				t.Fatal(err)
+			}
+			byString, err := NewAttrBuilder().SetType(vlanAttrType).SetString(strconv.Itoa(int(v))).Build()
+			if err != nil {
+				t.Fatal(err)
+			}
+			byByte, err := NewAttrBuilder().SetType(vlanAttrType).SetBytes(vBytes).Build()
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if bytes.Compare(expectedMarshal, MarshalAttribute(byInt)) != 0 {
+				t.Fatal("Attributes don't match")
+			}
+			if bytes.Compare(byInt.Bytes(), byByte.Bytes()) != 0 {
+				t.Fatal("Attributes don't match")
+			}
+			if bytes.Compare(byByte.Bytes(), byString.Bytes()) != 0 {
+				t.Fatal("Attributes don't match")
+			}
+			if bytes.Compare(byString.Bytes(), byInt.Bytes()) != 0 {
+				t.Fatal("Attributes don't match")
 			}
 		}
 	}

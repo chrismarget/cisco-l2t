@@ -1,8 +1,10 @@
 package attribute
 
 import (
+	"bytes"
 	"fmt"
 	"math"
+	"strings"
 	"testing"
 )
 
@@ -73,6 +75,52 @@ func TestReplyStatusAttribute_Validate_WithBadData(t *testing.T) {
 			if err == nil {
 				t.Fatalf("Bad data %s in %s did not error.",
 					fmt.Sprintf("%v", []byte(testAttr.attrData)), attrTypeString[replyStatusAttrType])
+			}
+		}
+	}
+}
+
+func TestNewAttrBuilder_ReplyStatus(t *testing.T) {
+	for _, replyStatusAttrType := range  getAttrsByCategory(replyStatusCategory) {
+		for k, v := range replyStatusToString {
+			expected := []byte{byte(replyStatusAttrType), 3, byte(k)}
+			byInt, err := NewAttrBuilder().SetType(replyStatusAttrType).SetInt(uint32(k)).Build()
+			if err != nil {
+				t.Fatal(err)
+			}
+			byString, err := NewAttrBuilder().SetType(replyStatusAttrType).SetString(v).Build()
+			if err != nil {
+				t.Fatal(err)
+			}
+			byStringLower, err := NewAttrBuilder().SetType(replyStatusAttrType).SetString(strings.ToLower(v)).Build()
+			if err != nil {
+				t.Fatal(err)
+			}
+			byStringUpper, err := NewAttrBuilder().SetType(replyStatusAttrType).SetString(strings.ToUpper(v)).Build()
+			if err != nil {
+				t.Fatal(err)
+			}
+			byByte, err := NewAttrBuilder().SetType(replyStatusAttrType).SetBytes([]byte{byte(k)}).Build()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if bytes.Compare(expected, MarshalAttribute(byInt)) != 0 {
+				t.Fatal("Attributes don't match")
+			}
+			if bytes.Compare(byInt.Bytes(), byByte.Bytes()) != 0 {
+				t.Fatal("Attributes don't match")
+			}
+			if bytes.Compare(byByte.Bytes(), byString.Bytes()) != 0 {
+				t.Fatal("Attributes don't match")
+			}
+			if bytes.Compare(byString.Bytes(), byStringLower.Bytes()) != 0 {
+				t.Fatal("Attributes don't match")
+			}
+			if bytes.Compare(byStringLower.Bytes(), byStringUpper.Bytes()) != 0 {
+				t.Fatal("Attributes don't match")
+			}
+			if bytes.Compare(byStringUpper.Bytes(), byInt.Bytes()) != 0 {
+				t.Fatal("Attributes don't match")
 			}
 		}
 	}
