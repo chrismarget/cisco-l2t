@@ -21,7 +21,7 @@ func TestVlanAttribute_String(t *testing.T) {
 
 	_ = vlanStringTestData
 
-	for _, vlanAttrType := range  getAttrsByCategory(vlanCategory) {
+	for _, vlanAttrType := range getAttrsByCategory(vlanCategory) {
 		for expected, data := range vlanStringTestData {
 			testAttr := vlanAttribute{
 				attrType: vlanAttrType,
@@ -43,7 +43,7 @@ func TestVlanAttribute_Validate_WithGoodData(t *testing.T) {
 		goodData = append(goodData, b)
 	}
 
-	for _, vlanAttrType := range  getAttrsByCategory(vlanCategory) {
+	for _, vlanAttrType := range getAttrsByCategory(vlanCategory) {
 		for _, testData := range goodData {
 			testAttr := vlanAttribute{
 				attrType: vlanAttrType,
@@ -85,7 +85,7 @@ func TestVlanAttribute_Validate_WithBadData(t *testing.T) {
 }
 
 func TestNewAttrBuilder_Vlan(t *testing.T) {
-	for _, vlanAttrType := range  getAttrsByCategory(vlanCategory) {
+	for _, vlanAttrType := range getAttrsByCategory(vlanCategory) {
 		var v uint16
 		vBytes := make([]byte, 2)
 		for v = 1; v <= 4094; v++ {
