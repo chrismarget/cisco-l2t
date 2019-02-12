@@ -129,6 +129,7 @@ func MarshalAttribute(a Attribute) []byte {
 	return append([]byte{t, l}, b...)
 }
 
+//TODO test UnmarshalAttribute
 
 // UnmarshalAttribute returns an Attribute of the appropriate
 // kind, depending on what's in the first byte (attribute type marker)
@@ -139,7 +140,6 @@ func UnmarshalAttribute(b []byte) (Attribute, error) {
 
 	t := attrType(b[0])
 	switch {
-
 	case attrCategoryByType[t] == duplexCategory:
 		return &duplexAttribute{attrType: t, attrData: b[1:]}, nil
 	case attrCategoryByType[t] == ipv4Category:
@@ -183,11 +183,6 @@ type Attribute interface {
 	// Bytes returns a []byte containing the attribute payload.
 	Bytes() []byte
 }
-
-//type Attr struct {
-//	AttrType attrType
-//	AttrData []byte
-//}
 
 // AttrBuilder builds L2T attributes.
 // Calling SetType is mandatory.

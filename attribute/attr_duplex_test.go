@@ -56,7 +56,7 @@ func TestDuplexAttribute_Validate_WithBadData(t *testing.T) {
 	badData := [][]byte {
 		nil,
 		[]byte{},
-		[]byte {0,0},
+		[]byte{0,0},
 	}
 
 	for i := 3; i <= math.MaxUint8; i++ {

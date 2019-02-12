@@ -84,7 +84,6 @@ func TestVlanAttribute_Validate_WithBadData(t *testing.T) {
 	}
 }
 
-
 func TestNewAttrBuilder_Vlan(t *testing.T) {
 	for _, vlanAttrType := range  getAttrsByCategory(vlanCategory) {
 		var v uint16
