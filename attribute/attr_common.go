@@ -4,8 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"net"
-	"runtime"
 )
 
 type (
@@ -61,7 +59,25 @@ var (
 		srcIPv4Type:       "L2_ATTR_SRC_IP",         // 4 Byte IP Address
 		replyStatusType:   "L2_ATTR_REPLY_STATUS",   // 1 Byte reply status
 		nbrDevIDType:      "L2_ATTR_NBR_DEV_ID",     // Null terminated string
+	}
 
+	attrTypePrettyString = map[attrType]string{
+		srcMacType:        "source MAC address",
+		dstMacType:        "destination MAC address",
+		vlanType:          "VLAN",
+		devNameType:       "device name",
+		devTypeType:       "device type",
+		devIPv4Type:       "device IPv4 address",
+		inPortNameType:    "ingress port name",
+		outPortNameType:   "egress port name",
+		inPortSpeedType:   "ingress port speed",
+		outPortSpeedType:  "egress port speed",
+		inPortDuplexType:  "ingress port duplex",
+		outPortDuplexType: "egress port duplex",
+		nbrIPv4Type:       "neighbor IPv4 address",
+		srcIPv4Type:       "source IPv4 address",
+		replyStatusType:   "reply status",
+		nbrDevIDType:      "neighbor device ID",
 	}
 
 	attrCategoryByType = map[attrType]attrCategory{
@@ -93,218 +109,212 @@ var (
 		vlanCategory:        4,
 	}
 
-	stringifyAttrFuncByCategory = map[attrCategory]func(Attr) (string, error){
-		duplexCategory:      stringifyDuplex,
-		ipv4Category:        stringifyIPv4,
-		macCategory:         stringifyMac,
-		speedCategory:       stringifySpeed,
-		replyStatusCategory: stringifyReplyStatus,
-		stringCategory:      stringifyString,
-		vlanCategory:        stringifyVlan,
-	}
-
-	newAttrFuncByCategory = map[attrCategory]func(attrType, attrPayload) (Attr, error){
-		duplexCategory:      newDuplexAttr,
-		ipv4Category:        newIPv4Attr,
-		macCategory:         newMacAttr,
-		speedCategory:       newSpeedAttr,
-		replyStatusCategory: newReplyStatusAttr,
-		stringCategory:      newStringAttr,
-		vlanCategory:        newVlanAttr,
-	}
-
-	validateAttrFuncByCategory = map[attrCategory]func(Attr) error{
-		duplexCategory:      validateDuplex,
-		ipv4Category:        validateIPv4,
-		macCategory:         validateMac,
-		speedCategory:       validateSpeed,
-		replyStatusCategory: validateReplyStatus,
-		stringCategory:      validateString,
-		vlanCategory:        validateVlan,
+	attrCategoryString = map[attrCategory]string{
+		duplexCategory:      "interface duplex",
+		ipv4Category:        "IPv4 address",
+		macCategory:         "MAC address",
+		speedCategory:       "interface speed",
+		replyStatusCategory: "reply status",
+		stringCategory:      "string",
+		vlanCategory:        "VLAN",
 	}
 )
 
-type Attr struct {
-	AttrType attrType
-	AttrData []byte
+// MarshalAttribute returns a []byte containing a wire
+// format representation of the supplied attribute.
+func MarshalAttribute(a Attribute) []byte {
+	t := byte(a.Type())
+	l := byte(a.Len())
+	b := a.Bytes()
+	return append([]byte{t, l}, b...)
 }
 
-type attrPayload struct {
-	intData    int
-	stringData string
-	ipAddrData net.IPAddr
-	hwAddrData net.HardwareAddr
+//TODO test UnmarshalAttribute
+
+// UnmarshalAttribute returns an Attribute of the appropriate
+// kind, depending on what's in the first byte (attribute type marker)
+func UnmarshalAttribute(b []byte) (Attribute, error) {
+	if len(b) < MinAttrLen {
+		return nil, fmt.Errorf("cannot unmarshal attribute with only %d bytes (%d byte minimum)", len(b), MinAttrLen)
+	}
+
+	t := attrType(b[0])
+	switch {
+	case attrCategoryByType[t] == duplexCategory:
+		return &duplexAttribute{attrType: t, attrData: b[1:]}, nil
+	case attrCategoryByType[t] == ipv4Category:
+		return &ipv4Attribute{attrType: t, attrData: b[1:]}, nil
+	case attrCategoryByType[t] == macCategory:
+		return &macAttribute{attrType: t, attrData: b[1:]}, nil
+	case attrCategoryByType[t] == replyStatusCategory:
+		return &replyStatusAttribute{attrType: t, attrData: b[1:]}, nil
+	case attrCategoryByType[t] == speedCategory:
+		return &speedAttribute{attrType: t, attrData: b[1:]}, nil
+	case attrCategoryByType[t] == stringCategory:
+		return &stringAttribute{attrType: t, attrData: b[1:]}, nil
+	case attrCategoryByType[t] == vlanCategory:
+		return &vlanAttribute{attrType: t, attrData: b[1:]}, nil
+	}
+
+	return nil, nil
 }
 
-// ParseL2tAttr takes an L2T attribute as it comes from the wire ([]byte),
-// renders it into an Attr structure. The length byte is validated, but is not
-// part of the returned structure (measure it if needed). The resulting data is
-// not checked to see whether it makes any sense (too long mac address,
-// unprintable strings, etc...)
-func ParseL2tAttr(in []byte) (Attr, error) {
-	observedLen := len(in)
-	if observedLen < 2 || observedLen > 255 {
-		msg := fmt.Sprintf("Error parsing l2t attribute. Length cannot be %d.", observedLen)
-		return Attr{}, errors.New(msg)
-	}
+// Attribute represents an Attribure field from a
+// Cisco L2 Traceroute packet.
+type Attribute interface {
 
-	claimedLen := int(in[1])
-	if observedLen != claimedLen {
-		msg := fmt.Sprintf("Error parsing l2t attribute. Got %d bytes, but header claims %d.", observedLen, claimedLen)
-		return Attr{}, errors.New(msg)
-	}
+	// Type returns the Attribute's type
+	Type() attrType
 
-	result := Attr{
-		AttrType: attrType(in[0]),
-		AttrData: in[2:],
-	}
+	// Len returns the attribute's length. It includes the length
+	// of the payload, plus 2 more bytes to cover the Type and
+	// Length bytes in the header. This is the same value that
+	// appears in the length field of the attribute in wire format.
+	Len() uint8
 
-	err := result.Validate()
-	if err != nil {
-		return Attr{}, err
-	}
+	// String returns the attribute payload in printable format.
+	// It does not include any descriptive wrapper stuff, does
+	// well when combined with something from attrTypePrettyString.
+	String() string
 
-	return result, nil
+	// Validate returns an error if the attribute is malformed.
+	Validate() error
+
+	// Bytes returns a []byte containing the attribute payload.
+	Bytes() []byte
 }
 
-// Validate checks the attribute length against the expected length table.
-func (a Attr) Validate() error {
-	err := a.checkLen()
-	if err != nil {
-		return err
+// AttrBuilder builds L2T attributes.
+// Calling SetType is mandatory.
+// Calling one of the other "Set" methods is required
+// for most values of "attrType"
+type AttrBuilder interface {
+	// SetType sets the attribute type.
+	SetType(attrType) AttrBuilder
+
+	// SetString configures the attribute with a string value.
+	//
+	// Use it for attributes belonging to these categories:
+	//   duplexCategory: "Half" / "Full" / "Auto"
+	//   ipv4Category: "x.x.x.x"
+	//   macCategory: "xx:xx:xx:xx:xx:xx"
+	//   replyStatusCategory "Success" / "Source Mac address not found"
+	//   speedCategory: "10Mb/s" / "1Gb/s" / "10Tb/s"
+	//   stringcategory: "whatever"
+	//   vlanCategory: "100"
+	SetString(string) AttrBuilder
+
+	// SetInt configures the attribute with an int value.
+	//
+	// Use it for attributes belonging to these categories:
+	//   duplexCategory
+	//   ipv4Category
+	//   replyStatusCategory
+	//   speedCategory
+	//   vlanCategory
+	SetInt(uint32) AttrBuilder
+
+	// SetBytes configures the attribute with a byte slice.
+	//
+	// Use it for attributes belonging to any category.
+	SetBytes([]byte) AttrBuilder
+
+	// Build builds attribute based on the attrType and one of
+	// the payloads configured with a "Set" method.
+	Build() (Attribute, error)
+}
+
+type defaultAttrBuilder struct {
+	attrType         attrType
+	typeHasBeenSet   bool
+	stringPayload    string
+	stringHasBeenSet bool
+	intPayload       uint32
+	intHasBeenSet    bool
+	bytesPayload     []byte
+	bytesHasBeenSet  bool
+}
+
+func NewAttrBuilder() AttrBuilder {
+	return &defaultAttrBuilder{}
+}
+
+func (o *defaultAttrBuilder) SetType(t attrType) AttrBuilder {
+	o.attrType = t
+	o.typeHasBeenSet = true
+	return o
+}
+
+func (o *defaultAttrBuilder) SetString(s string) AttrBuilder {
+	o.stringPayload = s
+	o.stringHasBeenSet = true
+	return o
+}
+
+func (o *defaultAttrBuilder) SetInt(i uint32) AttrBuilder {
+	o.intPayload = i
+	o.intHasBeenSet = true
+	return o
+}
+
+func (o *defaultAttrBuilder) SetBytes(b []byte) AttrBuilder {
+	o.bytesPayload = b
+	o.bytesHasBeenSet = true
+	return o
+}
+
+func (o *defaultAttrBuilder) Build() (Attribute, error) {
+	if o.typeHasBeenSet != true {
+		return nil, errors.New("`Attribute.Build()' called without first having set attribute type")
 	}
 
-	var cat attrCategory
-	var ok bool
-	if cat, ok = attrCategoryByType[a.AttrType]; !ok {
-		msg := fmt.Sprintf("Validation Error: Unknown attribute type %d", a.AttrType)
+	switch o.attrType {
+	case srcMacType, dstMacType:
+		return o.newMacAttribute()
+	case vlanType:
+		return o.newVlanAttribute()
+	case devNameType, devTypeType, inPortNameType, outPortNameType, nbrDevIDType:
+		return o.newStringAttribute()
+	case devIPv4Type, nbrIPv4Type, srcIPv4Type:
+		return o.newIpv4Attribute()
+	case inPortSpeedType, outPortSpeedType:
+		return o.newSpeedAttribute()
+	case inPortDuplexType, outPortDuplexType:
+		return o.newDuplexAttribute()
+	case replyStatusType:
+		return o.newReplyStatusAttribute()
+	}
+	return nil, fmt.Errorf("cannot build, unrecognized attribute type `%d'", o.attrType)
+}
+
+// checkTypeLen checks an attribute's Attribute.Type() and Attribute.Len()
+// output against norms for the supplied category.
+func checkTypeLen(a Attribute, category attrCategory) error {
+	// Check the supplied attribute against the supplied category
+	if attrCategoryByType[a.Type()] != category {
+		return fmt.Errorf("expected '%s' category attribute, got '%s'", attrCategoryString[attrCategoryByType[a.Type()]], attrTypeString[a.Type()])
+	}
+
+	// An attribute should never be less than 3 bytes (including TL header)
+	if a.Len() < MinAttrLen {
+		return fmt.Errorf("undersize attribute: got %d bytes, need at least %d bytes", a.Len(), MinAttrLen)
+	}
+
+	// l2t attribute length field is only a single byte. We better
+	// not have more data than can be described by that byte.
+	if a.Len() > math.MaxUint8 {
+		msg := fmt.Sprintf("oversize attribute: got %d bytes, max %d bytes", a.Len(), math.MaxUint8)
 		return errors.New(msg)
 	}
 
-	if _, ok := validateAttrFuncByCategory[cat]; !ok {
-		msg := fmt.Sprintf("Don't know how to Validate '%s' style l2t attributes (type %d)", cat, a.AttrType)
-		return errors.New(msg)
+	// Some attribute types have variable lengths.
+	// Their attrLenByCategory entry is -1 (unknown).
+	// Only length check affirmative (not -1) sizes.
+	expectedLen := attrLenByCategory[attrCategoryByType[a.Type()]]
+	if expectedLen >= MinAttrLen {
+		if int(a.Len()) != expectedLen {
+			return fmt.Errorf("%s attribute should be exactly %d bytes, got %d bytes", attrTypeString[a.Type()], expectedLen, a.Len())
+		}
 	}
-
-	validateAttrFuncByCategory[cat](a)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-// checkLen returns an error if the attribute's payload length doesn't make
-// sense based on the claimed type. A one-byte MAC address or a seven-byte IP
-// address should produce an error.
-func (a Attr) checkLen() error {
-	var ok bool
-	var category attrCategory
-	if category, ok = attrCategoryByType[a.AttrType]; !ok {
-		return errors.New(fmt.Sprintf("Unknown l2t Attribute type %d", a.AttrType))
-	}
-
-	expectedLen := attrLenByCategory[category] - TLsize
-
-	// l2t attribute length field is only a single byte. We better not have more
-	// data than can be described by that byte.
-	if len(a.AttrData) > math.MaxUint8-TLsize {
-		msg := fmt.Sprintf("Error, attribute has impossible payload size: %d bytes.", len(a.AttrData))
-		return errors.New(msg)
-	}
-
-	// String type attributes have no expected length so their
-	// attrLenByCategory entry will have a negative number.
-	if expectedLen < 0 {
-		return nil
-	}
-
-	if len(a.AttrData) != expectedLen {
-		msg := fmt.Sprintf("Error, malformed %s attribute: Value length is %d.", attrTypeString[a.AttrType], len(a.AttrData))
-		return errors.New(msg)
-	}
-
-	return nil
-}
-
-// Bytes renders an Attr object into wire format as a []byte.
-func (a Attr) Bytes() ([]byte, error) {
-	err := a.checkLen()
-	if err != nil {
-		return []byte{}, err
-	}
-
-	var result []byte
-	result = append(result, byte(a.AttrType))
-	result = append(result, byte(len(a.AttrData)+TLsize))
-	result = append(result, a.AttrData...)
-	return result, nil
-}
-
-// String looks up the correct l2t string method, calls it, returns the result.
-func (a Attr) String() (string, error) {
-	err := a.checkLen()
-	if err != nil {
-		return "", err
-	}
-
-	var ok bool
-	var cat attrCategory
-	if cat, ok = attrCategoryByType[a.AttrType]; !ok {
-		msg := fmt.Sprintf("Unknown l2t attribute type %d", a.AttrType)
-		return "", errors.New(msg)
-	}
-
-	if _, ok := stringifyAttrFuncByCategory[cat]; !ok {
-		msg := fmt.Sprintf("Don't know how to string-ify '%s' style l2t attributes (type %d)", cat, a.AttrType)
-		return "", errors.New(msg)
-	}
-
-	result, err := stringifyAttrFuncByCategory[cat](a)
-	if err != nil {
-		return "", err
-	}
-
-	return result, nil
-}
-
-// NewAttr takes an AttrType and attrPayload, renders them into an Attr
-// structure. Specific requirements for the contents of the attrPayload
-// depend on the supplied AttrType (use intData for VLAN, stringData for
-// strings, etc...)
-func NewAttr(t attrType, p attrPayload) (Attr, error) {
-	var ok bool
-
-	// Check that we know the category
-	if _, ok = attrCategoryByType[t]; !ok {
-		msg := fmt.Sprintf("Unknown l2t attribute type %d", t)
-		return Attr{}, errors.New(msg)
-	}
-
-	// Check that we have a "new" function for this category
-	if _, ok = newAttrFuncByCategory[attrCategoryByType[t]]; !ok {
-		msg := fmt.Sprintf("Don't know how to create an attribute of type '%d'", t)
-		return Attr{}, errors.New(msg)
-	}
-
-	// Call the appropriate "new" function, pass it input data
-	result, err := newAttrFuncByCategory[attrCategoryByType[t]](t, p)
-	if err != nil {
-		return Attr{}, err
-	}
-
-	return result, nil
-}
-
-// checkAttrInCategory checks whether a particular Attr belongs to the supplied
-// category.
-func checkAttrInCategory(a Attr, c attrCategory) error {
-	pc, _, _, _ := runtime.Caller(1)
-	fname := runtime.FuncForPC(pc).Name()
-
-	if attrCategoryByType[a.AttrType] != c {
-		msg := fmt.Sprintf("Cannot use %s on attribute with type %d.", fname, a.AttrType)
-		return errors.New(msg)
-	}
-
 	return nil
 }
