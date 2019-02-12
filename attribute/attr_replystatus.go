@@ -2,7 +2,8 @@ package attribute
 
 import (
 	"fmt"
-	"log"
+	"github.com/getlantern/errors"
+	"math"
 	"strings"
 )
 
@@ -44,7 +45,7 @@ const (
 	replyStatusSuccess = "Success"
 	//	replyStatusDstNotFound = "Destination Mac address not found"
 	//	replyStatusSrcNotFound = "Source Mac address not found"
-	replyStatusUnknown = "Status unknown"
+	replyStatusUnknown = "Status Unknown"
 
 	// The following strings were found together by strings-ing an IOS image.
 	// Leap of faith makes me think they're reply status attribute messages.
@@ -75,74 +76,59 @@ var (
 	}
 )
 
-type replyStatusAttribute struct {
-	attrType attrType
-	attrData []byte
-}
-
-func (o replyStatusAttribute) Type() attrType {
-	return o.attrType
-}
-
-func (o replyStatusAttribute) Len() uint8 {
-	return uint8(TLsize + len(o.attrData))
-}
-
-func (o replyStatusAttribute) String() string {
-	if status, ok := replyStatusToString[replyStatus(o.attrData[0])]; ok {
-		return status
-	}
-	return fmt.Sprintf("%s (%d)", replyStatusUnknown, o.attrData[0])
-}
-
-func (o replyStatusAttribute) Validate() error {
-	err := checkTypeLen(o, replyStatusCategory)
+// stringifyReplyStatus takes an Attr belonging to replyStatusCategory, string-ifys it.
+func stringifyReplyStatus(a Attr) (string, error) {
+	var err error
+	err = checkAttrInCategory(a, replyStatusCategory)
 	if err != nil {
-		log.Println("err")
-		return err
+		return "", err
 	}
-	return nil
+
+	err = a.checkLen()
+	if err != nil {
+		return "", err
+	}
+
+	if msg, ok := replyStatusToString[replyStatus(a.AttrData[0])]; ok {
+		return fmt.Sprintf("%s (%d)", msg, int(a.AttrData[0])), nil
+
+	}
+
+	return fmt.Sprintf("%s (%d)", replyStatusUnknown, int(a.AttrData[0])), nil
 }
 
-func (o replyStatusAttribute) Bytes() []byte {
-	return o.attrData
-}
+// newReplyStatusAttr returns an Attr with AttrType t and AttrData populated based on
+// input payload. Input options are:
+// - stringData (first choice, parses the string)
+// - intData (second choice, value used directly)
+func newReplyStatusAttr(t attrType, p attrPayload) (Attr, error) {
+	result := Attr{AttrType: t}
 
-// newReplyStatusAttribute returns a new attribute from replyStatusCategory
-func (o *defaultAttrBuilder) newReplyStatusAttribute() (Attribute, error) {
-	var replyStatusByte byte
-	var success bool
 	switch {
-	case o.stringHasBeenSet:
-		for replyStatus, replyStatusString := range replyStatusToString {
-			if strings.ToLower(o.stringPayload) == strings.ToLower(replyStatusString) {
-				replyStatusByte = byte(replyStatus)
-				success = true
+	case p.stringData != "":
+		for k, v := range replyStatusToString {
+			if strings.ToLower(p.stringData) == strings.ToLower(v) {
+				result.AttrData = []byte{byte(k)}
+				return result, nil
 			}
 		}
-		if !success {
-			return nil, fmt.Errorf("string payload `%s' unrecognized for reply status type", o.stringPayload)
-		}
-	case o.intHasBeenSet:
-		replyStatusByte = uint8(o.intPayload)
-	case o.bytesHasBeenSet:
-		if len(o.bytesPayload) != 1 {
-			return nil, fmt.Errorf("cannot use %d bytes to build a reply status attribute", len(o.bytesPayload))
-		}
-		replyStatusByte = o.bytesPayload[0]
-	default:
-		return nil, fmt.Errorf("cannot build, no attribute payload found for category %s attribute", attrCategoryString[replyStatusCategory])
+	case p.intData >= 0 && p.intData < math.MaxUint8:
+		result.AttrData = []byte{byte(p.intData)}
+		return result, nil
 	}
+	return Attr{}, errors.New("Error creating reply status attribute, no appropriate data supplied.")
+}
 
-	a := replyStatusAttribute{
-		attrType: o.attrType,
-		attrData: []byte{replyStatusByte},
+// validateReplyStatus checks the AttrType and AttrData against norms for
+// ReplyStatus type attributes.
+func validateReplyStatus(a Attr) error {
+	if attrCategoryByType[a.AttrType] != replyStatusCategory {
+		msg := fmt.Sprintf("Attribute type %d cannot be validated against reply status criteria.", a.AttrType)
+		return errors.New(msg)
 	}
-
-	err := a.Validate()
-	if err != nil {
-		return nil, err
+	if _, ok := replyStatusToString[replyStatus(a.AttrData[0])]; !ok {
+		msg := fmt.Sprintf("Unknown reply status %d.", int(a.AttrData[0]))
+		return errors.New(msg)
 	}
-
-	return a, nil
+	return nil
 }
