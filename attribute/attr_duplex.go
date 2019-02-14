@@ -92,7 +92,7 @@ func (o *defaultAttrBuilder) newDuplexAttribute() (Attribute, error) {
 		return nil, fmt.Errorf("cannot build, no attribute payload found for category %s attribute", attrCategoryString[duplexCategory])
 	}
 
-	a := duplexAttribute{
+	a := &duplexAttribute{
 		attrType: o.attrType,
 		attrData: []byte{duplexByte},
 	}

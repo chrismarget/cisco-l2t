@@ -103,7 +103,7 @@ func TestNewAttrBuilder_Duplex(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if bytes.Compare(expected, MarshalAttribute(byInt)) != 0 {
+			if bytes.Compare(expected, MarshalV1Attribute(byInt)) != 0 {
 				t.Fatal("Attributes don't match")
 			}
 			if bytes.Compare(byInt.Bytes(), byString.Bytes()) != 0 {

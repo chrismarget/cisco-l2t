@@ -53,15 +53,15 @@ type defaultMsg struct {
 	msgLen  msgLen
 }
 
-func (o defaultMsg) Type() msgType {
+func (o *defaultMsg) Type() msgType {
 	return o.msgType
 }
 
-func (o defaultMsg) Ver() msgVer {
+func (o *defaultMsg) Ver() msgVer {
 	return o.msgVer
 }
 
-func (o defaultMsg) Len() msgLen {
+func (o *defaultMsg) Len() msgLen {
 	if o.msgLen == 0 {
 		o.msgLen = headerLenByVersion[o.msgVer]
 		for _, a := range o.attrs {
@@ -71,11 +71,11 @@ func (o defaultMsg) Len() msgLen {
 	return o.msgLen
 }
 
-func (o defaultMsg) AttrCount() attrCount {
+func (o *defaultMsg) AttrCount() attrCount {
 	return attrCount(len(o.attrs))
 }
 
-func (o defaultMsg) Validate() error {
+func (o *defaultMsg) Validate() error {
 	calculated := headerLenByVersion[o.msgVer]
 	for _, a := range o.attrs {
 		calculated += msgLen(a.Len())
@@ -89,7 +89,7 @@ func (o defaultMsg) Validate() error {
 	return nil
 }
 
-func (o defaultMsg) Attributes() []attribute.Attribute {
+func (o *defaultMsg) Attributes() []attribute.Attribute {
 	return o.attrs
 }
 

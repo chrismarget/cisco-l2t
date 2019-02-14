@@ -168,7 +168,7 @@ func TestNewAttrBuilder_String(t *testing.T) {
 			log.Println("here")
 			t.Fatal(err)
 		}
-		if bytes.Compare(expected, MarshalAttribute(byInt)) != 0 {
+		if bytes.Compare(expected, MarshalV1Attribute(byInt)) != 0 {
 			t.Fatal("Attributes don't match 1")
 		}
 		if bytes.Compare(byInt.Bytes(), byString.Bytes()) != 0 {

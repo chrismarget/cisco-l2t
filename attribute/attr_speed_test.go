@@ -204,8 +204,8 @@ func TestNewAttrBuilder_Speed_String(t *testing.T) {
 				t.Fatalf("speed attribute failed Bytes Comparison: %s vs %s", testAttr.Bytes(), b)
 			}
 			expected := append([]byte{byte(speedAttrType), 6}, b...)
-			if bytes.Compare(MarshalAttribute(testAttr), expected) != 0 {
-				t.Fatalf("speed attribute failed Marshal Comparison: %s vs %s", MarshalAttribute(testAttr), expected)
+			if bytes.Compare(MarshalV1Attribute(testAttr), expected) != 0 {
+				t.Fatalf("speed attribute failed Marshal Comparison: %s vs %s", MarshalV1Attribute(testAttr), expected)
 			}
 		}
 	}
@@ -236,8 +236,8 @@ func TestNewAttrBuilder_Speed_Int(t *testing.T) {
 				t.Fatalf("speed attribute failed Bytes Comparison: %s vs %s", testAttr.Bytes(), b)
 			}
 			expected := append([]byte{byte(speedAttrType), 6}, b...)
-			if bytes.Compare(MarshalAttribute(testAttr), expected) != 0 {
-				t.Fatalf("speed attribute failed Marshal Comparison: %s vs %s", MarshalAttribute(testAttr), expected)
+			if bytes.Compare(MarshalV1Attribute(testAttr), expected) != 0 {
+				t.Fatalf("speed attribute failed Marshal Comparison: %s vs %s", MarshalV1Attribute(testAttr), expected)
 			}
 		}
 	}
@@ -266,8 +266,8 @@ func TestNewAttrBuilder_Speed_Bytes(t *testing.T) {
 				t.Fatalf("speed attribute failed Bytes Comparison: %s vs %s", testAttr.Bytes(), b)
 			}
 			expected := append([]byte{byte(speedAttrType), 6}, b...)
-			if bytes.Compare(MarshalAttribute(testAttr), expected) != 0 {
-				t.Fatalf("speed attribute failed Marshal Comparison: %s vs %s", MarshalAttribute(testAttr), expected)
+			if bytes.Compare(MarshalV1Attribute(testAttr), expected) != 0 {
+				t.Fatalf("speed attribute failed Marshal Comparison: %s vs %s", MarshalV1Attribute(testAttr), expected)
 			}
 		}
 	}
