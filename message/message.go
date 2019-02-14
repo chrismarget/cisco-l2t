@@ -1,6 +1,7 @@
 package message
 
 import (
+	"fmt"
 	"github.com/chrismarget/cisco-l2t/attribute"
 )
 
@@ -12,14 +13,28 @@ type (
 )
 
 const (
-	version1    = msgVer(1)
-	udpPort     = 2228
-	v1HeaderLen = uint16(5)
+	version1       = msgVer(1)
+	udpPort        = 2228
+	defaultMsgType = requestDst
+	defaultMsgVer  = version1
 
 	requestDst = msgType(1)
 	requestSrc = msgType(2)
 	replyDst   = msgType(3)
 	replySrc   = msgType(4)
+)
+
+var (
+	headerLenByVersion = map[msgVer]msgLen{
+		version1: 5,
+	}
+
+	msgTypeToString = map[msgType]string{
+		requestDst: "L2T_REQUEST_DST",
+		requestSrc: "L2T_REQUEST_SRC",
+		replyDst:   "L2T_REPLY_DST",
+		replySrc:   "L2T_REPLY_SRC",
+	}
 )
 
 type Msg interface {
@@ -39,7 +54,7 @@ type defaultMsg struct {
 }
 
 func (o defaultMsg) Type() msgType {
-	return o.Type()
+	return o.msgType
 }
 
 func (o defaultMsg) Ver() msgVer {
@@ -47,14 +62,13 @@ func (o defaultMsg) Ver() msgVer {
 }
 
 func (o defaultMsg) Len() msgLen {
-	if o.msgLen > 0 {
-		return o.msgLen
+	if o.msgLen == 0 {
+		o.msgLen = headerLenByVersion[o.msgVer]
+		for _, a := range o.attrs {
+			o.msgLen += msgLen(a.Len())
+		}
 	}
-	l := v1HeaderLen
-	for _, a := range o.attrs {
-		l += uint16(a.Len())
-	}
-	return msgLen(l)
+	return o.msgLen
 }
 
 func (o defaultMsg) AttrCount() attrCount {
@@ -62,6 +76,16 @@ func (o defaultMsg) AttrCount() attrCount {
 }
 
 func (o defaultMsg) Validate() error {
+	calculated := headerLenByVersion[o.msgVer]
+	for _, a := range o.attrs {
+		calculated += msgLen(a.Len())
+	}
+
+	result := o.Len()
+
+	if calculated != result {
+		return fmt.Errorf("Wire length should be %d, got %d", calculated, result)
+	}
 	return nil
 }
 
@@ -70,9 +94,9 @@ func (o defaultMsg) Attributes() []attribute.Attribute {
 }
 
 type MsgBuilder interface {
-	SetType(msgType)
-	SetVer(msgVer)
-	Attr(attribute.Attribute)
+	SetType(msgType) MsgBuilder
+	SetVer(msgVer) MsgBuilder
+	AddAttr(attribute.Attribute) MsgBuilder
 	Build() (Msg, error)
 }
 
@@ -83,28 +107,28 @@ type defaultMsgBuilder struct {
 }
 
 func NewMsgBuilder() MsgBuilder {
-	return &defaultMsgBuilder{}
+	return &defaultMsgBuilder{
+		msgType: defaultMsgType,
+		msgVer:  defaultMsgVer,
+	}
 }
 
-func (o *defaultMsgBuilder) SetType(t msgType) {
+func (o *defaultMsgBuilder) SetType(t msgType) MsgBuilder {
 	o.msgType = t
+	return o
 }
 
-func (o *defaultMsgBuilder) SetVer(v msgVer) {
+func (o *defaultMsgBuilder) SetVer(v msgVer) MsgBuilder {
 	o.msgVer = v
+	return o
 }
 
-func (o *defaultMsgBuilder) Attr(a attribute.Attribute) {
+func (o *defaultMsgBuilder) AddAttr(a attribute.Attribute) MsgBuilder {
 	o.attrs = append(o.attrs, a)
+	return o
 }
 
 func (o *defaultMsgBuilder) Build() (Msg, error) {
-	if o.msgVer == 0 {
-		o.msgVer = version1
-	}
-	if o.msgType == 0 {
-		o.msgType = requestSrc
-	}
 	m := defaultMsg{
 		msgType: o.msgType,
 		msgVer:  o.msgVer,
@@ -129,7 +153,7 @@ func orderAttributesMsgRequestSrc(in []attribute.Attribute) (attribute.Attribute
 	_ = out
 	_ = correctOrder
 	_ = optionalAttribute
-return nil, nil
+	return nil, nil
 }
 
 //type Msg struct {

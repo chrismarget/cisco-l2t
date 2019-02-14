@@ -1,5 +1,32 @@
 package message
 
+import (
+	"testing"
+)
+
+func TestNewMsgBuilder(t *testing.T) {
+	msg, err := NewMsgBuilder().Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if msg.Len() != 5 {
+		t.Fatal("Default message should be 5 bytes")
+	}
+	if msg.Type() != requestDst {
+		t.Fatalf("Default message type should be %s", msgTypeToString[requestDst])
+	}
+	if msg.AttrCount() != 0 {
+		t.Fatal("Attribute count foa a default message should be zero")
+	}
+	if len(msg.Attributes()) != 0 {
+		t.Fatal("Default message should have no attributes")
+	}
+	err = msg.Validate()
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 //func TestBytesToAttrSlice(t *testing.T) {
 //	var result []attribute.Attr
 //	var err error
