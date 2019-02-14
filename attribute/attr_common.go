@@ -120,40 +120,46 @@ var (
 	}
 )
 
-// MarshalAttribute returns a []byte containing a wire
+// MarshalV1Attribute returns a []byte containing a wire
 // format representation of the supplied attribute.
-func MarshalAttribute(a Attribute) []byte {
+func MarshalV1Attribute(a Attribute) []byte {
 	t := byte(a.Type())
 	l := byte(a.Len())
 	b := a.Bytes()
 	return append([]byte{t, l}, b...)
 }
 
-//TODO test UnmarshalAttribute
+//TODO test UnmarshalV1Attribute
 
-// UnmarshalAttribute returns an Attribute of the appropriate
+// UnmarshalV1Attribute returns an Attribute of the appropriate
 // kind, depending on what's in the first byte (attribute type marker)
-func UnmarshalAttribute(b []byte) (Attribute, error) {
-	if len(b) < MinAttrLen {
-		return nil, fmt.Errorf("cannot unmarshal attribute with only %d bytes (%d byte minimum)", len(b), MinAttrLen)
+func UnmarshalV1Attribute(b []byte) (Attribute, error) {
+	observedLength := len(b)
+	if observedLength < MinAttrLen {
+		return nil, fmt.Errorf("cannot unmarshal attribute with only %d bytes (%d byte minimum)", observedLength, MinAttrLen)
+	}
+
+	claimedLength := int(b[1])
+	if observedLength != claimedLength {
+		return nil, fmt.Errorf("cannot unmarshal attribute. length field says %d bytes, got %d bytes", observedLength, claimedLength)
 	}
 
 	t := AttrType(b[0])
 	switch {
 	case attrCategoryByType[t] == duplexCategory:
-		return &duplexAttribute{attrType: t, attrData: b[1:]}, nil
+		return &duplexAttribute{attrType: t, attrData: b[2:]}, nil
 	case attrCategoryByType[t] == ipv4Category:
-		return &ipv4Attribute{attrType: t, attrData: b[1:]}, nil
+		return &ipv4Attribute{attrType: t, attrData: b[2:]}, nil
 	case attrCategoryByType[t] == macCategory:
-		return &macAttribute{attrType: t, attrData: b[1:]}, nil
+		return &macAttribute{attrType: t, attrData: b[2:]}, nil
 	case attrCategoryByType[t] == replyStatusCategory:
-		return &replyStatusAttribute{attrType: t, attrData: b[1:]}, nil
+		return &replyStatusAttribute{attrType: t, attrData: b[2:]}, nil
 	case attrCategoryByType[t] == speedCategory:
-		return &speedAttribute{attrType: t, attrData: b[1:]}, nil
+		return &speedAttribute{attrType: t, attrData: b[2:]}, nil
 	case attrCategoryByType[t] == stringCategory:
-		return &stringAttribute{attrType: t, attrData: b[1:]}, nil
+		return &stringAttribute{attrType: t, attrData: b[2:]}, nil
 	case attrCategoryByType[t] == vlanCategory:
-		return &vlanAttribute{attrType: t, attrData: b[1:]}, nil
+		return &vlanAttribute{attrType: t, attrData: b[2:]}, nil
 	}
 
 	return nil, nil

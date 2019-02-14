@@ -104,7 +104,7 @@ func TestNewAttrBuilder_Vlan(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			if bytes.Compare(expectedMarshal, MarshalAttribute(byInt)) != 0 {
+			if bytes.Compare(expectedMarshal, MarshalV1Attribute(byInt)) != 0 {
 				t.Fatal("Attributes don't match")
 			}
 			if bytes.Compare(byInt.Bytes(), byByte.Bytes()) != 0 {

@@ -118,7 +118,7 @@ func TestNewAttrBuilder_Mac(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if bytes.Compare(expected, MarshalAttribute(byByte)) != 0 {
+		if bytes.Compare(expected, MarshalV1Attribute(byByte)) != 0 {
 			log.Println(expected)
 			log.Println(byByte.Bytes())
 			t.Fatal("Attributes don't match")

@@ -54,7 +54,7 @@ func (o *defaultAttrBuilder) newIpv4Attribute() (Attribute, error) {
 		return nil, fmt.Errorf("cannot build, no attribute payload found for category %s attribute", attrCategoryString[ipv4Category])
 	}
 
-	a := ipv4Attribute{
+	a := &ipv4Attribute{
 		attrType: o.attrType,
 		attrData: ipv4Bytes,
 	}
