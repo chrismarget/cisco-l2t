@@ -84,7 +84,7 @@ func (o defaultMsg) Validate() error {
 	result := o.Len()
 
 	if calculated != result {
-		return fmt.Errorf("Wire length should be %d, got %d", calculated, result)
+		return fmt.Errorf("Wire format byte length should be %d, got %d", calculated, result)
 	}
 	return nil
 }
@@ -129,7 +129,7 @@ func (o *defaultMsgBuilder) AddAttr(a attribute.Attribute) MsgBuilder {
 }
 
 func (o *defaultMsgBuilder) Build() (Msg, error) {
-	m := defaultMsg{
+	m := &defaultMsg{
 		msgType: o.msgType,
 		msgVer:  o.msgVer,
 		attrs:   o.attrs,
