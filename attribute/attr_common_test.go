@@ -85,7 +85,7 @@ func TestUnMarshalAttribute(t *testing.T) {
 	testString = append(testString, "hello5")
 
 	for i, _ := range testData {
-		result, err := UnmarshalV1Attribute(testData[i])
+		result, err := UnmarshalAttribute(testData[i])
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -106,7 +106,7 @@ func TestUnMarshalAttribute(t *testing.T) {
 //	if err != nil {
 //		t.Fatal(err)
 //	}
-//	expected, err := UnmarshalV1Attribute(testData[testType])
+//	expected, err := UnmarshalAttribute(testData[testType])
 //	if err != nil {
 //		t.Fatal(err)
 //	}

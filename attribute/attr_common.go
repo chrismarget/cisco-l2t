@@ -120,18 +120,18 @@ var (
 	}
 )
 
-// MarshalV1Attribute returns a []byte containing a wire
+// MarshalAttribute returns a []byte containing a wire
 // format representation of the supplied attribute.
-func MarshalV1Attribute(a Attribute) []byte {
+func MarshalAttribute(a Attribute) []byte {
 	t := byte(a.Type())
 	l := byte(a.Len())
 	b := a.Bytes()
 	return append([]byte{t, l}, b...)
 }
 
-// UnmarshalV1Attribute returns an Attribute of the appropriate
+// UnmarshalAttribute returns an Attribute of the appropriate
 // kind, depending on what's in the first byte (attribute type marker)
-func UnmarshalV1Attribute(b []byte) (Attribute, error) {
+func UnmarshalAttribute(b []byte) (Attribute, error) {
 	observedLength := len(b)
 	if observedLength < MinAttrLen {
 		return nil, fmt.Errorf("cannot unmarshal attribute with only %d bytes (%d byte minimum)", observedLength, MinAttrLen)
