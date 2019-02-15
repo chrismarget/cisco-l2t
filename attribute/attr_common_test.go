@@ -32,9 +32,57 @@ func TestUnMarshalAttribute(t *testing.T) {
 	testType = append(testType, VlanType)
 	testString = append(testString, "257")
 
-	testData = append(testData, []byte{4, 8, 104, 101, 108, 108, 111, 0})
+	testData = append(testData, []byte{4, 9, 104, 101, 108, 108, 111, 49, 0})
 	testType = append(testType, DevNameType)
-	testString = append(testString, "hello")
+	testString = append(testString, "hello1")
+
+	testData = append(testData, []byte{5, 9, 104, 101, 108, 108, 111, 50, 0})
+	testType = append(testType, DevTypeType)
+	testString = append(testString, "hello2")
+
+	testData = append(testData, []byte{6, 6, 1, 2, 3, 4})
+	testType = append(testType, DevIPv4Type)
+	testString = append(testString, "1.2.3.4")
+
+	testData = append(testData, []byte{7, 9, 104, 101, 108, 108, 111, 51, 0})
+	testType = append(testType, InPortNameType)
+	testString = append(testString, "hello3")
+
+	testData = append(testData, []byte{8, 9, 104, 101, 108, 108, 111, 52, 0})
+	testType = append(testType, OutPortNameType)
+	testString = append(testString, "hello4")
+
+	testData = append(testData, []byte{9, 6, 0, 0, 0, 4})
+	testType = append(testType, InPortSpeedType)
+	testString = append(testString, "10gbps")
+
+	testData = append(testData, []byte{10, 6, 0, 0, 0, 5})
+	testType = append(testType, OutPortSpeedType)
+	testString = append(testString, "100gb/s")
+
+	testData = append(testData, []byte{11, 3, 0})
+	testType = append(testType, InPortDuplexType)
+	testString = append(testString, "auto")
+
+	testData = append(testData, []byte{12, 3, 1})
+	testType = append(testType, OutPortDuplexType)
+	testString = append(testString, "half")
+
+	testData = append(testData, []byte{13, 6, 10, 11, 12, 13})
+	testType = append(testType, NbrIPv4Type)
+	testString = append(testString, "10.11.12.13")
+
+	testData = append(testData, []byte{14, 6, 20, 21, 22, 23})
+	testType = append(testType, SrcIPv4Type)
+	testString = append(testString, "20.21.22.23")
+
+	testData = append(testData, []byte{15, 3, 8})
+	testType = append(testType, ReplyStatusType)
+	testString = append(testString, "Destination Mac address not found")
+
+	testData = append(testData, []byte{16, 9, 104, 101, 108, 108, 111, 53, 0})
+	testType = append(testType, NbrDevIDType)
+	testString = append(testString, "hello5")
 
 	for i, _ := range testData {
 		result, err := UnmarshalV1Attribute(testData[i])
@@ -48,7 +96,7 @@ func TestUnMarshalAttribute(t *testing.T) {
 		}
 
 		if !reflect.DeepEqual(expected, result) {
-			t.Fatal("structures don't match")
+			t.Fatalf("structures don't match")
 		}
 	}
 }
