@@ -134,7 +134,11 @@ func MarshalAttribute(a Attribute) []byte {
 func UnmarshalAttribute(b []byte) (Attribute, error) {
 	observedLength := len(b)
 	if observedLength < MinAttrLen {
-		return nil, fmt.Errorf("cannot unmarshal attribute with only %d bytes (%d byte minimum)", observedLength, MinAttrLen)
+		return nil, fmt.Errorf("undersize attribute, cannot unmarshal %d bytes (%d byte minimum)", observedLength, MinAttrLen)
+	}
+
+	if observedLength > math.MaxUint8 {
+		return nil, fmt.Errorf("oversize attribute, cannot unmarshal %d bytes (%d byte maximum)", observedLength, math.MaxUint8)
 	}
 
 	claimedLength := int(b[1])
@@ -160,7 +164,7 @@ func UnmarshalAttribute(b []byte) (Attribute, error) {
 		return &vlanAttribute{attrType: t, attrData: b[2:]}, nil
 	}
 
-	return nil, nil
+	return nil, fmt.Errorf("cannot umarshal attribute of unknown type %d", t)
 }
 
 // Attribute represents an Attribure field from a
