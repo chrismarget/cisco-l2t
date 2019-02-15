@@ -7,7 +7,7 @@ import (
 )
 
 type (
-	AttrType byte
+	AttrType     byte
 	attrCategory string
 )
 
