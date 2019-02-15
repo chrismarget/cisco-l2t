@@ -18,7 +18,7 @@ func getAttrsByCategory(category attrCategory) []AttrType {
 }
 
 func TestUnMarshalAttribute_BadData(t *testing.T) {
-	var testData = [][]byte{}
+	var testData [][]byte
 	testData = append(testData, []byte{})
 	for i := 0; i <= math.MaxUint8; i++ {
 		testData[0] = append(testData[0], 1)			// oversize (fill 1st instance to 256 bytes)
@@ -45,9 +45,9 @@ func TestUnMarshalAttribute_BadData(t *testing.T) {
 }
 
 func TestUnMarshalAttribute(t *testing.T) {
-	var testData = [][]byte{}
-	var testType = []AttrType{}
-	var testString = []string{}
+	var testData [][]byte
+	var testType []AttrType
+	var testString []string
 
 	testData = append(testData, []byte{1, 8, 1, 2, 3, 4, 5, 6})
 	testType = append(testType, SrcMacType)

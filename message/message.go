@@ -3,6 +3,7 @@ package message
 import (
 	"fmt"
 	"github.com/chrismarget/cisco-l2t/attribute"
+	"math"
 )
 
 type (
@@ -76,16 +77,41 @@ func (o *defaultMsg) AttrCount() attrCount {
 }
 
 func (o *defaultMsg) Validate() error {
-	calculated := headerLenByVersion[o.msgVer]
+	// undersize check
+	if o.Len() < headerLenByVersion[version1] {
+		return fmt.Errorf("undersize message has %d bytes (min %d)", o.Len(), headerLenByVersion[version1])
+	}
+
+	// oversize check
+	if o.Len() > math.MaxUint16 {
+		return fmt.Errorf("oversize message has %d bytes (max %d)", o.Len(), math.MaxUint16)
+	}
+
+	// Look for duplicates, add up the length
+	observedLen := headerLenByVersion[o.msgVer]
+	foundAttrs := make(map[attribute.AttrType]bool)
 	for _, a := range o.attrs {
-		calculated += msgLen(a.Len())
+		observedLen += msgLen(a.Len())
+		t := a.Type()
+		if _, ok := foundAttrs[a.Type()]; ok {
+			return fmt.Errorf("attribute type %d (%s) repeats in message", t, attribute.AttrTypeString[t])
+		}
+		foundAttrs[a.Type()] = true
 	}
 
-	result := o.Len()
-
-	if calculated != result {
-		return fmt.Errorf("Wire format byte length should be %d, got %d", calculated, result)
+	// length sanity check
+	queriedLen := o.Len()
+	if observedLen != queriedLen {
+		return fmt.Errorf("Wire format byte length should be %d, got %d", observedLen, queriedLen)
 	}
+
+	// attribute count sanity check
+	observedAttrCount := attrCount(len(o.attrs))
+	queriedAttrCount := o.AttrCount()
+	if observedAttrCount != queriedAttrCount {
+		return fmt.Errorf("Found %d attributes, object claims to have %d", observedAttrCount, queriedAttrCount)
+	}
+
 	return nil
 }
 

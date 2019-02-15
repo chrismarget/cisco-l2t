@@ -48,7 +48,7 @@ func (o duplexAttribute) Validate() error {
 	}
 
 	if _, ok := portDuplexToString[portDuplex(o.attrData[0])]; !ok {
-		return fmt.Errorf("`%#x' not a valid payload for %s", o.attrData[0], attrTypeString[o.attrType])
+		return fmt.Errorf("`%#x' not a valid payload for %s", o.attrData[0], AttrTypeString[o.attrType])
 	}
 
 	return nil
