@@ -1,6 +1,8 @@
 package message
 
 import (
+	"bytes"
+	"encoding/binary"
 	"fmt"
 	"github.com/chrismarget/cisco-l2t/attribute"
 	"math"
@@ -161,6 +163,28 @@ func (o *defaultMsgBuilder) Build() (Msg, error) {
 		attrs:   o.attrs,
 	}
 	return m, nil
+}
+
+func MarshalMsg(msg Msg) []byte {
+	// build up the 5 byte header
+	msglen := make([]byte, 2)
+	binary.BigEndian.PutUint16(msglen, uint16(msg.Len()))
+	var b bytes.Buffer
+	b.Write([]byte{
+		byte(msg.Type()),
+		byte(msg.Ver()),
+	})
+	b.Write(msglen)
+	b.Write([]byte{
+		byte(msg.AttrCount()),
+	})
+
+	for _, a := range msg.Attributes() {
+		aBytes := attribute.MarshalAttribute(a)
+		b.Write(aBytes)
+	}
+
+	return b.Bytes()
 }
 
 func orderAttributesMsgRequestSrc(in []attribute.Attribute) (attribute.Attribute, error) {

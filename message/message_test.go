@@ -1,6 +1,7 @@
 package message
 
 import (
+	"bytes"
 	"github.com/chrismarget/cisco-l2t/attribute"
 	"testing"
 )
@@ -211,3 +212,23 @@ func TestNewMsgBuilder_BadData(t *testing.T) {
 //		t.Error("Long payload should produce an error.")
 //	}
 //}
+
+func TestMarshalMsg_Minimal(t *testing.T) {
+	msg, err := NewMsgBuilder().Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = msg.Validate()
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := []byte{1, 1, 0, 5, 0}
+	result := MarshalMsg(msg)
+	if len(result) != len(expected) {
+		t.Fatalf("expected 5 bytes")
+	}
+
+	if bytes.Compare(result, expected) != 0 {
+		t.Fatalf("minimal marshaled message bad data")
+	}
+}
