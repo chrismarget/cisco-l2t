@@ -34,7 +34,7 @@ func TestUnMarshalAttribute_BadData(t *testing.T) {
 		}
 	}
 
-	for d, _ := range(testData) {
+	for d, _ := range testData {
 		_, err := UnmarshalAttribute(testData[d])
 		if err == nil {
 			t.Fatalf("bad data should have produced an error")
