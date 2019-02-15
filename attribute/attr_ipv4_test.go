@@ -49,7 +49,7 @@ func TestIpv4Attribute_Validate_WithGoodData(t *testing.T) {
 			err := testAttr.Validate()
 			if err != nil {
 				t.Fatalf(err.Error()+"\n"+"Supposed good data %s produced error for %s.",
-					fmt.Sprintf("%v", []byte(testAttr.attrData)), attrTypeString[ipv4AttrType])
+					fmt.Sprintf("%v", []byte(testAttr.attrData)), AttrTypeString[ipv4AttrType])
 			}
 		}
 	}
@@ -75,7 +75,7 @@ func TestIpv4Attribute_Validate_WithBadData(t *testing.T) {
 			err := testAttr.Validate()
 			if err == nil {
 				t.Fatalf("Bad data %s in %s did not error.",
-					fmt.Sprintf("%v", []byte(testAttr.attrData)), attrTypeString[ipv4AttrType])
+					fmt.Sprintf("%v", []byte(testAttr.attrData)), AttrTypeString[ipv4AttrType])
 			}
 		}
 	}

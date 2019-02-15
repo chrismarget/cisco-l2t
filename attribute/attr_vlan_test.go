@@ -52,7 +52,7 @@ func TestVlanAttribute_Validate_WithGoodData(t *testing.T) {
 			err := testAttr.Validate()
 			if err != nil {
 				t.Fatalf(err.Error()+"\n"+"Supposed good data %s produced error for %s.",
-					fmt.Sprintf("%v", []byte(testAttr.attrData)), attrTypeString[vlanAttrType])
+					fmt.Sprintf("%v", []byte(testAttr.attrData)), AttrTypeString[vlanAttrType])
 			}
 		}
 	}
@@ -78,7 +78,7 @@ func TestVlanAttribute_Validate_WithBadData(t *testing.T) {
 			err := testAttr.Validate()
 			if err == nil {
 				t.Fatalf("Bad data %s in %s did not error.",
-					fmt.Sprintf("%v", []byte(testAttr.attrData)), attrTypeString[vlanAttrType])
+					fmt.Sprintf("%v", []byte(testAttr.attrData)), AttrTypeString[vlanAttrType])
 			}
 		}
 	}

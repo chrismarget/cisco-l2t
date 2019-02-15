@@ -42,7 +42,7 @@ const (
 )
 
 var (
-	attrTypeString = map[AttrType]string{
+	AttrTypeString = map[AttrType]string{
 		SrcMacType:        "L2_ATTR_SRC_MAC",        // 6 Byte MAC address
 		DstMacType:        "L2_ATTR_DST_MAC",        // 6 Byte MAC address
 		VlanType:          "L2_ATTR_VLAN",           // 2 Byte VLAN number
@@ -300,7 +300,7 @@ func (o *defaultAttrBuilder) Build() (Attribute, error) {
 func checkTypeLen(a Attribute, category attrCategory) error {
 	// Check the supplied attribute against the supplied category
 	if attrCategoryByType[a.Type()] != category {
-		return fmt.Errorf("expected '%s' category attribute, got '%s'", attrCategoryString[attrCategoryByType[a.Type()]], attrTypeString[a.Type()])
+		return fmt.Errorf("expected '%s' category attribute, got '%s'", attrCategoryString[attrCategoryByType[a.Type()]], AttrTypeString[a.Type()])
 	}
 
 	// An attribute should never be less than 3 bytes (including TL header)
@@ -321,7 +321,7 @@ func checkTypeLen(a Attribute, category attrCategory) error {
 	expectedLen := attrLenByCategory[attrCategoryByType[a.Type()]]
 	if expectedLen >= MinAttrLen {
 		if int(a.Len()) != expectedLen {
-			return fmt.Errorf("%s attribute should be exactly %d bytes, got %d bytes", attrTypeString[a.Type()], expectedLen, a.Len())
+			return fmt.Errorf("%s attribute should be exactly %d bytes, got %d bytes", AttrTypeString[a.Type()], expectedLen, a.Len())
 		}
 	}
 	return nil
