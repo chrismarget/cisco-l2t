@@ -3,7 +3,6 @@ package attribute
 import (
 	"bytes"
 	"fmt"
-	"log"
 	"math/rand"
 	"testing"
 	"time"
@@ -165,7 +164,6 @@ func TestNewAttrBuilder_String(t *testing.T) {
 		}
 		byByte, err := NewAttrBuilder().SetType(stringAttrType).SetBytes(byteData).Build()
 		if err != nil {
-			log.Println("here")
 			t.Fatal(err)
 		}
 		if bytes.Compare(expected, MarshalAttribute(byInt)) != 0 {
