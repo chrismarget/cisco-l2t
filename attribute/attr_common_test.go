@@ -1,6 +1,8 @@
 package attribute
 
 import (
+	"fmt"
+	"math"
 	"reflect"
 	"testing"
 )
@@ -13,6 +15,33 @@ func getAttrsByCategory(category attrCategory) []AttrType {
 		}
 	}
 	return attrTypesToTest
+}
+
+func TestUnMarshalAttribute_BadData(t *testing.T) {
+	var testData = [][]byte{}
+	testData = append(testData, []byte{})
+	for i := 0; i <= math.MaxUint8; i++ {
+		testData[0] = append(testData[0], 1)			// oversize (fill 1st instance to 256 bytes)
+	}
+	testData = append(testData, []byte{})						// undersize
+	testData = append(testData, []byte{1})						// undersize
+	testData = append(testData, []byte{1, 2})					// undersize
+	testData = append(testData, []byte{1, 8, 0, 0, 0, 0, 0})	// wrong length
+
+	for t := 0; t <= math.MaxUint8; t++ {
+		if _, ok := attrCategoryByType[AttrType(t)]; !ok {
+			testData = append(testData, []byte{byte(t), 3, 1})	// fill testData with bogus types
+		}
+	}
+
+	for d, _ := range(testData) {
+		_, err := UnmarshalAttribute(testData[d])
+		if err == nil {
+			t.Fatalf("bad data should have produced an error")
+		} else {
+			fmt.Println(testData[d])
+		}
+	}
 }
 
 func TestUnMarshalAttribute(t *testing.T) {
