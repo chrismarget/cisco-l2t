@@ -30,7 +30,7 @@ func TestNewMsgBuilder_Minimal(t *testing.T) {
 }
 
 func TestNewMsgBuilder(t *testing.T) {
-	const expectedLen = 109				// Header 5 plus attributes: 8+8+4+9+9+6+9+9+6+6+3+3+6+6+3+9
+	const expectedLen = 109 // Header 5 plus attributes: 8+8+4+9+9+6+9+9+6+6+3+3+6+6+3+9
 
 	var testType []attribute.AttrType
 	var testString []string
@@ -84,7 +84,7 @@ func TestNewMsgBuilder(t *testing.T) {
 	testString = append(testString, "hello5")
 
 	var atts []attribute.Attribute
-	for i, _ := range(testType) {
+	for i, _ := range testType {
 		a, err := attribute.NewAttrBuilder().SetType(testType[i]).SetString(testString[i]).Build()
 		if err != nil {
 			t.Fatal(err)
@@ -94,7 +94,7 @@ func TestNewMsgBuilder(t *testing.T) {
 
 	builder := NewMsgBuilder()
 	builder = builder.SetType(requestDst)
-	for _, a := range(atts){
+	for _, a := range atts {
 		builder = builder.AddAttr(a)
 	}
 
@@ -123,7 +123,7 @@ func TestNewMsgBuilder_BadData(t *testing.T) {
 	testString = append(testString, "0506.0708.090a")
 
 	var atts []attribute.Attribute
-	for i, _ := range(testType) {
+	for i, _ := range testType {
 		a, err := attribute.NewAttrBuilder().SetType(testType[i]).SetString(testString[i]).Build()
 		if err != nil {
 			t.Fatal(err)
@@ -133,7 +133,7 @@ func TestNewMsgBuilder_BadData(t *testing.T) {
 
 	builder := NewMsgBuilder()
 	builder = builder.SetType(requestDst)
-	for _, a := range(atts){
+	for _, a := range atts {
 		builder = builder.AddAttr(a)
 	}
 
