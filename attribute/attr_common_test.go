@@ -41,7 +41,7 @@ func TestUnMarshalAttribute_BadData(t *testing.T) {
 	}
 }
 
-func TestUnMarshalAttribute(t *testing.T) {
+func TestUnmarshalAttribute(t *testing.T) {
 	var testData [][]byte
 	var testType []AttrType
 	var testString []string
@@ -126,42 +126,3 @@ func TestUnMarshalAttribute(t *testing.T) {
 		}
 	}
 }
-
-//for testType, _ := range(testData) {
-//	result, err := NewAttrBuilder().SetType(SrcMacType).SetString().Build()
-//	if err != nil {
-//		t.Fatal(err)
-//	}
-//	expected, err := UnmarshalAttribute(testData[testType])
-//	if err != nil {
-//		t.Fatal(err)
-//	}
-//
-//	if ! reflect.DeepEqual(result, expected) {
-//		log.Println(expected)
-//		log.Println(result)
-//		//log.Println(expected.Bytes())
-//		//log.Println(result.Bytes())
-//		t.Fatalf("Unmarshaled attribute does not match expected data")
-//	}
-//
-//}
-
-//var testData = map[Attribute][]byte{}
-
-//SrcMacType
-//DstMacType
-//VlanType
-//DevNameType
-//DevTypeType
-//DevIPv4Type
-//InPortNameType
-//OutPortNameType
-//InPortSpeedType
-//OutPortSpeedType
-//InPortDuplexType
-//OutPortDuplexType
-//NbrIPv4Type
-//SrcIPv4Type
-//ReplyStatusType
-//NbrDevIDType
