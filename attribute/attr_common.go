@@ -129,8 +129,6 @@ func MarshalV1Attribute(a Attribute) []byte {
 	return append([]byte{t, l}, b...)
 }
 
-//TODO test UnmarshalV1Attribute
-
 // UnmarshalV1Attribute returns an Attribute of the appropriate
 // kind, depending on what's in the first byte (attribute type marker)
 func UnmarshalV1Attribute(b []byte) (Attribute, error) {
