@@ -3,7 +3,6 @@ package attribute
 import (
 	"bytes"
 	"fmt"
-	"log"
 	"testing"
 )
 
@@ -119,8 +118,6 @@ func TestNewAttrBuilder_Mac(t *testing.T) {
 			t.Fatal(err)
 		}
 		if bytes.Compare(expected, MarshalAttribute(byByte)) != 0 {
-			log.Println(expected)
-			log.Println(byByte.Bytes())
 			t.Fatal("Attributes don't match")
 		}
 		if bytes.Compare(byByte.Bytes(), byString1.Bytes()) != 0 {

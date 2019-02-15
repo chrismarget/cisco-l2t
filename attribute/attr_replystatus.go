@@ -2,7 +2,6 @@ package attribute
 
 import (
 	"fmt"
-	"log"
 	"strings"
 )
 
@@ -98,7 +97,6 @@ func (o replyStatusAttribute) String() string {
 func (o replyStatusAttribute) Validate() error {
 	err := checkTypeLen(o, replyStatusCategory)
 	if err != nil {
-		log.Println("err")
 		return err
 	}
 	return nil

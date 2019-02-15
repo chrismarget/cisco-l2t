@@ -1,7 +1,6 @@
 package attribute
 
 import (
-	"fmt"
 	"math"
 	"reflect"
 	"testing"
@@ -38,8 +37,6 @@ func TestUnMarshalAttribute_BadData(t *testing.T) {
 		_, err := UnmarshalAttribute(testData[d])
 		if err == nil {
 			t.Fatalf("bad data should have produced an error")
-		} else {
-			fmt.Println(testData[d])
 		}
 	}
 }
