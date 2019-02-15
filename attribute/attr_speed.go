@@ -19,11 +19,11 @@ const (
 )
 
 type speedAttribute struct {
-	attrType attrType
+	attrType AttrType
 	attrData []byte
 }
 
-func (o speedAttribute) Type() attrType {
+func (o speedAttribute) Type() AttrType {
 	return o.attrType
 }
 
@@ -83,7 +83,7 @@ func (o *defaultAttrBuilder) newSpeedAttribute() (Attribute, error) {
 		return nil, fmt.Errorf("cannot build, no attribute payload found for category %s attribute", attrCategoryString[speedCategory])
 	}
 
-	a := speedAttribute{
+	a := &speedAttribute{
 		attrType: o.attrType,
 		attrData: speedBytes,
 	}

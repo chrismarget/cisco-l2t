@@ -25,11 +25,11 @@ var (
 )
 
 type duplexAttribute struct {
-	attrType attrType
+	attrType AttrType
 	attrData []byte
 }
 
-func (o duplexAttribute) Type() attrType {
+func (o duplexAttribute) Type() AttrType {
 	return o.attrType
 }
 
@@ -48,7 +48,7 @@ func (o duplexAttribute) Validate() error {
 	}
 
 	if _, ok := portDuplexToString[portDuplex(o.attrData[0])]; !ok {
-		return fmt.Errorf("`%#x' not a valid payload for %s", o.attrData[0], attrTypeString[o.attrType])
+		return fmt.Errorf("`%#x' not a valid payload for %s", o.attrData[0], AttrTypeString[o.attrType])
 	}
 
 	return nil
@@ -92,7 +92,7 @@ func (o *defaultAttrBuilder) newDuplexAttribute() (Attribute, error) {
 		return nil, fmt.Errorf("cannot build, no attribute payload found for category %s attribute", attrCategoryString[duplexCategory])
 	}
 
-	a := duplexAttribute{
+	a := &duplexAttribute{
 		attrType: o.attrType,
 		attrData: []byte{duplexByte},
 	}

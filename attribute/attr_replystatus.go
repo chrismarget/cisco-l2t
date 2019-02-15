@@ -2,7 +2,6 @@ package attribute
 
 import (
 	"fmt"
-	"log"
 	"strings"
 )
 
@@ -76,11 +75,11 @@ var (
 )
 
 type replyStatusAttribute struct {
-	attrType attrType
+	attrType AttrType
 	attrData []byte
 }
 
-func (o replyStatusAttribute) Type() attrType {
+func (o replyStatusAttribute) Type() AttrType {
 	return o.attrType
 }
 
@@ -98,7 +97,6 @@ func (o replyStatusAttribute) String() string {
 func (o replyStatusAttribute) Validate() error {
 	err := checkTypeLen(o, replyStatusCategory)
 	if err != nil {
-		log.Println("err")
 		return err
 	}
 	return nil
@@ -134,7 +132,7 @@ func (o *defaultAttrBuilder) newReplyStatusAttribute() (Attribute, error) {
 		return nil, fmt.Errorf("cannot build, no attribute payload found for category %s attribute", attrCategoryString[replyStatusCategory])
 	}
 
-	a := replyStatusAttribute{
+	a := &replyStatusAttribute{
 		attrType: o.attrType,
 		attrData: []byte{replyStatusByte},
 	}

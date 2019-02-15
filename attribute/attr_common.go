@@ -7,7 +7,7 @@ import (
 )
 
 type (
-	attrType     byte
+	AttrType     byte
 	attrCategory string
 )
 
@@ -15,22 +15,22 @@ const (
 	TLsize     = 2
 	MinAttrLen = 3
 
-	srcMacType        = attrType(1)
-	dstMacType        = attrType(2)
-	vlanType          = attrType(3)
-	devNameType       = attrType(4)
-	devTypeType       = attrType(5)
-	devIPv4Type       = attrType(6)
-	inPortNameType    = attrType(7)
-	outPortNameType   = attrType(8)
-	inPortSpeedType   = attrType(9)
-	outPortSpeedType  = attrType(10)
-	inPortDuplexType  = attrType(11)
-	outPortDuplexType = attrType(12)
-	nbrIPv4Type       = attrType(13)
-	srcIPv4Type       = attrType(14)
-	replyStatusType   = attrType(15)
-	nbrDevIDType      = attrType(16)
+	SrcMacType        = AttrType(1)
+	DstMacType        = AttrType(2)
+	VlanType          = AttrType(3)
+	DevNameType       = AttrType(4)
+	DevTypeType       = AttrType(5)
+	DevIPv4Type       = AttrType(6)
+	InPortNameType    = AttrType(7)
+	OutPortNameType   = AttrType(8)
+	InPortSpeedType   = AttrType(9)
+	OutPortSpeedType  = AttrType(10)
+	InPortDuplexType  = AttrType(11)
+	OutPortDuplexType = AttrType(12)
+	NbrIPv4Type       = AttrType(13)
+	SrcIPv4Type       = AttrType(14)
+	ReplyStatusType   = AttrType(15)
+	NbrDevIDType      = AttrType(16)
 
 	duplexCategory      = attrCategory(1)
 	ipv4Category        = attrCategory(2)
@@ -42,61 +42,61 @@ const (
 )
 
 var (
-	attrTypeString = map[attrType]string{
-		srcMacType:        "L2_ATTR_SRC_MAC",        // 6 Byte MAC address
-		dstMacType:        "L2_ATTR_DST_MAC",        // 6 Byte MAC address
-		vlanType:          "L2_ATTR_VLAN",           // 2 Byte VLAN number
-		devNameType:       "L2_ATTR_DEV_NAME",       // Null terminated string
-		devTypeType:       "L2_ATTR_DEV_TYPE",       // Null terminated string
-		devIPv4Type:       "L2_ATTR_DEV_IP",         // 4 Byte IP Address
-		inPortNameType:    "L2_ATTR_INPORT_NAME",    // Null terminated string
-		outPortNameType:   "L2_ATTR_OUTPORT_NAME",   // Null terminated string
-		inPortSpeedType:   "L2_ATTR_INPORT_SPEED",   // 4 Bytes
-		outPortSpeedType:  "L2_ATTR_OUTPORT_SPEED",  // 4 Bytes
-		inPortDuplexType:  "L2_ATTR_INPORT_DUPLEX",  // 1 Byte
-		outPortDuplexType: "L2_ATTR_OUTPORT_DUPLEX", // 1 Byte
-		nbrIPv4Type:       "L2_ATTR_NBR_IP",         // 4 Byte IP Address
-		srcIPv4Type:       "L2_ATTR_SRC_IP",         // 4 Byte IP Address
-		replyStatusType:   "L2_ATTR_REPLY_STATUS",   // 1 Byte reply status
-		nbrDevIDType:      "L2_ATTR_NBR_DEV_ID",     // Null terminated string
+	AttrTypeString = map[AttrType]string{
+		SrcMacType:        "L2_ATTR_SRC_MAC",        // 6 Byte MAC address
+		DstMacType:        "L2_ATTR_DST_MAC",        // 6 Byte MAC address
+		VlanType:          "L2_ATTR_VLAN",           // 2 Byte VLAN number
+		DevNameType:       "L2_ATTR_DEV_NAME",       // Null terminated string
+		DevTypeType:       "L2_ATTR_DEV_TYPE",       // Null terminated string
+		DevIPv4Type:       "L2_ATTR_DEV_IP",         // 4 Byte IP Address
+		InPortNameType:    "L2_ATTR_INPORT_NAME",    // Null terminated string
+		OutPortNameType:   "L2_ATTR_OUTPORT_NAME",   // Null terminated string
+		InPortSpeedType:   "L2_ATTR_INPORT_SPEED",   // 4 Bytes
+		OutPortSpeedType:  "L2_ATTR_OUTPORT_SPEED",  // 4 Bytes
+		InPortDuplexType:  "L2_ATTR_INPORT_DUPLEX",  // 1 Byte
+		OutPortDuplexType: "L2_ATTR_OUTPORT_DUPLEX", // 1 Byte
+		NbrIPv4Type:       "L2_ATTR_NBR_IP",         // 4 Byte IP Address
+		SrcIPv4Type:       "L2_ATTR_SRC_IP",         // 4 Byte IP Address
+		ReplyStatusType:   "L2_ATTR_REPLY_STATUS",   // 1 Byte reply status
+		NbrDevIDType:      "L2_ATTR_NBR_DEV_ID",     // Null terminated string
 	}
 
-	attrTypePrettyString = map[attrType]string{
-		srcMacType:        "source MAC address",
-		dstMacType:        "destination MAC address",
-		vlanType:          "VLAN",
-		devNameType:       "device name",
-		devTypeType:       "device type",
-		devIPv4Type:       "device IPv4 address",
-		inPortNameType:    "ingress port name",
-		outPortNameType:   "egress port name",
-		inPortSpeedType:   "ingress port speed",
-		outPortSpeedType:  "egress port speed",
-		inPortDuplexType:  "ingress port duplex",
-		outPortDuplexType: "egress port duplex",
-		nbrIPv4Type:       "neighbor IPv4 address",
-		srcIPv4Type:       "source IPv4 address",
-		replyStatusType:   "reply status",
-		nbrDevIDType:      "neighbor device ID",
+	attrTypePrettyString = map[AttrType]string{
+		SrcMacType:        "source MAC address",
+		DstMacType:        "destination MAC address",
+		VlanType:          "VLAN",
+		DevNameType:       "device name",
+		DevTypeType:       "device type",
+		DevIPv4Type:       "device IPv4 address",
+		InPortNameType:    "ingress port name",
+		OutPortNameType:   "egress port name",
+		InPortSpeedType:   "ingress port speed",
+		OutPortSpeedType:  "egress port speed",
+		InPortDuplexType:  "ingress port duplex",
+		OutPortDuplexType: "egress port duplex",
+		NbrIPv4Type:       "neighbor IPv4 address",
+		SrcIPv4Type:       "source IPv4 address",
+		ReplyStatusType:   "reply status",
+		NbrDevIDType:      "neighbor device ID",
 	}
 
-	attrCategoryByType = map[attrType]attrCategory{
-		srcMacType:        macCategory,
-		dstMacType:        macCategory,
-		vlanType:          vlanCategory,
-		devNameType:       stringCategory,
-		devTypeType:       stringCategory,
-		devIPv4Type:       ipv4Category,
-		inPortNameType:    stringCategory,
-		outPortNameType:   stringCategory,
-		inPortSpeedType:   speedCategory,
-		outPortSpeedType:  speedCategory,
-		inPortDuplexType:  duplexCategory,
-		outPortDuplexType: duplexCategory,
-		nbrIPv4Type:       ipv4Category,
-		srcIPv4Type:       ipv4Category,
-		replyStatusType:   replyStatusCategory,
-		nbrDevIDType:      stringCategory,
+	attrCategoryByType = map[AttrType]attrCategory{
+		SrcMacType:        macCategory,
+		DstMacType:        macCategory,
+		VlanType:          vlanCategory,
+		DevNameType:       stringCategory,
+		DevTypeType:       stringCategory,
+		DevIPv4Type:       ipv4Category,
+		InPortNameType:    stringCategory,
+		OutPortNameType:   stringCategory,
+		InPortSpeedType:   speedCategory,
+		OutPortSpeedType:  speedCategory,
+		InPortDuplexType:  duplexCategory,
+		OutPortDuplexType: duplexCategory,
+		NbrIPv4Type:       ipv4Category,
+		SrcIPv4Type:       ipv4Category,
+		ReplyStatusType:   replyStatusCategory,
+		NbrDevIDType:      stringCategory,
 	}
 
 	attrLenByCategory = map[attrCategory]int{
@@ -129,34 +129,42 @@ func MarshalAttribute(a Attribute) []byte {
 	return append([]byte{t, l}, b...)
 }
 
-//TODO test UnmarshalAttribute
-
 // UnmarshalAttribute returns an Attribute of the appropriate
 // kind, depending on what's in the first byte (attribute type marker)
 func UnmarshalAttribute(b []byte) (Attribute, error) {
-	if len(b) < MinAttrLen {
-		return nil, fmt.Errorf("cannot unmarshal attribute with only %d bytes (%d byte minimum)", len(b), MinAttrLen)
+	observedLength := len(b)
+	if observedLength < MinAttrLen {
+		return nil, fmt.Errorf("undersize attribute, cannot unmarshal %d bytes (%d byte minimum)", observedLength, MinAttrLen)
 	}
 
-	t := attrType(b[0])
+	if observedLength > math.MaxUint8 {
+		return nil, fmt.Errorf("oversize attribute, cannot unmarshal %d bytes (%d byte maximum)", observedLength, math.MaxUint8)
+	}
+
+	claimedLength := int(b[1])
+	if observedLength != claimedLength {
+		return nil, fmt.Errorf("cannot unmarshal attribute. length field says %d bytes, got %d bytes", observedLength, claimedLength)
+	}
+
+	t := AttrType(b[0])
 	switch {
 	case attrCategoryByType[t] == duplexCategory:
-		return &duplexAttribute{attrType: t, attrData: b[1:]}, nil
+		return &duplexAttribute{attrType: t, attrData: b[2:]}, nil
 	case attrCategoryByType[t] == ipv4Category:
-		return &ipv4Attribute{attrType: t, attrData: b[1:]}, nil
+		return &ipv4Attribute{attrType: t, attrData: b[2:]}, nil
 	case attrCategoryByType[t] == macCategory:
-		return &macAttribute{attrType: t, attrData: b[1:]}, nil
+		return &macAttribute{attrType: t, attrData: b[2:]}, nil
 	case attrCategoryByType[t] == replyStatusCategory:
-		return &replyStatusAttribute{attrType: t, attrData: b[1:]}, nil
+		return &replyStatusAttribute{attrType: t, attrData: b[2:]}, nil
 	case attrCategoryByType[t] == speedCategory:
-		return &speedAttribute{attrType: t, attrData: b[1:]}, nil
+		return &speedAttribute{attrType: t, attrData: b[2:]}, nil
 	case attrCategoryByType[t] == stringCategory:
-		return &stringAttribute{attrType: t, attrData: b[1:]}, nil
+		return &stringAttribute{attrType: t, attrData: b[2:]}, nil
 	case attrCategoryByType[t] == vlanCategory:
-		return &vlanAttribute{attrType: t, attrData: b[1:]}, nil
+		return &vlanAttribute{attrType: t, attrData: b[2:]}, nil
 	}
 
-	return nil, nil
+	return nil, fmt.Errorf("cannot umarshal attribute of unknown type %d", t)
 }
 
 // Attribute represents an Attribure field from a
@@ -164,7 +172,7 @@ func UnmarshalAttribute(b []byte) (Attribute, error) {
 type Attribute interface {
 
 	// Type returns the Attribute's type
-	Type() attrType
+	Type() AttrType
 
 	// Len returns the attribute's length. It includes the length
 	// of the payload, plus 2 more bytes to cover the Type and
@@ -187,10 +195,10 @@ type Attribute interface {
 // AttrBuilder builds L2T attributes.
 // Calling SetType is mandatory.
 // Calling one of the other "Set" methods is required
-// for most values of "attrType"
+// for most values of "AttrType"
 type AttrBuilder interface {
 	// SetType sets the attribute type.
-	SetType(attrType) AttrBuilder
+	SetType(AttrType) AttrBuilder
 
 	// SetString configures the attribute with a string value.
 	//
@@ -219,13 +227,13 @@ type AttrBuilder interface {
 	// Use it for attributes belonging to any category.
 	SetBytes([]byte) AttrBuilder
 
-	// Build builds attribute based on the attrType and one of
+	// Build builds attribute based on the AttrType and one of
 	// the payloads configured with a "Set" method.
 	Build() (Attribute, error)
 }
 
 type defaultAttrBuilder struct {
-	attrType         attrType
+	attrType         AttrType
 	typeHasBeenSet   bool
 	stringPayload    string
 	stringHasBeenSet bool
@@ -239,7 +247,7 @@ func NewAttrBuilder() AttrBuilder {
 	return &defaultAttrBuilder{}
 }
 
-func (o *defaultAttrBuilder) SetType(t attrType) AttrBuilder {
+func (o *defaultAttrBuilder) SetType(t AttrType) AttrBuilder {
 	o.attrType = t
 	o.typeHasBeenSet = true
 	return o
@@ -269,19 +277,19 @@ func (o *defaultAttrBuilder) Build() (Attribute, error) {
 	}
 
 	switch o.attrType {
-	case srcMacType, dstMacType:
+	case SrcMacType, DstMacType:
 		return o.newMacAttribute()
-	case vlanType:
+	case VlanType:
 		return o.newVlanAttribute()
-	case devNameType, devTypeType, inPortNameType, outPortNameType, nbrDevIDType:
+	case DevNameType, DevTypeType, InPortNameType, OutPortNameType, NbrDevIDType:
 		return o.newStringAttribute()
-	case devIPv4Type, nbrIPv4Type, srcIPv4Type:
+	case DevIPv4Type, NbrIPv4Type, SrcIPv4Type:
 		return o.newIpv4Attribute()
-	case inPortSpeedType, outPortSpeedType:
+	case InPortSpeedType, OutPortSpeedType:
 		return o.newSpeedAttribute()
-	case inPortDuplexType, outPortDuplexType:
+	case InPortDuplexType, OutPortDuplexType:
 		return o.newDuplexAttribute()
-	case replyStatusType:
+	case ReplyStatusType:
 		return o.newReplyStatusAttribute()
 	}
 	return nil, fmt.Errorf("cannot build, unrecognized attribute type `%d'", o.attrType)
@@ -292,7 +300,7 @@ func (o *defaultAttrBuilder) Build() (Attribute, error) {
 func checkTypeLen(a Attribute, category attrCategory) error {
 	// Check the supplied attribute against the supplied category
 	if attrCategoryByType[a.Type()] != category {
-		return fmt.Errorf("expected '%s' category attribute, got '%s'", attrCategoryString[attrCategoryByType[a.Type()]], attrTypeString[a.Type()])
+		return fmt.Errorf("expected '%s' category attribute, got '%s'", attrCategoryString[attrCategoryByType[a.Type()]], AttrTypeString[a.Type()])
 	}
 
 	// An attribute should never be less than 3 bytes (including TL header)
@@ -313,7 +321,7 @@ func checkTypeLen(a Attribute, category attrCategory) error {
 	expectedLen := attrLenByCategory[attrCategoryByType[a.Type()]]
 	if expectedLen >= MinAttrLen {
 		if int(a.Len()) != expectedLen {
-			return fmt.Errorf("%s attribute should be exactly %d bytes, got %d bytes", attrTypeString[a.Type()], expectedLen, a.Len())
+			return fmt.Errorf("%s attribute should be exactly %d bytes, got %d bytes", AttrTypeString[a.Type()], expectedLen, a.Len())
 		}
 	}
 	return nil
