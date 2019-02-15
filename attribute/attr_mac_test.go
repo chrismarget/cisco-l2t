@@ -3,7 +3,6 @@ package attribute
 import (
 	"bytes"
 	"fmt"
-	"log"
 	"testing"
 )
 
@@ -46,7 +45,7 @@ func TestMacAttribute_Validate_WithGoodData(t *testing.T) {
 			err := testAttr.Validate()
 			if err != nil {
 				t.Fatalf(err.Error()+"\n"+"Supposed good data %s produced error for %s.",
-					fmt.Sprintf("%v", []byte(testAttr.attrData)), attrTypeString[macAttrType])
+					fmt.Sprintf("%v", []byte(testAttr.attrData)), AttrTypeString[macAttrType])
 			}
 		}
 	}
@@ -74,7 +73,7 @@ func TestMacAttribute_Validate_WithBadData(t *testing.T) {
 			err := testAttr.Validate()
 			if err == nil {
 				t.Fatalf("Bad data %s in %s did not error.",
-					fmt.Sprintf("%v", []byte(testAttr.attrData)), attrTypeString[macAttrType])
+					fmt.Sprintf("%v", []byte(testAttr.attrData)), AttrTypeString[macAttrType])
 			}
 		}
 	}
@@ -119,8 +118,6 @@ func TestNewAttrBuilder_Mac(t *testing.T) {
 			t.Fatal(err)
 		}
 		if bytes.Compare(expected, MarshalAttribute(byByte)) != 0 {
-			log.Println(expected)
-			log.Println(byByte.Bytes())
 			t.Fatal("Attributes don't match")
 		}
 		if bytes.Compare(byByte.Bytes(), byString1.Bytes()) != 0 {

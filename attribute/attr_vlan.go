@@ -12,11 +12,11 @@ const (
 )
 
 type vlanAttribute struct {
-	attrType attrType
+	attrType AttrType
 	attrData []byte
 }
 
-func (o vlanAttribute) Type() attrType {
+func (o vlanAttribute) Type() AttrType {
 	return o.attrType
 }
 
@@ -67,7 +67,7 @@ func (o *defaultAttrBuilder) newVlanAttribute() (Attribute, error) {
 		return nil, fmt.Errorf("cannot build, no attribute payload found for category %s attribute", attrCategoryString[vlanCategory])
 	}
 
-	a := vlanAttribute{
+	a := &vlanAttribute{
 		attrType: o.attrType,
 		attrData: vlanBytes,
 	}

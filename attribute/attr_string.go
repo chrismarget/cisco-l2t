@@ -15,11 +15,11 @@ const (
 )
 
 type stringAttribute struct {
-	attrType attrType
+	attrType AttrType
 	attrData []byte
 }
 
-func (o stringAttribute) Type() attrType {
+func (o stringAttribute) Type() AttrType {
 	return o.attrType
 }
 
@@ -81,7 +81,7 @@ func (o *defaultAttrBuilder) newStringAttribute() (Attribute, error) {
 		return nil, fmt.Errorf("cannot build, no attribute payload found for category %s attribute", attrCategoryString[stringCategory])
 	}
 
-	a := stringAttribute{
+	a := &stringAttribute{
 		attrType: o.attrType,
 		attrData: stringBytes,
 	}

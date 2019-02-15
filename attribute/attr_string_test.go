@@ -3,7 +3,6 @@ package attribute
 import (
 	"bytes"
 	"fmt"
-	"log"
 	"math/rand"
 	"testing"
 	"time"
@@ -103,7 +102,7 @@ func TestStringAttribute_Validate_WithGoodData(t *testing.T) {
 			err := testAttr.Validate()
 			if err != nil {
 				t.Fatalf(err.Error()+"\n"+"Supposed good data %s produced error for %s.",
-					fmt.Sprintf("%v", []byte(testAttr.attrData)), attrTypeString[stringAttrType])
+					fmt.Sprintf("%v", []byte(testAttr.attrData)), AttrTypeString[stringAttrType])
 			}
 		}
 	}
@@ -143,7 +142,7 @@ func TestStringAttribute_Validate_WithBadData(t *testing.T) {
 			err := testAttr.Validate()
 			if err == nil {
 				t.Fatalf("Bad data %s in %s did not error.",
-					fmt.Sprintf("%v", []byte(testAttr.attrData)), attrTypeString[stringAttrType])
+					fmt.Sprintf("%v", []byte(testAttr.attrData)), AttrTypeString[stringAttrType])
 			}
 		}
 	}
@@ -165,7 +164,6 @@ func TestNewAttrBuilder_String(t *testing.T) {
 		}
 		byByte, err := NewAttrBuilder().SetType(stringAttrType).SetBytes(byteData).Build()
 		if err != nil {
-			log.Println("here")
 			t.Fatal(err)
 		}
 		if bytes.Compare(expected, MarshalAttribute(byInt)) != 0 {
