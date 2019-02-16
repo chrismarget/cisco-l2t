@@ -120,6 +120,7 @@ func TestIpv4Attribute_StringBadData(t *testing.T) {
 			"hello",
 			"0",
 			"1",
+			"-1",
 			"4294967295",
 			"4294967296",
 			"4294967297",
