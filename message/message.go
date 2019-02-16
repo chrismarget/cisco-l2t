@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"github.com/chrismarget/cisco-l2t/attribute"
+	"log"
 	"math"
 )
 
@@ -38,15 +39,57 @@ var (
 		replyDst:   "L2T_REPLY_DST",
 		replySrc:   "L2T_REPLY_SRC",
 	}
+
+	msgTypeAttributeOrder = map[msgType][]attribute.AttrType{
+		requestDst: {
+			attribute.DstMacType,
+			attribute.SrcMacType,
+			attribute.VlanType,
+			attribute.SrcIPv4Type,
+			attribute.NbrDevIDType,
+		},
+		replyDst: {
+			attribute.DevNameType,
+			attribute.DevTypeType,
+			attribute.DevIPv4Type,
+			attribute.ReplyStatusType,
+			attribute.SrcIPv4Type,
+			attribute.NbrDevIDType,
+			attribute.InPortNameType,
+			attribute.InPortDuplexType,
+			attribute.InPortSpeedType,
+			attribute.OutPortNameType,
+			attribute.OutPortDuplexType,
+			attribute.OutPortSpeedType,
+		},
+	}
 )
 
+// Msg represents an L2T message
 type Msg interface {
+	// Type returns the message type. This is the first byte on the wire.
 	Type() msgType
+
+	// Ver returns the message protocol version. This is the
+	// second byte on the wire.
 	Ver() msgVer
+
+	// Len returns the message overall length: header plus sum of attribute
+	// lengths. This is the third/fourth bytes on the wire
 	Len() msgLen
+
+	// AttrCount returns the count of attributes in the message. This is
+	// the fifth byte on the wire.
 	AttrCount() attrCount
+
+	// Validate checks the message for problems.
 	Validate() error
+
+	// Attributes returns a slice of attributes belonging to the message.
 	Attributes() []attribute.Attribute
+
+	// Marshal returns the message formatted for transmission onto the wire.
+	Marshal() []byte
 }
 
 type defaultMsg struct {
@@ -56,6 +99,7 @@ type defaultMsg struct {
 	msgLen  msgLen
 }
 
+// Type does blah
 func (o *defaultMsg) Type() msgType {
 	return o.msgType
 }
@@ -114,7 +158,33 @@ func (o *defaultMsg) Validate() error {
 		return fmt.Errorf("Found %d attributes, object claims to have %d", observedAttrCount, queriedAttrCount)
 	}
 
+	// TODO: check for required attributes for the given message type
+	//       can't really do that without experimenting to find required
+	//       attribute types, of course...
+
 	return nil
+}
+
+func (o *defaultMsg) Marshal() []byte {
+	// build up the 5 byte header
+	lenBytes := make([]byte, 2)
+	binary.BigEndian.PutUint16(lenBytes, uint16(o.Len()))
+	var outBytes bytes.Buffer
+	outBytes.Write([]byte{
+		byte(o.Type()),
+		byte(o.Ver()),
+	})
+	outBytes.Write(lenBytes)
+	outBytes.Write([]byte{
+		byte(o.AttrCount()),
+	})
+
+	for _, a := range orderAttributes(o.attrs, o.msgType) {
+		aBytes := attribute.MarshalAttribute(a)
+		outBytes.Write(aBytes)
+	}
+
+	return outBytes.Bytes()
 }
 
 func (o *defaultMsg) Attributes() []attribute.Attribute {
@@ -165,43 +235,64 @@ func (o *defaultMsgBuilder) Build() (Msg, error) {
 	return m, nil
 }
 
-func MarshalMsg(msg Msg) []byte {
-	// build up the 5 byte header
-	msglen := make([]byte, 2)
-	binary.BigEndian.PutUint16(msglen, uint16(msg.Len()))
-	var b bytes.Buffer
-	b.Write([]byte{
-		byte(msg.Type()),
-		byte(msg.Ver()),
-	})
-	b.Write(msglen)
-	b.Write([]byte{
-		byte(msg.AttrCount()),
-	})
-
-	for _, a := range msg.Attributes() {
-		aBytes := attribute.MarshalAttribute(a)
-		b.Write(aBytes)
+// locationOfAttributeByType returns the index of the first instance
+// of an attribute.AttrType within a slice, or -1 if not found
+func locationOfAttributeByType(s []attribute.Attribute, aType attribute.AttrType) int {
+	for i, a := range s {
+		if a.Type() == aType {
+			return i
+		}
 	}
-
-	return b.Bytes()
+	log.Println("nope")
+	return -1
 }
 
-func orderAttributesMsgRequestSrc(in []attribute.Attribute) (attribute.Attribute, error) {
-	var out []attribute.Attribute
-	correctOrder := []attribute.AttrType{
-		attribute.DstMacType,
-		attribute.SrcMacType,
-		attribute.VlanType,
-		attribute.DevIPv4Type,
-		attribute.NbrDevIDType,
+// attrTypeLocationInSlice returns the index of the first instance
+// of and attribute.AttrType within a slice, or -1 if not found
+func attrTypeLocationInSlice(s []attribute.AttrType, a attribute.AttrType) int {
+	for k, v := range s {
+		if v == a {
+			return k
+		}
 	}
-	optionalAttribute := []attribute.AttrType{
-		attribute.NbrDevIDType,
-		attribute.VlanType,
+	return -1
+}
+
+// orderAttributes sorts the supplied []Attribute according to
+// the order prescribed by msgTypeAttributeOrder.
+func orderAttributes(msgAttributes []attribute.Attribute, msgType msgType) []attribute.Attribute{
+
+	// make a []AttrType that represents the input []Attribute
+	var inTypes []attribute.AttrType
+	for _, a := range msgAttributes {
+		inTypes = append(inTypes, a.Type())
 	}
-	_ = out
-	_ = correctOrder
-	_ = optionalAttribute
-	return nil, nil
+
+	// loop over the correctly ordered []AttrType. Any attributes of the
+	// appropriate type get appended to msgAttributes (they'll appear twice)
+	for _, aType := range msgTypeAttributeOrder[msgType] {
+		loc := attrTypeLocationInSlice(inTypes, aType)
+		if loc >= 0 {
+			msgAttributes = append(msgAttributes, msgAttributes[loc])
+		}
+	}
+
+	// loop over all of the inTypes. Any that don't appear in the correctly
+	// ordered []AttrType get appended to msgAttributes. Now everything
+	// appears in the list twice.
+	for _, t := range inTypes {
+		loc := attrTypeLocationInSlice(msgTypeAttributeOrder[msgType], t)
+		if loc < 0 {
+			loc = locationOfAttributeByType(msgAttributes, t)
+			msgAttributes = append(msgAttributes, msgAttributes[loc])
+		}
+	}
+
+	// At this point the msgAttributes slice is 2x its original length.
+	// It begins with original data, then has required elements in order,
+	// finishes with unordered elements. Cut it in half.
+	targetLen := len(msgAttributes) >> 1
+	msgAttributes = msgAttributes[targetLen:]
+
+	return msgAttributes
 }
