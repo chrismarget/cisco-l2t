@@ -42,6 +42,9 @@ func (o *defaultAttrBuilder) newIpv4Attribute() (Attribute, error) {
 	switch {
 	case o.stringHasBeenSet:
 		b := net.ParseIP(o.stringPayload)
+		if b == nil {
+			return nil, fmt.Errorf("cannot convert `%s' to an IPv4 address", o.stringPayload)
+		}
 		ipv4Bytes = b[len(b)-4:]
 	case o.bytesHasBeenSet:
 		if len(o.bytesPayload) != 4 {
