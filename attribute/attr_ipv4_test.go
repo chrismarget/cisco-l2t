@@ -113,3 +113,29 @@ func TestNewAttrBuilder_Ipv4(t *testing.T) {
 		}
 	}
 }
+
+func TestIpv4Attribute_StringBadData(t *testing.T) {
+	var (
+		badStringTestData = []string{
+			"hello",
+			"0",
+			"1",
+			"4294967295",
+			"4294967296",
+			"4294967297",
+			"1-1-1-1",
+			"1:1:1:1",
+			"1.256.3.4",
+		}
+	)
+
+	for _, ipv4AttrType := range getAttrsByCategory(ipv4Category) {
+		for _, s := range badStringTestData {
+			_, err := NewAttrBuilder().SetType(ipv4AttrType).SetString(s).Build()
+			if err == nil {
+				t.Fatalf("setting IPv4 attribute data with `%s' did not error", s)
+			}
+		}
+	}
+}
+
