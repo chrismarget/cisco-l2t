@@ -15,8 +15,8 @@ func TestNewMsgBuilder_Minimal(t *testing.T) {
 	if msg.Len() != 5 {
 		t.Fatal("Default message should be 5 bytes")
 	}
-	if msg.Type() != requestDst {
-		t.Fatalf("Default message type should be %s", msgTypeToString[requestDst])
+	if msg.Type() != RequestDst {
+		t.Fatalf("Default message type should be %s", msgTypeToString[RequestDst])
 	}
 	if msg.AttrCount() != 0 {
 		t.Fatal("Attribute count foa a default message should be zero")
@@ -94,7 +94,7 @@ func TestNewMsgBuilder(t *testing.T) {
 	}
 
 	builder := NewMsgBuilder()
-	builder = builder.SetType(requestDst)
+	builder = builder.SetType(RequestDst)
 	for _, a := range atts {
 		builder = builder.AddAttr(a)
 	}
@@ -133,7 +133,7 @@ func TestNewMsgBuilder_BadData(t *testing.T) {
 	}
 
 	builder := NewMsgBuilder()
-	builder = builder.SetType(requestDst)
+	builder = builder.SetType(RequestDst)
 	for _, a := range atts {
 		builder = builder.AddAttr(a)
 	}
@@ -232,7 +232,7 @@ func TestOrderAttributes_ExactMatch(t *testing.T) {
 	}
 	attrs = append(attrs, a)
 
-	attrs = orderAttributes(attrs, requestDst)
+	attrs = orderAttributes(attrs, RequestDst)
 
 	var result []attribute.AttrType
 	for _, a := range attrs {
@@ -292,7 +292,7 @@ func TestOrderAttributes_WithExtras(t *testing.T) {
 	}
 	attrs = append(attrs, a)
 
-	attrs = orderAttributes(attrs, requestDst)
+	attrs = orderAttributes(attrs, RequestDst)
 
 	var result []attribute.AttrType
 	for _, a := range attrs {
@@ -342,7 +342,7 @@ func TestOrderAttributes_ShortlistAndExtras(t *testing.T) {
 	}
 	attrs = append(attrs, a)
 
-	attrs = orderAttributes(attrs, requestDst)
+	attrs = orderAttributes(attrs, RequestDst)
 
 	var result []attribute.AttrType
 	for _, a := range attrs {
@@ -382,7 +382,7 @@ func TestOrderAttributes_Shortlist(t *testing.T) {
 	}
 	attrs = append(attrs, a)
 
-	attrs = orderAttributes(attrs, requestDst)
+	attrs = orderAttributes(attrs, RequestDst)
 
 	var result []attribute.AttrType
 	for _, a := range attrs {
@@ -451,8 +451,8 @@ func TestMarshalMsg_ReqDstStandard(t *testing.T) {
 	var err error
 
 	builder := NewMsgBuilder()
-	builder.SetType(requestDst)
-	builder.SetVer(version1)
+	builder.SetType(RequestDst)
+	builder.SetVer(Version1)
 
 	// Attribute should be {2, 8, 1, 2, 3, 4, 5, 6}
 	a, err = attribute.NewAttrBuilder().SetType(attribute.DstMacType).SetString("0102.0304.0506").Build()
@@ -499,7 +499,7 @@ func TestMarshalMsg_ReqDstStandard(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// requestDst header should be {2, 1, 0, 37, 5}
+	// RequestDst header should be {2, 1, 0, 37, 5}
 	// DstMacType   attribute should be {2, 8, 1, 2, 3, 4, 5, 6}
 	// SrcMacType   attribute should be {1, 8, 255, 254, 253, 5, 6, 7}
 	// VlanType     attribute should be {3, 4, 12, 34}
@@ -529,8 +529,8 @@ func TestMarshalMsg_ReqDstOversize(t *testing.T) {
 	var err error
 
 	builder := NewMsgBuilder()
-	builder.SetType(requestDst)
-	builder.SetVer(version1)
+	builder.SetType(RequestDst)
+	builder.SetVer(Version1)
 
 	// Attribute should be {2, 8, 1, 2, 3, 4, 5, 6}
 	a, err = attribute.NewAttrBuilder().SetType(attribute.DstMacType).SetString("0102.0304.0506").Build()
@@ -584,7 +584,7 @@ func TestMarshalMsg_ReqDstOversize(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// requestDst header should be {2, 1, 0, 40, 6}
+	// RequestDst header should be {2, 1, 0, 40, 6}
 	// DstMacType       attribute should be {2, 8, 1, 2, 3, 4, 5, 6}
 	// SrcMacType       attribute should be {1, 8, 255, 254, 253, 5, 6, 7}
 	// VlanType         attribute should be {3, 4, 12, 34}
@@ -619,8 +619,8 @@ func TestMarshalMsg_ReqDstUndersize(t *testing.T) {
 	var err error
 
 	builder := NewMsgBuilder()
-	builder.SetType(requestDst)
-	builder.SetVer(version1)
+	builder.SetType(RequestDst)
+	builder.SetVer(Version1)
 
 	// Attribute should be {2, 8, 1, 2, 3, 4, 5, 6}
 	a, err = attribute.NewAttrBuilder().SetType(attribute.DstMacType).SetString("0102.0304.0506").Build()
@@ -660,7 +660,7 @@ func TestMarshalMsg_ReqDstUndersize(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// requestDst header should be {2, 1, 0, 31, 4}
+	// RequestDst header should be {2, 1, 0, 31, 4}
 	// DstMacType   attribute should be {2, 8, 1, 2, 3, 4, 5, 6}
 	// SrcMacType   attribute should be {1, 8, 255, 254, 253, 5, 6, 7}
 	// VlanType     attribute should be {3, 4, 12, 34}
