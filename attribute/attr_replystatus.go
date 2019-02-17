@@ -71,6 +71,7 @@ var (
 		1: replyStatusSuccess,
 		7: replyStatusSrcNotFound,
 		8: replyStatusDstNotFound,
+		9: replyStatusNoNeighbor,
 	}
 )
 
