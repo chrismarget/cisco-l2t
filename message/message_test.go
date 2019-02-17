@@ -452,7 +452,7 @@ func TestMarshalMsg_ReqDstStandard(t *testing.T) {
 
 	builder := NewMsgBuilder()
 	builder.SetType(RequestDst)
-	builder.SetVer(version1)
+	builder.SetVer(Version1)
 
 	// Attribute should be {2, 8, 1, 2, 3, 4, 5, 6}
 	a, err = attribute.NewAttrBuilder().SetType(attribute.DstMacType).SetString("0102.0304.0506").Build()
@@ -530,7 +530,7 @@ func TestMarshalMsg_ReqDstOversize(t *testing.T) {
 
 	builder := NewMsgBuilder()
 	builder.SetType(RequestDst)
-	builder.SetVer(version1)
+	builder.SetVer(Version1)
 
 	// Attribute should be {2, 8, 1, 2, 3, 4, 5, 6}
 	a, err = attribute.NewAttrBuilder().SetType(attribute.DstMacType).SetString("0102.0304.0506").Build()
@@ -620,7 +620,7 @@ func TestMarshalMsg_ReqDstUndersize(t *testing.T) {
 
 	builder := NewMsgBuilder()
 	builder.SetType(RequestDst)
-	builder.SetVer(version1)
+	builder.SetVer(Version1)
 
 	// Attribute should be {2, 8, 1, 2, 3, 4, 5, 6}
 	a, err = attribute.NewAttrBuilder().SetType(attribute.DstMacType).SetString("0102.0304.0506").Build()
