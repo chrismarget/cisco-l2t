@@ -6,7 +6,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"github.com/chrismarget/cisco-l2t/attribute"
-	"log"
 	"math"
 	"net"
 	"strconv"
@@ -20,7 +19,8 @@ type (
 )
 
 const (
-	version1       = msgVer(1)
+	Version1       = msgVer(1)
+	udpProtocol    = "udp4"
 	udpPort        = 2228
 	defaultMsgType = RequestDst
 	defaultMsgVer  = version1
@@ -35,7 +35,7 @@ const (
 
 var (
 	headerLenByVersion = map[msgVer]msgLen{
-		version1: 5,
+		Version1: 5,
 	}
 
 	msgTypeToString = map[msgType]string{
@@ -148,8 +148,8 @@ func (o *defaultMsg) AttrCount() attrCount {
 
 func (o *defaultMsg) Validate() error {
 	// undersize check
-	if o.Len() < headerLenByVersion[version1] {
-		return fmt.Errorf("undersize message has %d bytes (min %d)", o.Len(), headerLenByVersion[version1])
+	if o.Len() < headerLenByVersion[Version1] {
+		return fmt.Errorf("undersize message has %d bytes (min %d)", o.Len(), headerLenByVersion[Version1])
 	}
 
 	// oversize check
@@ -244,6 +244,39 @@ func (o *defaultMsg) Marshal() []byte {
 	return outBytes.Bytes()
 }
 
+func (o *defaultMsg) Communicate(peer string) (Msg, error) {
+	payload := o.Marshal()
+	peer = peer + ":" + strconv.Itoa(udpPort)
+	conn, err := net.Dial(udpProtocol, peer)
+	if err != nil {
+		return nil, err
+	}
+
+	n, err := conn.Write(payload)
+	if err != nil {
+		return nil, err
+	}
+	if n != len(payload) {
+		return nil, fmt.Errorf("Attemtped to send %d bytes, Write() only managed %d", len(payload), n)
+	}
+
+	buffIn := make([]byte, inBufferSize)
+	fmt.Println("waiting...")
+	bytesRead, err := bufio.NewReader(conn).Read(buffIn)
+	fmt.Println("done.")
+	if err != nil {
+		return nil, err
+	}
+
+	fmt.Println(buffIn[:bytesRead])
+	//} else {
+	//	fmt.Printf("Some error %v\n", err)
+	//}
+	//conn.Close()
+
+	return nil, nil
+}
+
 func (o *defaultMsg) Attributes() []attribute.Attribute {
 	return o.attrs
 }
@@ -300,7 +333,6 @@ func locationOfAttributeByType(s []attribute.Attribute, aType attribute.AttrType
 			return i
 		}
 	}
-	log.Println("nope")
 	return -1
 }
 

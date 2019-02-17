@@ -139,4 +139,3 @@ func TestIpv4Attribute_StringBadData(t *testing.T) {
 		}
 	}
 }
-
