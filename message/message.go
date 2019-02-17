@@ -1,14 +1,13 @@
 package message
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/binary"
 	"fmt"
 	"github.com/chrismarget/cisco-l2t/attribute"
+	"log"
 	"math"
 	"net"
-	"strconv"
 )
 
 type (
@@ -212,13 +211,25 @@ func (o *defaultMsg) Marshal() []byte {
 
 func (o *defaultMsg) Communicate(peer string) (Msg, error) {
 	payload := o.Marshal()
-	peer = peer + ":" + strconv.Itoa(udpPort)
-	conn, err := net.Dial(udpProtocol, peer)
+	buffIn := make([]byte, inBufferSize)
+
+	//peer = peer + ":" + strconv.Itoa(udpPort)
+	//conn, err := net.Dial(udpProtocol, peer)
+	//if err != nil {
+	//	return nil, err
+	//}
+
+	us := net.UDPAddr{Port: udpPort}
+	them := &net.UDPAddr{
+		IP: net.IP{192,168,0,254},
+		Port: udpPort}
+
+	conn, err := net.ListenUDP(udpProtocol, &us)
 	if err != nil {
 		return nil, err
 	}
 
-	n, err := conn.Write(payload)
+	n, err := conn.WriteToUDP(payload, them)
 	if err != nil {
 		return nil, err
 	}
@@ -226,16 +237,39 @@ func (o *defaultMsg) Communicate(peer string) (Msg, error) {
 		return nil, fmt.Errorf("Attemtped to send %d bytes, Write() only managed %d", len(payload), n)
 	}
 
-	buffIn := make([]byte, inBufferSize)
-	fmt.Println("waiting...")
-	bytesRead, err := bufio.NewReader(conn).Read(buffIn)
-	fmt.Println("done.")
-	if err != nil {
-		return nil, err
+	n, themActual, err := conn.ReadFromUDP(buffIn)
+	if n == len(buffIn) {
+		return nil, fmt.Errorf("got full buffer: %d bytes", n)
 	}
 
-	fmt.Println(buffIn[:bytesRead])
-	//} else {
+	log.Println(them)
+	log.Println(themActual)
+	log.Println(buffIn[:n])
+
+
+
+
+	return nil,nil
+
+
+	//n, err := conn.Write(payload)
+	//if err != nil {
+	//	return nil, err
+	//}
+	//if n != len(payload) {
+	//	return nil, fmt.Errorf("Attemtped to send %d bytes, Write() only managed %d", len(payload), n)
+	//}
+	//
+	//buffIn := make([]byte, inBufferSize)
+	//fmt.Println("waiting...")
+	//bytesRead, err := bufio.NewReader(conn).Read(buffIn)
+	//fmt.Println("done.")
+	//if err != nil {
+	//	return nil, err
+	//}
+	//
+	//fmt.Println(buffIn[:bytesRead])
+	////} else {
 	//	fmt.Printf("Some error %v\n", err)
 	//}
 	//conn.Close()
