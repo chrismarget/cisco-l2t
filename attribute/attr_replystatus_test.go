@@ -20,6 +20,7 @@ func TestReplyStatusAttribute_String(t *testing.T) {
 	replyStatusStringTestData[1] = "Success"
 	replyStatusStringTestData[7] = "Source Mac address not found"
 	replyStatusStringTestData[8] = "Destination Mac address not found"
+	replyStatusStringTestData[9] = "No CDP neighbour"
 
 	for _, replyStatusAttrType := range getAttrsByCategory(replyStatusCategory) {
 		for data, expected := range replyStatusStringTestData {

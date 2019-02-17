@@ -23,8 +23,7 @@ const (
 	udpProtocol    = "udp4"
 	udpPort        = 2228
 	defaultMsgType = RequestDst
-	defaultMsgVer  = version1
-	udpProtocol    = "udp4"
+	defaultMsgVer  = Version1
 	inBufferSize   = 2048
 
 	RequestDst = msgType(1)
@@ -187,39 +186,6 @@ func (o *defaultMsg) Validate() error {
 	//       attribute types, of course...
 
 	return nil
-}
-
-func (o *defaultMsg) Communicate(peer string) (Msg, error) {
-	payload := o.Marshal()
-	peer = peer + ":" + strconv.Itoa(udpPort)
-	conn, err := net.Dial(udpProtocol, peer)
-	if err != nil {
-		return nil, err
-	}
-
-	n, err := conn.Write(payload)
-	if err != nil {
-		return nil, err
-	}
-	if n != len(payload) {
-		return nil, fmt.Errorf("Attemtped to send %d bytes, Write() only managed %d", len(payload), n)
-	}
-
-	buffIn := make([]byte, inBufferSize)
-	fmt.Println("waiting...")
-	bytesRead, err := bufio.NewReader(conn).Read(buffIn)
-	fmt.Println("done.")
-	if err != nil {
-		return nil, err
-	}
-
-	fmt.Println(buffIn[:bytesRead])
-	//} else {
-	//      fmt.Printf("Some error %v\n", err)
-	//}
-	//conn.Close()
-
-	return nil, nil
 }
 
 func (o *defaultMsg) Marshal() []byte {
