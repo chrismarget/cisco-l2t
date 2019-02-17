@@ -61,7 +61,7 @@ var (
 		NbrDevIDType:      "L2_ATTR_NBR_DEV_ID",     // Null terminated string
 	}
 
-	attrTypePrettyString = map[AttrType]string{
+	AttrTypePrettyString = map[AttrType]string{
 		SrcMacType:        "source MAC address",
 		DstMacType:        "destination MAC address",
 		VlanType:          "VLAN",
@@ -182,7 +182,7 @@ type Attribute interface {
 
 	// String returns the attribute payload in printable format.
 	// It does not include any descriptive wrapper stuff, does
-	// well when combined with something from attrTypePrettyString.
+	// well when combined with something from AttrTypePrettyString.
 	String() string
 
 	// Validate returns an error if the attribute is malformed.
