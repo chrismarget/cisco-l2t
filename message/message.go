@@ -1,14 +1,12 @@
 package message
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/binary"
 	"fmt"
 	"github.com/chrismarget/cisco-l2t/attribute"
 	"math"
 	"net"
-	"strconv"
 )
 
 type (
@@ -33,11 +31,11 @@ const (
 )
 
 var (
-	headerLenByVersion = map[msgVer]msgLen{
+	HeaderLenByVersion = map[msgVer]msgLen{
 		Version1: 5,
 	}
 
-	msgTypeToString = map[msgType]string{
+	MsgTypeToString = map[msgType]string{
 		RequestDst: "L2T_REQUEST_DST",
 		RequestSrc: "L2T_REQUEST_SRC",
 		ReplyDst:   "L2T_REPLY_DST",
@@ -68,7 +66,7 @@ var (
 		},
 	}
 
-	msgTypeReqAttrs = map[msgType][]attribute.AttrType{
+	msgTypeRequiredAttrs = map[msgType][]attribute.AttrType{
 		RequestDst: {
 			attribute.DstMacType,
 			attribute.SrcMacType,
@@ -112,7 +110,7 @@ type Msg interface {
 
 	// Communicate sends the message to the switch specified
 	// in string form, waits for a reply.
-	Communicate(string) (Msg, error)
+	Communicate(addr *net.UDPAddr) (Msg, *net.UDPAddr, error)
 }
 
 type defaultMsg struct {
@@ -133,7 +131,7 @@ func (o *defaultMsg) Ver() msgVer {
 
 func (o *defaultMsg) Len() msgLen {
 	if o.msgLen == 0 {
-		o.msgLen = headerLenByVersion[o.msgVer]
+		o.msgLen = HeaderLenByVersion[o.msgVer]
 		for _, a := range o.attrs {
 			o.msgLen += msgLen(a.Len())
 		}
@@ -147,8 +145,8 @@ func (o *defaultMsg) AttrCount() attrCount {
 
 func (o *defaultMsg) Validate() error {
 	// undersize check
-	if o.Len() < headerLenByVersion[Version1] {
-		return fmt.Errorf("undersize message has %d bytes (min %d)", o.Len(), headerLenByVersion[Version1])
+	if o.Len() < HeaderLenByVersion[Version1] {
+		return fmt.Errorf("undersize message has %d bytes (min %d)", o.Len(), HeaderLenByVersion[Version1])
 	}
 
 	// oversize check
@@ -157,7 +155,7 @@ func (o *defaultMsg) Validate() error {
 	}
 
 	// Look for duplicates, add up the length
-	observedLen := headerLenByVersion[o.msgVer]
+	observedLen := HeaderLenByVersion[o.msgVer]
 	foundAttrs := make(map[attribute.AttrType]bool)
 	for _, a := range o.attrs {
 		observedLen += msgLen(a.Len())
@@ -210,37 +208,43 @@ func (o *defaultMsg) Marshal() []byte {
 	return outBytes.Bytes()
 }
 
-func (o *defaultMsg) Communicate(peer string) (Msg, error) {
-	payload := o.Marshal()
-	peer = peer + ":" + strconv.Itoa(udpPort)
-	conn, err := net.Dial(udpProtocol, peer)
-	if err != nil {
-		return nil, err
+func (o *defaultMsg) Communicate(target *net.UDPAddr) (Msg, *net.UDPAddr, error) {
+	if target.Port == 0 {
+		target.Port = udpPort
 	}
 
-	n, err := conn.Write(payload)
+	conn, err := net.ListenUDP(udpProtocol, &net.UDPAddr{Port: udpPort})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
+	}
+
+	payload := o.Marshal()
+	n, err := conn.WriteToUDP(payload, target)
+	if err != nil {
+		return nil, nil, err
 	}
 	if n != len(payload) {
-		return nil, fmt.Errorf("Attemtped to send %d bytes, Write() only managed %d", len(payload), n)
+		return nil, nil, fmt.Errorf("attemtped send of %d bytes, only managed %d", len(payload), n)
 	}
+
 
 	buffIn := make([]byte, inBufferSize)
-	fmt.Println("waiting...")
-	bytesRead, err := bufio.NewReader(conn).Read(buffIn)
-	fmt.Println("done.")
-	if err != nil {
-		return nil, err
+	n, respondent, err := conn.ReadFromUDP(buffIn)
+	if n == len(buffIn) {
+		return nil, respondent, fmt.Errorf("got full buffer: %d bytes", n)
 	}
 
-	fmt.Println(buffIn[:bytesRead])
-	//} else {
-	//	fmt.Printf("Some error %v\n", err)
-	//}
-	//conn.Close()
+	err = conn.Close()
+	if err != nil {
+		return nil, nil, err
+	}
 
-	return nil, nil
+	reply, err := UnmarshalMessage(buffIn)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return reply, respondent, nil
 }
 
 func (o *defaultMsg) Attributes() []attribute.Attribute {
@@ -350,4 +354,50 @@ func orderAttributes(msgAttributes []attribute.Attribute, msgType msgType) []att
 	msgAttributes = msgAttributes[targetLen:]
 
 	return msgAttributes
+}
+
+func UnmarshalMessage(b []byte) (Msg, error) {
+	if len(b) < int(HeaderLenByVersion[Version1]) {
+		return nil, fmt.Errorf("cannot unmarshal message got only %d bytes", len(b))
+	}
+
+	t := msgType(b[0])
+	v := msgVer(b[1])
+	l := msgLen(binary.BigEndian.Uint16(b[2:4]))
+	c := attrCount(b[4])
+
+	var attrs []attribute.Attribute
+
+	p := int(HeaderLenByVersion[Version1])
+
+	for p < int(l) {
+		remaining := int(l) - p
+		if remaining < attribute.MinAttrLen {
+			return nil, fmt.Errorf("at byte %d, not enough data remaining (%d btytes)to extract another attribute", p, attribute.MinAttrLen)
+		}
+
+		nextAttrLen := int(b[p+1])
+		if remaining < nextAttrLen {
+			return nil, fmt.Errorf("at byte %d, not enough data remaining to extract a %d byte attribute", p, nextAttrLen	)
+		}
+
+		a, err := attribute.UnmarshalAttribute(b[p:p+nextAttrLen])
+		if err != nil {
+			return nil, err
+		}
+
+		attrs = append(attrs, a)
+		p += nextAttrLen
+	}
+
+	if int(c) != len(attrs) {
+		return nil, fmt.Errorf("header claimed %d attributes, got %d", c, len(attrs))
+	}
+
+	return &defaultMsg{
+		msgType: t,
+		msgVer: v,
+		msgLen: l,
+		attrs: attrs,
+	}, nil
 }

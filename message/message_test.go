@@ -16,7 +16,7 @@ func TestNewMsgBuilder_Minimal(t *testing.T) {
 		t.Fatal("Default message should be 5 bytes")
 	}
 	if msg.Type() != RequestDst {
-		t.Fatalf("Default message type should be %s", msgTypeToString[RequestDst])
+		t.Fatalf("Default message type should be %s", MsgTypeToString[RequestDst])
 	}
 	if msg.AttrCount() != 0 {
 		t.Fatal("Attribute count foa a default message should be zero")
@@ -681,4 +681,38 @@ func TestMarshalMsg_ReqDstUndersize(t *testing.T) {
 	if bytes.Compare(result, expected) != 0 {
 		t.Fatalf("RequestDst undersize message bad data")
 	}
+}
+
+func TestUnmarshalMessage(t *testing.T) {
+	data := []byte{
+		3, 1, 0, 86, 12,
+		4, 10, 67, 97, 116, 50, 57, 54, 48, 0,
+		5, 19, 87, 83, 45, 67, 50, 57, 54, 48, 71, 45, 50, 52, 84, 67, 45, 76, 0,
+		6, 6, 192, 168, 1, 254,
+		15, 3, 1,
+		13, 6, 0, 0, 0, 0,
+		16, 3, 0,
+		7, 8, 71, 105, 48, 47, 52, 0,
+		11, 3, 0,
+		9, 6, 0, 0, 0, 0,
+		8, 8, 71, 105, 48, 47, 52, 0,
+		12, 3, 0,
+		10, 6, 0, 0, 0, 0,
+	}
+
+	msg, err := UnmarshalMessage(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	log.Println(MsgTypeToString[msg.Type()])
+	log.Println(msg.Ver())
+	log.Println(msg.Len())
+	log.Println(msg.AttrCount())
+
+	for _, a := range msg.Attributes() {
+		log.Println(attribute.AttrTypePrettyString[a.Type()], a.String())
+	}
+
+	_ = msg
 }
