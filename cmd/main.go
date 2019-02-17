@@ -12,7 +12,6 @@ func main() {
 	var err error
 
 	builder := message.NewMsgBuilder()
-	builder.SetType(message.RequestSrc)
 
 	a, err = attribute.NewAttrBuilder().SetType(attribute.SrcMacType).SetString("7073.cb8a.f62a").Build()
 	if err != nil {

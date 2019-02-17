@@ -211,7 +211,7 @@ func (o *defaultMsg) Marshal() []byte {
 
 func (o *defaultMsg) Communicate(peer string) (Msg, error) {
 	payload := o.Marshal()
-	buffIn := make([]byte, inBufferSize)
+	//buffIn := make([]byte, inBufferSize)
 
 	//peer = peer + ":" + strconv.Itoa(udpPort)
 	//conn, err := net.Dial(udpProtocol, peer)
@@ -237,44 +237,18 @@ func (o *defaultMsg) Communicate(peer string) (Msg, error) {
 		return nil, fmt.Errorf("Attemtped to send %d bytes, Write() only managed %d", len(payload), n)
 	}
 
-	n, themActual, err := conn.ReadFromUDP(buffIn)
-	if n == len(buffIn) {
-		return nil, fmt.Errorf("got full buffer: %d bytes", n)
-	}
 
-	log.Println(them)
-	log.Println(themActual)
-	log.Println(buffIn[:n])
+	//n, themActual, err := conn.ReadFromUDP(buffIn)
+	//if n == len(buffIn) {
+	//	return nil, fmt.Errorf("got full buffer: %d bytes", n)
+	//}
+	//
+	//log.Println(them)
+	//log.Println(themActual)
+	//log.Println(buffIn[:n])
 
-
-
-
+	conn.Close()
 	return nil,nil
-
-
-	//n, err := conn.Write(payload)
-	//if err != nil {
-	//	return nil, err
-	//}
-	//if n != len(payload) {
-	//	return nil, fmt.Errorf("Attemtped to send %d bytes, Write() only managed %d", len(payload), n)
-	//}
-	//
-	//buffIn := make([]byte, inBufferSize)
-	//fmt.Println("waiting...")
-	//bytesRead, err := bufio.NewReader(conn).Read(buffIn)
-	//fmt.Println("done.")
-	//if err != nil {
-	//	return nil, err
-	//}
-	//
-	//fmt.Println(buffIn[:bytesRead])
-	////} else {
-	//	fmt.Printf("Some error %v\n", err)
-	//}
-	//conn.Close()
-
-	return nil, nil
 }
 
 func (o *defaultMsg) Attributes() []attribute.Attribute {
@@ -384,4 +358,48 @@ func orderAttributes(msgAttributes []attribute.Attribute, msgType msgType) []att
 	msgAttributes = msgAttributes[targetLen:]
 
 	return msgAttributes
+}
+
+func UnmarshalMessage(b []byte) (Msg, error) {
+	if len(b) < int(headerLenByVersion[Version1]) {
+		return nil, fmt.Errorf("cannot unmarshal message got only %d bytes", len(b))
+	}
+
+	t := msgType(b[0])
+	v := msgVer(b[1])
+	l := msgLen(binary.BigEndian.Uint16(b[2:4]))
+	//c := attrCount(b[4])
+
+	var attrs []attribute.Attribute
+
+	p := int(headerLenByVersion[Version1])
+
+	for p < int(l) {
+		remaining := int(l) - p
+		if remaining < attribute.MinAttrLen {
+			return nil, fmt.Errorf("at byte %d, not enough data remaining (%d btytes)to extract another attribute", p, attribute.MinAttrLen)
+		}
+
+		nextAttrLen := int(b[p+1])
+		if remaining < nextAttrLen {
+			return nil, fmt.Errorf("at byte %d, not enough data remaining to extract a %d byte attribute", p, nextAttrLen	)
+		}
+
+		a, err := attribute.UnmarshalAttribute(b[p:p+nextAttrLen])
+		if err != nil {
+			return nil, err
+		}
+
+		attrs = append(attrs, a)
+		p += nextAttrLen
+		log.Println(a)
+	}
+
+	// TODO: validate messages agains count (c)
+	return &defaultMsg{
+		msgType: t,
+		msgVer: v,
+		msgLen: l,
+		attrs: attrs,
+	}, nil
 }
