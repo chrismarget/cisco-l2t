@@ -15,14 +15,14 @@ func main() {
 
 	builder := message.NewMsgBuilder()
 
-	a, err = attribute.NewAttrBuilder().SetType(attribute.SrcMacType).SetString("7073.cb8a.f62a").Build()
+	a, err = attribute.NewAttrBuilder().SetType(attribute.SrcMacType).SetString("0000.0c9f.f00c").Build()
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
 	builder.AddAttr(a)
 
-	a, err = attribute.NewAttrBuilder().SetType(attribute.DstMacType).SetString("5082.d5c6.e2d4").Build()
+	a, err = attribute.NewAttrBuilder().SetType(attribute.DstMacType).SetString("0011.d9a5.2260").Build()
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(2)
@@ -33,13 +33,6 @@ func main() {
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(3)
-	}
-	builder.AddAttr(a)
-
-	a, err = attribute.NewAttrBuilder().SetType(attribute.SrcIPv4Type).SetString("192.168.2.214").Build()
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(4)
 	}
 	builder.AddAttr(a)
 
@@ -61,7 +54,7 @@ func main() {
 		os.Exit(8)
 	}
 
-	log.Println(respondent.IP)
+	log.Println(respondent.IP.String())
 	log.Println(message.MsgTypeToString[response.Type()])
 	for _, a := range response.Attributes() {
 		log.Println(attribute.AttrTypePrettyString[a.Type()], a.String())
