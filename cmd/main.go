@@ -15,21 +15,21 @@ func main() {
 
 	builder := message.NewMsgBuilder()
 
-	a, err = attribute.NewAttrBuilder().SetType(attribute.SrcMacType).SetString("0000.0c9f.f00c").Build()
+	a, err = attribute.NewAttrBuilder().SetType(attribute.SrcMacType).SetString("000c.5f08.2977").Build()
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
 	builder.AddAttr(a)
 
-	a, err = attribute.NewAttrBuilder().SetType(attribute.DstMacType).SetString("0011.d9a5.2260").Build()
+	a, err = attribute.NewAttrBuilder().SetType(attribute.DstMacType).SetString("a899.6972.238e").Build()
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(2)
 	}
 	builder.AddAttr(a)
 
-	a, err = attribute.NewAttrBuilder().SetType(attribute.VlanType).SetInt(12).Build()
+	a, err = attribute.NewAttrBuilder().SetType(attribute.VlanType).SetInt(25).Build()
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(3)
@@ -48,7 +48,7 @@ func main() {
 		os.Exit(7)
 	}
 
-	response, respondent, err := msg.Communicate(&net.UDPAddr{IP :[]byte{192,168,0,254}})
+	response, respondent, err := msg.Communicate(&net.UDPAddr{IP :[]byte{192,168,96,131}})
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(8)
