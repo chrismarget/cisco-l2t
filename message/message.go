@@ -208,9 +208,44 @@ func (o *defaultMsg) Marshal() []byte {
 	return outBytes.Bytes()
 }
 
+func (o *defaultMsg) checkForRequiredAttributes() error {
+	if required, ok := msgTypeRequiredAttrs[o.msgType]; ok {
+		for _, r := range required {
+			if locationOfAttributeByType(o.attrs, r) < 0 {
+				return fmt.Errorf("message type %d cannot be sent without a type %d attribute", o.msgType, r)
+			}
+		}
+	}
+	return nil
+}
+
 func (o *defaultMsg) Communicate(target *net.UDPAddr) (Msg, *net.UDPAddr, error) {
 	if target.Port == 0 {
 		target.Port = udpPort
+	}
+
+	// figure out what IP we should stamp in our outgoing
+	// message if it's not already specified in there
+	if locationOfAttributeByType(o.attrs, attribute.SrcIPv4Type) < 0 {
+		localIP, err := getLocalIpForTarget(target)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		a, err := attribute.NewAttrBuilder().
+			SetType(attribute.SrcIPv4Type).
+			SetString(localIP.String()).
+			Build()
+		if err != nil {
+			return nil, nil, err
+		}
+
+		o.attrs = append(o.attrs, a)
+	}
+
+	err := o.checkForRequiredAttributes()
+	if err != nil {
+		return nil, nil, err
 	}
 
 	conn, err := net.ListenUDP(udpProtocol, &net.UDPAddr{Port: udpPort})
@@ -226,7 +261,6 @@ func (o *defaultMsg) Communicate(target *net.UDPAddr) (Msg, *net.UDPAddr, error)
 	if n != len(payload) {
 		return nil, nil, fmt.Errorf("attemtped send of %d bytes, only managed %d", len(payload), n)
 	}
-
 
 	buffIn := make([]byte, inBufferSize)
 	n, respondent, err := conn.ReadFromUDP(buffIn)
@@ -378,10 +412,10 @@ func UnmarshalMessage(b []byte) (Msg, error) {
 
 		nextAttrLen := int(b[p+1])
 		if remaining < nextAttrLen {
-			return nil, fmt.Errorf("at byte %d, not enough data remaining to extract a %d byte attribute", p, nextAttrLen	)
+			return nil, fmt.Errorf("at byte %d, not enough data remaining to extract a %d byte attribute", p, nextAttrLen)
 		}
 
-		a, err := attribute.UnmarshalAttribute(b[p:p+nextAttrLen])
+		a, err := attribute.UnmarshalAttribute(b[p : p+nextAttrLen])
 		if err != nil {
 			return nil, err
 		}
@@ -396,8 +430,22 @@ func UnmarshalMessage(b []byte) (Msg, error) {
 
 	return &defaultMsg{
 		msgType: t,
-		msgVer: v,
-		msgLen: l,
-		attrs: attrs,
+		msgVer:  v,
+		msgLen:  l,
+		attrs:   attrs,
 	}, nil
 }
+
+func getLocalIpForTarget(target *net.UDPAddr) (*net.IP, error) {
+	c, err := net.Dial(udpProtocol, target.String())
+	if err != nil {
+		return nil, err
+	}
+	defer c.Close()
+
+	return &c.LocalAddr().(*net.UDPAddr).IP, nil
+}
+
+// TODO: defer close of UDP connection
+// TODO: reaquiredAttribures test close of UDP connection
+// TODO: getLocalIPforTarget test
