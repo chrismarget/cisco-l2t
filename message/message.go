@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"github.com/chrismarget/cisco-l2t/attribute"
-	"log"
 	"math"
 	"net"
 )
@@ -130,10 +129,8 @@ func (o *defaultMsg) Ver() msgVer {
 func (o *defaultMsg) Len() msgLen {
 	if o.msgLen == 0 {
 		o.msgLen = headerLenByVersion[o.msgVer]
-		log.Println(o.msgLen)
 		for _, a := range o.attrs {
 			o.msgLen += msgLen(a.Len())
-			log.Println(o.msgLen)
 		}
 	}
 	return o.msgLen
