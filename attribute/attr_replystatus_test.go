@@ -19,6 +19,7 @@ func TestReplyStatusAttribute_String(t *testing.T) {
 	// Some of the preloaded test data has actual values. Fix 'em.
 	replyStatusStringTestData[1] = "Success"
 	replyStatusStringTestData[7] = "Source Mac address not found"
+	replyStatusStringTestData[5] = "Device has multiple CDP neighbours"
 	replyStatusStringTestData[8] = "Destination Mac address not found"
 	replyStatusStringTestData[9] = "No CDP neighbour"
 
