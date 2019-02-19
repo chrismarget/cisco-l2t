@@ -47,6 +47,13 @@ var (
 			attribute.SrcIPv4Type,
 			attribute.NbrDevIDType,
 		},
+		RequestSrc: {
+			attribute.DstMacType,
+			attribute.SrcMacType,
+			attribute.VlanType,
+			attribute.SrcIPv4Type,
+			attribute.NbrDevIDType,
+		},
 		ReplyDst: {
 			attribute.DevNameType,
 			attribute.DevTypeType,
@@ -126,6 +133,8 @@ func (o *defaultMsg) Ver() msgVer {
 	return o.msgVer
 }
 
+// TODO why zero check, just add it up dummy
+// TODO for that matter, why does msgLen exist in the structure
 func (o *defaultMsg) Len() msgLen {
 	if o.msgLen == 0 {
 		o.msgLen = headerLenByVersion[o.msgVer]

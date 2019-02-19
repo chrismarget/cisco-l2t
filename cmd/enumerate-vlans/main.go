@@ -28,19 +28,19 @@ func main() {
 	var err error
 	var found []int
 
-	for i := 1; i <= 94; i++ {
+	for i := 1; i <= 1; i++ {
 
 		builder := message.NewMsgBuilder()
 		builder.SetType(message.RequestSrc)
 
-		att, err = attribute.NewAttrBuilder().SetType(attribute.SrcMacType).SetString("ffff.ffff.ffff").Build()
+		att, err = attribute.NewAttrBuilder().SetType(attribute.SrcMacType).SetString("1000.1000.1000").Build()
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
 		}
 		builder.AddAttr(att)
 
-		att, err = attribute.NewAttrBuilder().SetType(attribute.DstMacType).SetString("ffff.ffff.ffff").Build()
+		att, err = attribute.NewAttrBuilder().SetType(attribute.DstMacType).SetString("2000.2000.2000").Build()
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(2)
@@ -62,7 +62,11 @@ func main() {
 			os.Exit(7)
 		}
 
+		log.Println(msg.Len())
 		response, _, err := communicate.Communicate(msg, &net.UDPAddr{IP: target})
+		log.Println(msg.Len())
+		response, _, err = communicate.Communicate(msg, &net.UDPAddr{IP: target})
+		log.Println(msg.Len())
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(8)

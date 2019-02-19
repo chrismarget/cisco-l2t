@@ -39,6 +39,13 @@ import (
 //Device has Multiple CDP neighbours on source port
 //Device has Multiple CDP neighbours on destination port
 
+// observed reply status:
+// 1 - normal trace, end of the line (no cdp neighbor?)
+// 2 - normal trace, cdp neighbor returned
+// 3 - bogus vlan (debugs say "internal error")
+// 5 - multiple CDP neighbors
+// 7 - source mac not found (with
+
 const (
 	replyStatusSuccess = "Success"
 	//	replyStatusDstNotFound = "Destination Mac address not found"
@@ -69,6 +76,7 @@ type (
 var (
 	replyStatusToString = map[replyStatus]string{
 		1: replyStatusSuccess,
+		5: replyStatusMultipleNeighbors,
 		7: replyStatusSrcNotFound,
 		8: replyStatusDstNotFound,
 		9: replyStatusNoNeighbor,
