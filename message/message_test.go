@@ -8,10 +8,7 @@ import (
 )
 
 func TestNewMsgBuilder_Minimal(t *testing.T) {
-	msg, err := NewMsgBuilder().Build()
-	if err != nil {
-		t.Fatal(err)
-	}
+	msg := NewMsgBuilder().Build()
 	if msg.Len() != 5 {
 		t.Fatal("Default message should be 5 bytes")
 	}
@@ -24,7 +21,7 @@ func TestNewMsgBuilder_Minimal(t *testing.T) {
 	if len(msg.Attributes()) != 0 {
 		t.Fatal("Default message should have no attributes")
 	}
-	err = msg.Validate()
+	err := msg.Validate()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -99,12 +96,9 @@ func TestNewMsgBuilder(t *testing.T) {
 		builder = builder.AddAttr(a)
 	}
 
-	msg, err := builder.Build()
-	if err != nil {
-		t.Fatal(err)
-	}
+	msg := builder.Build()
 
-	err = msg.Validate()
+	err := msg.Validate()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -138,12 +132,9 @@ func TestNewMsgBuilder_BadData(t *testing.T) {
 		builder = builder.AddAttr(a)
 	}
 
-	msg, err := builder.Build()
-	if err != nil {
-		t.Fatal(err)
-	}
+	msg := builder.Build()
 
-	err = msg.Validate()
+	err := msg.Validate()
 	if err == nil {
 		t.Fatal("bad data should have provoked error")
 	}
@@ -195,7 +186,7 @@ func TestLocationOfAttributeByType(t *testing.T) {
 	}
 
 	for expected, attrType := range expectedLocationByType {
-		result := locationOfAttributeByType(testAttrs, attrType)
+		result := attribute.LocationOfAttributeByType(testAttrs, attrType)
 		if result != expected {
 			t.Fatalf("expected %d, got %d", expected, result)
 		}
@@ -425,12 +416,9 @@ func TestAttrTypeLocationInSlice(t *testing.T) {
 }
 
 func TestMarshalMsg_Minimal(t *testing.T) {
-	msg, err := NewMsgBuilder().Build()
-	if err != nil {
-		t.Fatal(err)
-	}
+	msg := NewMsgBuilder().Build()
 
-	err = msg.Validate()
+	err := msg.Validate()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -452,7 +440,7 @@ func TestMarshalMsg_ReqDstStandard(t *testing.T) {
 
 	builder := NewMsgBuilder()
 	builder.SetType(RequestDst)
-	builder.SetVer(Version1)
+	builder.SetVer(version1)
 
 	// Attribute should be {2, 8, 1, 2, 3, 4, 5, 6}
 	a, err = attribute.NewAttrBuilder().SetType(attribute.DstMacType).SetString("0102.0304.0506").Build()
@@ -489,7 +477,7 @@ func TestMarshalMsg_ReqDstStandard(t *testing.T) {
 	}
 	builder.AddAttr(a)
 
-	msg, err := builder.Build()
+	msg := builder.Build()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -530,7 +518,7 @@ func TestMarshalMsg_ReqDstOversize(t *testing.T) {
 
 	builder := NewMsgBuilder()
 	builder.SetType(RequestDst)
-	builder.SetVer(Version1)
+	builder.SetVer(version1)
 
 	// Attribute should be {2, 8, 1, 2, 3, 4, 5, 6}
 	a, err = attribute.NewAttrBuilder().SetType(attribute.DstMacType).SetString("0102.0304.0506").Build()
@@ -574,7 +562,7 @@ func TestMarshalMsg_ReqDstOversize(t *testing.T) {
 	}
 	builder.AddAttr(a)
 
-	msg, err := builder.Build()
+	msg := builder.Build()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -620,7 +608,7 @@ func TestMarshalMsg_ReqDstUndersize(t *testing.T) {
 
 	builder := NewMsgBuilder()
 	builder.SetType(RequestDst)
-	builder.SetVer(Version1)
+	builder.SetVer(version1)
 
 	// Attribute should be {2, 8, 1, 2, 3, 4, 5, 6}
 	a, err = attribute.NewAttrBuilder().SetType(attribute.DstMacType).SetString("0102.0304.0506").Build()
@@ -650,7 +638,7 @@ func TestMarshalMsg_ReqDstUndersize(t *testing.T) {
 	}
 	builder.AddAttr(a)
 
-	msg, err := builder.Build()
+	msg := builder.Build()
 	if err != nil {
 		t.Fatal(err)
 	}
