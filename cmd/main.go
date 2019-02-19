@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/chrismarget/cisco-l2t/attribute"
+	"github.com/chrismarget/cisco-l2t/communicate"
 	"github.com/chrismarget/cisco-l2t/message"
 	"log"
 	"net"
@@ -14,33 +15,30 @@ func main() {
 	var err error
 
 	builder := message.NewMsgBuilder()
+	builder.SetType(message.RequestSrc)
 
-	a, err = attribute.NewAttrBuilder().SetType(attribute.SrcMacType).SetString("000c.5f08.2977").Build()
+	a, err = attribute.NewAttrBuilder().SetType(attribute.SrcMacType).SetString("0011.d9a5.2260").Build()
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
 	builder.AddAttr(a)
 
-	a, err = attribute.NewAttrBuilder().SetType(attribute.DstMacType).SetString("a899.6972.238e").Build()
+	a, err = attribute.NewAttrBuilder().SetType(attribute.DstMacType).SetString("0000.0c9f.f00c").Build()
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(2)
 	}
 	builder.AddAttr(a)
 
-	a, err = attribute.NewAttrBuilder().SetType(attribute.VlanType).SetInt(25).Build()
+	a, err = attribute.NewAttrBuilder().SetType(attribute.VlanType).SetInt(12).Build()
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(3)
 	}
 	builder.AddAttr(a)
 
-	msg, err := builder.Build()
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(6)
-	}
+	msg := builder.Build()
 
 	err = msg.Validate()
 	if err != nil {
@@ -48,7 +46,7 @@ func main() {
 		os.Exit(7)
 	}
 
-	response, respondent, err := msg.Communicate(&net.UDPAddr{IP :[]byte{192,168,96,131}})
+	response, respondent, err := communicate.Communicate(msg, &net.UDPAddr{IP: []byte{192, 168, 0, 254}})
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(8)
