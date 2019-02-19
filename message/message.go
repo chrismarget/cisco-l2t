@@ -121,7 +121,6 @@ type defaultMsg struct {
 	msgType   msgType
 	msgVer    msgVer
 	attrs     []attribute.Attribute
-	msgLen    msgLen
 	srcIpFunc func(*net.IP) (*net.IP, error)
 }
 
@@ -133,16 +132,12 @@ func (o *defaultMsg) Ver() msgVer {
 	return o.msgVer
 }
 
-// TODO why zero check, just add it up dummy
-// TODO for that matter, why does msgLen exist in the structure
 func (o *defaultMsg) Len() msgLen {
-	if o.msgLen == 0 {
-		o.msgLen = headerLenByVersion[o.msgVer]
+	l := headerLenByVersion[o.msgVer]
 		for _, a := range o.attrs {
-			o.msgLen += msgLen(a.Len())
+			l += msgLen(a.Len())
 		}
-	}
-	return o.msgLen
+	return l
 }
 
 func (o *defaultMsg) AttrCount() attrCount {
@@ -194,7 +189,6 @@ func (o *defaultMsg) Validate() error {
 
 func (o *defaultMsg) AddAttr(a attribute.Attribute) attrCount {
 	o.attrs = append(o.attrs, a)
-	o.msgLen = 0
 	return o.AttrCount() - 1
 }
 
@@ -206,7 +200,6 @@ func (o *defaultMsg) DelAttr(i attrCount) error {
 	copy(o.attrs[i:], o.attrs[i+1:])
 	o.attrs[len(o.attrs)-1] = nil // or the zero value of T
 	o.attrs = o.attrs[:len(o.attrs)-1]
-	o.msgLen = 0
 
 	return nil
 }
@@ -319,17 +312,6 @@ func (o *defaultMsgBuilder) Build() Msg {
 	return m
 }
 
-//// LocationOfAttributeByType returns the index of the first instance
-//// of an attribute.AttrType within a slice, or -1 if not found
-//func LocationOfAttributeByType(s []attribute.Attribute, aType attribute.AttrType) int {
-//	for i, a := range s {
-//		if a.Type() == aType {
-//			return i
-//		}
-//	}
-//	return -1
-//}
-
 // attrTypeLocationInSlice returns the index of the first instance
 // of and attribute.AttrType within a slice, or -1 if not found
 func attrTypeLocationInSlice(s []attribute.AttrType, a attribute.AttrType) int {
@@ -420,7 +402,6 @@ func UnmarshalMessage(b []byte) (Msg, error) {
 	return &defaultMsg{
 		msgType: t,
 		msgVer:  v,
-		msgLen:  l,
 		attrs:   attrs,
 	}, nil
 }
