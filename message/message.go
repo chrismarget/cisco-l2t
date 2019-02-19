@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"github.com/chrismarget/cisco-l2t/attribute"
+	"log"
 	"math"
 	"net"
 )
@@ -17,12 +18,9 @@ type (
 )
 
 const (
-	Version1       = msgVer(1)
-	udpProtocol    = "udp4"
-	udpPort        = 2228
+	version1       = msgVer(1)
 	defaultMsgType = RequestDst
-	defaultMsgVer  = Version1
-	inBufferSize   = 2048
+	defaultMsgVer  = version1
 
 	RequestDst = msgType(1)
 	RequestSrc = msgType(2)
@@ -31,8 +29,8 @@ const (
 )
 
 var (
-	HeaderLenByVersion = map[msgVer]msgLen{
-		Version1: 5,
+	headerLenByVersion = map[msgVer]msgLen{
+		version1: 5,
 	}
 
 	MsgTypeToString = map[msgType]string{
@@ -99,28 +97,28 @@ type Msg interface {
 	// the fifth byte on the wire.
 	AttrCount() attrCount
 
-	// Validate checks the message for problems.
-	Validate() error
-
 	// Attributes returns a slice of attributes belonging to the message.
 	Attributes() []attribute.Attribute
 
+	// Validate checks the message for problems.
+	Validate() error
+
+	AddAttr(attribute.Attribute) attrCount
+	DelAttr(attrCount) error
+	SrcIpForTarget(*net.IP) (*net.IP, error)
+
 	// Marshal returns the message formatted for transmission onto the wire.
 	Marshal() []byte
-
-	// Communicate sends the message to the switch specified
-	// in string form, waits for a reply.
-	Communicate(addr *net.UDPAddr) (Msg, *net.UDPAddr, error)
 }
 
 type defaultMsg struct {
-	msgType msgType
-	msgVer  msgVer
-	attrs   []attribute.Attribute
-	msgLen  msgLen
+	msgType   msgType
+	msgVer    msgVer
+	attrs     []attribute.Attribute
+	msgLen    msgLen
+	srcIpFunc func(*net.IP) (*net.IP, error)
 }
 
-// Type does blah
 func (o *defaultMsg) Type() msgType {
 	return o.msgType
 }
@@ -131,9 +129,11 @@ func (o *defaultMsg) Ver() msgVer {
 
 func (o *defaultMsg) Len() msgLen {
 	if o.msgLen == 0 {
-		o.msgLen = HeaderLenByVersion[o.msgVer]
+		o.msgLen = headerLenByVersion[o.msgVer]
+		log.Println(o.msgLen)
 		for _, a := range o.attrs {
 			o.msgLen += msgLen(a.Len())
+			log.Println(o.msgLen)
 		}
 	}
 	return o.msgLen
@@ -143,10 +143,14 @@ func (o *defaultMsg) AttrCount() attrCount {
 	return attrCount(len(o.attrs))
 }
 
+func (o *defaultMsg) Attributes() []attribute.Attribute {
+	return o.attrs
+}
+
 func (o *defaultMsg) Validate() error {
 	// undersize check
-	if o.Len() < HeaderLenByVersion[Version1] {
-		return fmt.Errorf("undersize message has %d bytes (min %d)", o.Len(), HeaderLenByVersion[Version1])
+	if o.Len() < headerLenByVersion[version1] {
+		return fmt.Errorf("undersize message has %d bytes (min %d)", o.Len(), headerLenByVersion[version1])
 	}
 
 	// oversize check
@@ -155,7 +159,7 @@ func (o *defaultMsg) Validate() error {
 	}
 
 	// Look for duplicates, add up the length
-	observedLen := HeaderLenByVersion[o.msgVer]
+	observedLen := headerLenByVersion[o.msgVer]
 	foundAttrs := make(map[attribute.AttrType]bool)
 	for _, a := range o.attrs {
 		observedLen += msgLen(a.Len())
@@ -179,11 +183,30 @@ func (o *defaultMsg) Validate() error {
 		return fmt.Errorf("Found %d attributes, object claims to have %d", observedAttrCount, queriedAttrCount)
 	}
 
-	// TODO: check for required attributes for the given message type
-	//       can't really do that without experimenting to find required
-	//       attribute types, of course...
+	return nil
+}
+
+func (o *defaultMsg) AddAttr(a attribute.Attribute) attrCount {
+	o.attrs = append(o.attrs, a)
+	o.msgLen = 0
+	return o.AttrCount() - 1
+}
+
+func (o *defaultMsg) DelAttr(i attrCount) error {
+	if i >= o.AttrCount() {
+		return fmt.Errorf("attempt to remove item %d from %d element slice", i, o.AttrCount())
+	}
+
+	copy(o.attrs[i:], o.attrs[i+1:])
+	o.attrs[len(o.attrs)-1] = nil // or the zero value of T
+	o.attrs = o.attrs[:len(o.attrs)-1]
+	o.msgLen = 0
 
 	return nil
+}
+
+func (o *defaultMsg) SrcIpForTarget(t *net.IP) (*net.IP, error) {
+	return o.srcIpFunc(t)
 }
 
 func (o *defaultMsg) Marshal() []byte {
@@ -208,100 +231,55 @@ func (o *defaultMsg) Marshal() []byte {
 	return outBytes.Bytes()
 }
 
-func (o *defaultMsg) checkForRequiredAttributes() error {
-	if required, ok := msgTypeRequiredAttrs[o.msgType]; ok {
-		for _, r := range required {
-			if locationOfAttributeByType(o.attrs, r) < 0 {
-				return fmt.Errorf("message type %d cannot be sent without a type %d attribute", o.msgType, r)
-			}
-		}
-	}
-	return nil
-}
-
-func (o *defaultMsg) Communicate(target *net.UDPAddr) (Msg, *net.UDPAddr, error) {
-	if target.Port == 0 {
-		target.Port = udpPort
-	}
-
-	// figure out what IP we should stamp in our outgoing
-	// message if it's not already specified in there
-	if locationOfAttributeByType(o.attrs, attribute.SrcIPv4Type) < 0 {
-		localIP, err := getLocalIpForTarget(target)
-		if err != nil {
-			return nil, nil, err
-		}
-
-		a, err := attribute.NewAttrBuilder().
-			SetType(attribute.SrcIPv4Type).
-			SetString(localIP.String()).
-			Build()
-		if err != nil {
-			return nil, nil, err
-		}
-
-		o.attrs = append(o.attrs, a)
-	}
-
-	err := o.checkForRequiredAttributes()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	conn, err := net.ListenUDP(udpProtocol, &net.UDPAddr{Port: udpPort})
-	if err != nil {
-		return nil, nil, err
-	}
-
-	payload := o.Marshal()
-	n, err := conn.WriteToUDP(payload, target)
-	if err != nil {
-		return nil, nil, err
-	}
-	if n != len(payload) {
-		return nil, nil, fmt.Errorf("attemtped send of %d bytes, only managed %d", len(payload), n)
-	}
-
-	buffIn := make([]byte, inBufferSize)
-	n, respondent, err := conn.ReadFromUDP(buffIn)
-	if n == len(buffIn) {
-		return nil, respondent, fmt.Errorf("got full buffer: %d bytes", n)
-	}
-
-	err = conn.Close()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	reply, err := UnmarshalMessage(buffIn)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return reply, respondent, nil
-}
-
-func (o *defaultMsg) Attributes() []attribute.Attribute {
-	return o.attrs
-}
-
+// MsgBuilder represents an L2T message builder
 type MsgBuilder interface {
+	// SetType sets the message type. Only 4 types are known to exist,
+	// of those, only the queries are likely relevant to this method
+	// (unless you're writing a Cisco switch replacement)
+	//
+	// Default value is 1 (L2T_REQUEST_DST)
 	SetType(msgType) MsgBuilder
+
+	// SetVer sets the message version. Only one version is known to
+	// exist, so version1 is the default.
 	SetVer(msgVer) MsgBuilder
+
+	// AddAttr adds attributes to the message's []attribute.Attribute.
+	// Attribute order matters on the wire, but not within this slice.
 	AddAttr(attribute.Attribute) MsgBuilder
-	Build() (Msg, error)
+
+	// SetSrcIpFunc sets the function that will be called to calculate
+	// the attribute SrcIPv4Type (14) payload if one is required but
+	// not otherwise specified.
+	SetSrcIpFunc(func(*net.IP) (*net.IP, error)) MsgBuilder
+
+	// Build returns a message.Msg object with the specified type,
+	// version and attributes.
+	Build() Msg
 }
 
 type defaultMsgBuilder struct {
-	msgType msgType
-	msgVer  msgVer
-	attrs   []attribute.Attribute
+	msgType   msgType
+	msgVer    msgVer
+	attrs     []attribute.Attribute
+	srcIpFunc func(*net.IP) (*net.IP, error)
+}
+
+func defaultSrcIpFunc(target *net.IP) (*net.IP, error) {
+	c, err := net.Dial("udp4", target.String()+":1")
+	if err != nil {
+		return nil, err
+	}
+	defer c.Close()
+
+	return &c.LocalAddr().(*net.UDPAddr).IP, nil
 }
 
 func NewMsgBuilder() MsgBuilder {
 	return &defaultMsgBuilder{
-		msgType: defaultMsgType,
-		msgVer:  defaultMsgVer,
+		msgType:   defaultMsgType,
+		msgVer:    defaultMsgVer,
+		srcIpFunc: defaultSrcIpFunc,
 	}
 }
 
@@ -320,25 +298,31 @@ func (o *defaultMsgBuilder) AddAttr(a attribute.Attribute) MsgBuilder {
 	return o
 }
 
-func (o *defaultMsgBuilder) Build() (Msg, error) {
-	m := &defaultMsg{
-		msgType: o.msgType,
-		msgVer:  o.msgVer,
-		attrs:   o.attrs,
-	}
-	return m, nil
+func (o *defaultMsgBuilder) SetSrcIpFunc(f func(*net.IP) (*net.IP, error)) MsgBuilder {
+	o.srcIpFunc = f
+	return o
 }
 
-// locationOfAttributeByType returns the index of the first instance
-// of an attribute.AttrType within a slice, or -1 if not found
-func locationOfAttributeByType(s []attribute.Attribute, aType attribute.AttrType) int {
-	for i, a := range s {
-		if a.Type() == aType {
-			return i
-		}
+func (o *defaultMsgBuilder) Build() Msg {
+	m := &defaultMsg{
+		msgType:   o.msgType,
+		msgVer:    o.msgVer,
+		attrs:     o.attrs,
+		srcIpFunc: o.srcIpFunc,
 	}
-	return -1
+	return m
 }
+
+//// LocationOfAttributeByType returns the index of the first instance
+//// of an attribute.AttrType within a slice, or -1 if not found
+//func LocationOfAttributeByType(s []attribute.Attribute, aType attribute.AttrType) int {
+//	for i, a := range s {
+//		if a.Type() == aType {
+//			return i
+//		}
+//	}
+//	return -1
+//}
 
 // attrTypeLocationInSlice returns the index of the first instance
 // of and attribute.AttrType within a slice, or -1 if not found
@@ -376,7 +360,7 @@ func orderAttributes(msgAttributes []attribute.Attribute, msgType msgType) []att
 	for _, t := range inTypes {
 		loc := attrTypeLocationInSlice(msgTypeAttributeOrder[msgType], t)
 		if loc < 0 {
-			loc = locationOfAttributeByType(msgAttributes, t)
+			loc = attribute.LocationOfAttributeByType(msgAttributes, t)
 			msgAttributes = append(msgAttributes, msgAttributes[loc])
 		}
 	}
@@ -391,7 +375,7 @@ func orderAttributes(msgAttributes []attribute.Attribute, msgType msgType) []att
 }
 
 func UnmarshalMessage(b []byte) (Msg, error) {
-	if len(b) < int(HeaderLenByVersion[Version1]) {
+	if len(b) < int(headerLenByVersion[version1]) {
 		return nil, fmt.Errorf("cannot unmarshal message got only %d bytes", len(b))
 	}
 
@@ -402,8 +386,7 @@ func UnmarshalMessage(b []byte) (Msg, error) {
 
 	var attrs []attribute.Attribute
 
-	p := int(HeaderLenByVersion[Version1])
-
+	p := int(headerLenByVersion[version1])
 	for p < int(l) {
 		remaining := int(l) - p
 		if remaining < attribute.MinAttrLen {
@@ -436,16 +419,14 @@ func UnmarshalMessage(b []byte) (Msg, error) {
 	}, nil
 }
 
-func getLocalIpForTarget(target *net.UDPAddr) (*net.IP, error) {
-	c, err := net.Dial(udpProtocol, target.String())
-	if err != nil {
-		return nil, err
+func AnyMissingAttributes(t msgType, a []attribute.Attribute) []attribute.AttrType {
+	var missing []attribute.AttrType
+	if required, ok := msgTypeRequiredAttrs[t]; ok {
+		for _, r := range required {
+			if attribute.LocationOfAttributeByType(a, r) < 0 {
+				missing = append(missing, r)
+			}
+		}
 	}
-	defer c.Close()
-
-	return &c.LocalAddr().(*net.UDPAddr).IP, nil
+	return missing
 }
-
-// TODO: defer close of UDP connection
-// TODO: reaquiredAttribures test close of UDP connection
-// TODO: getLocalIPforTarget test

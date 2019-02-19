@@ -326,3 +326,14 @@ func checkTypeLen(a Attribute, category attrCategory) error {
 	}
 	return nil
 }
+
+// LocationOfAttributeByType returns the index of the first instance
+// of an AttrType within a slice, or -1 if not found
+func LocationOfAttributeByType(s []Attribute, aType AttrType) int {
+	for i, a := range s {
+		if a.Type() == aType {
+			return i
+		}
+	}
+	return -1
+}
