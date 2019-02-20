@@ -104,23 +104,29 @@ type Msg interface {
 	AttrCount() attrCount
 
 	// Attributes returns a slice of attributes belonging to the message.
-	Attributes() []attribute.Attribute
+	Attributes() map[attribute.AttrType]attribute.Attribute
 
 	// Validate checks the message for problems.
 	Validate() error
 
-	AddAttr(attribute.Attribute) attrCount
-	DelAttr(attrCount) error
+	//	AddAttr(attribute.Attribute) attrCount
+	//	DelAttr(attrCount) error
+
+	// SrcIpForTarget allows the caller to specify a function which picks
+	// the Type 14 (L2_ATTR_SRC_IP) payload (our IP address) when sending
+	// a message. Default behavior loads this value using egress interface
+	// address if the Type 14 attribute is omitted. There's probably no
+	// reason to call this function.
 	SrcIpForTarget(*net.IP) (*net.IP, error)
 
 	// Marshal returns the message formatted for transmission onto the wire.
-	Marshal() []byte
+	Marshal([]attribute.Attribute) []byte
 }
 
 type defaultMsg struct {
 	msgType   msgType
 	msgVer    msgVer
-	attrs     []attribute.Attribute
+	attrs     map[attribute.AttrType]attribute.Attribute
 	srcIpFunc func(*net.IP) (*net.IP, error)
 }
 
@@ -134,9 +140,9 @@ func (o *defaultMsg) Ver() msgVer {
 
 func (o *defaultMsg) Len() msgLen {
 	l := headerLenByVersion[o.msgVer]
-		for _, a := range o.attrs {
-			l += msgLen(a.Len())
-		}
+	for _, a := range o.attrs {
+		l += msgLen(a.Len())
+	}
 	return l
 }
 
@@ -144,7 +150,7 @@ func (o *defaultMsg) AttrCount() attrCount {
 	return attrCount(len(o.attrs))
 }
 
-func (o *defaultMsg) Attributes() []attribute.Attribute {
+func (o *defaultMsg) Attributes() map[attribute.AttrType]attribute.Attribute {
 	return o.attrs
 }
 
@@ -174,32 +180,15 @@ func (o *defaultMsg) Validate() error {
 	// length sanity check
 	queriedLen := o.Len()
 	if observedLen != queriedLen {
-		return fmt.Errorf("Wire format byte length should be %d, got %d", observedLen, queriedLen)
+		return fmt.Errorf("wire format byte length should be %d, got %d", observedLen, queriedLen)
 	}
 
 	// attribute count sanity check
 	observedAttrCount := attrCount(len(o.attrs))
 	queriedAttrCount := o.AttrCount()
 	if observedAttrCount != queriedAttrCount {
-		return fmt.Errorf("Found %d attributes, object claims to have %d", observedAttrCount, queriedAttrCount)
+		return fmt.Errorf("found %d attributes, object claims to have %d", observedAttrCount, queriedAttrCount)
 	}
-
-	return nil
-}
-
-func (o *defaultMsg) AddAttr(a attribute.Attribute) attrCount {
-	o.attrs = append(o.attrs, a)
-	return o.AttrCount() - 1
-}
-
-func (o *defaultMsg) DelAttr(i attrCount) error {
-	if i >= o.AttrCount() {
-		return fmt.Errorf("attempt to remove item %d from %d element slice", i, o.AttrCount())
-	}
-
-	copy(o.attrs[i:], o.attrs[i+1:])
-	o.attrs[len(o.attrs)-1] = nil // or the zero value of T
-	o.attrs = o.attrs[:len(o.attrs)-1]
 
 	return nil
 }
@@ -208,10 +197,27 @@ func (o *defaultMsg) SrcIpForTarget(t *net.IP) (*net.IP, error) {
 	return o.srcIpFunc(t)
 }
 
-func (o *defaultMsg) Marshal() []byte {
+func (o *defaultMsg) Marshal(extraAttrs []attribute.Attribute) []byte {
+
+	// extract attributes from message
+	var unorderedAttrs []attribute.Attribute
+	for _, a := range o.attrs {
+		unorderedAttrs = append(unorderedAttrs, a)
+	}
+
+	// append extra attributes and sort
+	orderedAttrs := orderAttributes(append(unorderedAttrs, extraAttrs...), o.msgType)
+
+	attributeLen := 0
+	for _, a := range orderedAttrs {
+		attributeLen += int(a.Len())
+	}
+
 	// build up the 5 byte header
+	marshaledLen := uint16(headerLenByVersion[version1])
+	marshaledLen += uint16(attributeLen)
 	lenBytes := make([]byte, 2)
-	binary.BigEndian.PutUint16(lenBytes, uint16(o.Len()))
+	binary.BigEndian.PutUint16(lenBytes, marshaledLen)
 	var outBytes bytes.Buffer
 	outBytes.Write([]byte{
 		byte(o.Type()),
@@ -219,10 +225,10 @@ func (o *defaultMsg) Marshal() []byte {
 	})
 	outBytes.Write(lenBytes)
 	outBytes.Write([]byte{
-		byte(o.AttrCount()),
+		byte(len(orderedAttrs)),
 	})
 
-	for _, a := range orderAttributes(o.attrs, o.msgType) {
+	for _, a := range orderedAttrs {
 		aBytes := attribute.MarshalAttribute(a)
 		outBytes.Write(aBytes)
 	}
@@ -243,9 +249,9 @@ type MsgBuilder interface {
 	// exist, so version1 is the default.
 	SetVer(msgVer) MsgBuilder
 
-	// AddAttr adds attributes to the message's []attribute.Attribute.
+	// SetAttr adds attributes to the message's []attribute.Attribute.
 	// Attribute order matters on the wire, but not within this slice.
-	AddAttr(attribute.Attribute) MsgBuilder
+	SetAttr(attribute.Attribute) MsgBuilder
 
 	// SetSrcIpFunc sets the function that will be called to calculate
 	// the attribute SrcIPv4Type (14) payload if one is required but
@@ -260,7 +266,7 @@ type MsgBuilder interface {
 type defaultMsgBuilder struct {
 	msgType   msgType
 	msgVer    msgVer
-	attrs     []attribute.Attribute
+	attrs     map[attribute.AttrType]attribute.Attribute
 	srcIpFunc func(*net.IP) (*net.IP, error)
 }
 
@@ -279,6 +285,7 @@ func NewMsgBuilder() MsgBuilder {
 		msgType:   defaultMsgType,
 		msgVer:    defaultMsgVer,
 		srcIpFunc: defaultSrcIpFunc,
+		attrs:     make(map[attribute.AttrType]attribute.Attribute),
 	}
 }
 
@@ -292,8 +299,8 @@ func (o *defaultMsgBuilder) SetVer(v msgVer) MsgBuilder {
 	return o
 }
 
-func (o *defaultMsgBuilder) AddAttr(a attribute.Attribute) MsgBuilder {
-	o.attrs = append(o.attrs, a)
+func (o *defaultMsgBuilder) SetAttr(a attribute.Attribute) MsgBuilder {
+	o.attrs[a.Type()] = a
 	return o
 }
 
@@ -372,7 +379,7 @@ func UnmarshalMessage(b []byte) (Msg, error) {
 	l := msgLen(binary.BigEndian.Uint16(b[2:4]))
 	c := attrCount(b[4])
 
-	var attrs []attribute.Attribute
+	attrs := make(map[attribute.AttrType]attribute.Attribute)
 
 	p := int(headerLenByVersion[version1])
 	for p < int(l) {
@@ -391,7 +398,7 @@ func UnmarshalMessage(b []byte) (Msg, error) {
 			return nil, err
 		}
 
-		attrs = append(attrs, a)
+		attrs[a.Type()] = a
 		p += nextAttrLen
 	}
 
@@ -406,11 +413,14 @@ func UnmarshalMessage(b []byte) (Msg, error) {
 	}, nil
 }
 
-func AnyMissingAttributes(t msgType, a []attribute.Attribute) []attribute.AttrType {
+// ListMissingAttributes takes a L2T message type and a map of attributes.
+// It returns a list of attribute types that are required for this sort of
+// message, but are missing from the supplied map.
+func ListMissingAttributes(t msgType, a map[attribute.AttrType]attribute.Attribute) []attribute.AttrType {
 	var missing []attribute.AttrType
 	if required, ok := msgTypeRequiredAttrs[t]; ok {
 		for _, r := range required {
-			if attribute.LocationOfAttributeByType(a, r) < 0 {
+			if _, ok = a[r]; !ok {
 				missing = append(missing, r)
 			}
 		}

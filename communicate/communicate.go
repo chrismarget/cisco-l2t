@@ -14,37 +14,21 @@ const (
 	inBufferSize = 2048
 )
 
-// getLocalIpForTarget returns the IP address the local host would
-// use when sending to a particular target system. We use this in
-// type 14 attributes (L2_ATTR_SRC_IP) when sending L2T queries.
-// The field is required, but seems to be ignored: Replies come
-// back to the query originator regardless of what address is
-// specified via attribute 14.
-func GetLocalIpForTarget(target *net.UDPAddr) (*net.IP, error) {
-	c, err := net.Dial(UdpProtocol, target.String())
-	if err != nil {
-		return nil, err
-	}
-	defer c.Close()
-
-	return &c.LocalAddr().(*net.UDPAddr).IP, nil
-}
-
 func Communicate(outmsg message.Msg, target *net.UDPAddr) (message.Msg, *net.UDPAddr, error) {
 	if target.Port == 0 {
 		target.Port = udpPort
 	}
 
+	var extraAttrs []attribute.Attribute
+
 	// Figure out whether SrcIPv4Type is among missing attributes for this message
-	missing := message.AnyMissingAttributes(outmsg.Type(), outmsg.Attributes())
+	missing := message.ListMissingAttributes(outmsg.Type(), outmsg.Attributes())
 	needToAddSrcIPv4Type := false
 	for _, m := range missing {
 		if m == attribute.SrcIPv4Type {
 			needToAddSrcIPv4Type = true
 		}
 	}
-
-	var payload []byte
 
 	// Add the SrcIPv4Type attribute if necessary
 	if needToAddSrcIPv4Type {
@@ -61,16 +45,10 @@ func Communicate(outmsg message.Msg, target *net.UDPAddr) (message.Msg, *net.UDP
 			return nil, nil, err
 		}
 
-		// TODO some locking here while adding/removing attributes?
-		i := outmsg.AddAttr(a)
-		payload = outmsg.Marshal()
-		err = outmsg.DelAttr(i)
-		if err != nil {
-			return nil, nil, err
-		}
-	} else {
-		payload = outmsg.Marshal()
+		extraAttrs = append(extraAttrs, a)
 	}
+
+	payload := outmsg.Marshal(extraAttrs)
 
 	conn, err := net.ListenUDP(UdpProtocol, &net.UDPAddr{})
 	if err != nil {

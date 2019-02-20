@@ -38,21 +38,21 @@ func main() {
 			fmt.Println(err)
 			os.Exit(1)
 		}
-		builder.AddAttr(att)
+		builder.SetAttr(att)
 
 		att, err = attribute.NewAttrBuilder().SetType(attribute.DstMacType).SetString("2000.2000.2000").Build()
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(2)
 		}
-		builder.AddAttr(att)
+		builder.SetAttr(att)
 
 		att, err = attribute.NewAttrBuilder().SetType(attribute.VlanType).SetInt(uint32(i)).Build()
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(3)
 		}
-		builder.AddAttr(att)
+		builder.SetAttr(att)
 
 		msg := builder.Build()
 
