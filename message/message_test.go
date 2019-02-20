@@ -3,7 +3,6 @@ package message
 import (
 	"bytes"
 	"github.com/chrismarget/cisco-l2t/attribute"
-	"log"
 	"testing"
 )
 
@@ -82,7 +81,7 @@ func TestNewMsgBuilder(t *testing.T) {
 	testString = append(testString, "hello5")
 
 	var atts []attribute.Attribute
-	for i, _ := range testType {
+	for i := range testType {
 		a, err := attribute.NewAttrBuilder().SetType(testType[i]).SetString(testString[i]).Build()
 		if err != nil {
 			t.Fatal(err)
@@ -93,7 +92,7 @@ func TestNewMsgBuilder(t *testing.T) {
 	builder := NewMsgBuilder()
 	builder = builder.SetType(RequestDst)
 	for _, a := range atts {
-		builder = builder.AddAttr(a)
+		builder = builder.SetAttr(a)
 	}
 
 	msg := builder.Build()
@@ -102,41 +101,9 @@ func TestNewMsgBuilder(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-}
 
-func TestNewMsgBuilder_BadData(t *testing.T) {
-	var testType []attribute.AttrType
-	var testString []string
-
-	testType = append(testType, attribute.SrcMacType)
-	testString = append(testString, "01:02:03:04:05:06")
-
-	testType = append(testType, attribute.DstMacType)
-	testString = append(testString, "02-03-04-05-06-07")
-
-	testType = append(testType, attribute.SrcMacType)
-	testString = append(testString, "0506.0708.090a")
-
-	var atts []attribute.Attribute
-	for i, _ := range testType {
-		a, err := attribute.NewAttrBuilder().SetType(testType[i]).SetString(testString[i]).Build()
-		if err != nil {
-			t.Fatal(err)
-		}
-		atts = append(atts, a)
-	}
-
-	builder := NewMsgBuilder()
-	builder = builder.SetType(RequestDst)
-	for _, a := range atts {
-		builder = builder.AddAttr(a)
-	}
-
-	msg := builder.Build()
-
-	err := msg.Validate()
-	if err == nil {
-		t.Fatal("bad data should have provoked error")
+	if msg.Len() != expectedLen {
+		t.Fatalf("Expected %d, got %d", expectedLen, msg.Len())
 	}
 }
 
@@ -194,6 +161,7 @@ func TestLocationOfAttributeByType(t *testing.T) {
 }
 
 func TestOrderAttributes_ExactMatch(t *testing.T) {
+	//attrs := make(map[attribute.AttrType]attribute.Attribute)
 	var attrs []attribute.Attribute
 	var a attribute.Attribute
 	var err error
@@ -223,27 +191,28 @@ func TestOrderAttributes_ExactMatch(t *testing.T) {
 	}
 	attrs = append(attrs, a)
 
-	attrs = orderAttributes(attrs, RequestDst)
+	resultAttrs := orderAttributes(attrs, RequestDst)
 
-	var result []attribute.AttrType
-	for _, a := range attrs {
-		result = append(result, a.Type())
+	var resultTypes []attribute.AttrType
+	for _, a := range resultAttrs {
+		resultTypes = append(resultTypes, a.Type())
 	}
 
 	expected := []attribute.AttrType{2, 1, 3, 14, 16}
 
-	if len(result) != len(expected) {
-		t.Fatalf("results have unexpected length: got %d, expected %d", len(result), len(expected))
+	if len(resultTypes) != len(expected) {
+		t.Fatalf("results have unexpected length: got %d, expected %d", len(resultTypes), len(expected))
 	}
 
-	for i, _ := range expected {
-		if expected[i] != result[i] {
-			t.Fatalf("position %d expected %d got %d", i, expected[i], result[i])
+	for i := range expected {
+		if expected[i] != resultTypes[i] {
+			t.Fatalf("position %d expected %d got %d", i, expected[i], resultTypes[i])
 		}
 	}
 }
 
 func TestOrderAttributes_WithExtras(t *testing.T) {
+	//attrs := make(map[attribute.AttrType]attribute.Attribute)
 	var attrs []attribute.Attribute
 	var a attribute.Attribute
 	var err error
@@ -283,27 +252,32 @@ func TestOrderAttributes_WithExtras(t *testing.T) {
 	}
 	attrs = append(attrs, a)
 
-	attrs = orderAttributes(attrs, RequestDst)
+	resultAttrs := orderAttributes(attrs, RequestDst)
 
-	var result []attribute.AttrType
-	for _, a := range attrs {
-		result = append(result, a.Type())
+	var resultTypes []attribute.AttrType
+	for _, a := range resultAttrs {
+		resultTypes = append(resultTypes, a.Type())
 	}
 
-	expected := []attribute.AttrType{2, 1, 3, 14, 16, 5, 10}
+	// type 0 here are placeholders for attribute types
+	// with no order expectation
+	expected := []attribute.AttrType{2, 1, 3, 14, 16, 0, 0}
 
-	if len(result) != len(expected) {
-		t.Fatalf("results have unexpected length: got %d, expected %d", len(result), len(expected))
+	if len(resultTypes) != len(expected) {
+		t.Fatalf("results have unexpected length: got %d, expected %d", len(resultTypes), len(expected))
 	}
 
-	for i, _ := range expected {
-		if expected[i] != result[i] {
-			t.Fatalf("position %d expected %d got %d", i, expected[i], result[i])
+	for i := range expected {
+		if expected[i] != resultTypes[i] {
+			if expected[i] != 0 {
+				t.Fatalf("position %d expected %d got %d", i, expected[i], resultTypes[i])
+			}
 		}
 	}
 }
 
 func TestOrderAttributes_ShortlistAndExtras(t *testing.T) {
+	//attrs := make(map[attribute.AttrType]attribute.Attribute)
 	var attrs []attribute.Attribute
 	var a attribute.Attribute
 	var err error
@@ -333,30 +307,32 @@ func TestOrderAttributes_ShortlistAndExtras(t *testing.T) {
 	}
 	attrs = append(attrs, a)
 
-	attrs = orderAttributes(attrs, RequestDst)
+	resultAttrs := orderAttributes(attrs, RequestDst)
 
-	var result []attribute.AttrType
-	for _, a := range attrs {
-		result = append(result, a.Type())
+	var resultTypes []attribute.AttrType
+	for _, a := range resultAttrs {
+		resultTypes = append(resultTypes, a.Type())
 	}
 
 	expected := []attribute.AttrType{2, 3, 14, 5, 10}
 
-	if len(result) != len(expected) {
-		t.Fatalf("results have unexpected length: got %d, expected %d", len(result), len(expected))
+	if len(resultTypes) != len(expected) {
+		t.Fatalf("results have unexpected length: got %d, expected %d", len(resultAttrs), len(expected))
 	}
 
-	for i, _ := range expected {
-		if expected[i] != result[i] {
-			t.Fatalf("position %d expected %d got %d", i, expected[i], result[i])
+	for i := range expected {
+		if expected[i] != resultTypes[i] {
+			t.Fatalf("position %d expected %d got %d", i, expected[i], resultAttrs[i])
 		}
 	}
 }
 
 func TestOrderAttributes_Shortlist(t *testing.T) {
+	//attrs := make(map[attribute.AttrType]attribute.Attribute)
 	var attrs []attribute.Attribute
 	var a attribute.Attribute
 	var err error
+
 	a, err = attribute.NewAttrBuilder().SetType(16).SetString("foo").Build()
 	if err != nil {
 		t.Fatal(err)
@@ -373,22 +349,22 @@ func TestOrderAttributes_Shortlist(t *testing.T) {
 	}
 	attrs = append(attrs, a)
 
-	attrs = orderAttributes(attrs, RequestDst)
+	resultAttrs := orderAttributes(attrs, RequestDst)
 
-	var result []attribute.AttrType
-	for _, a := range attrs {
-		result = append(result, a.Type())
+	var resultTypes []attribute.AttrType
+	for _, a := range resultAttrs {
+		resultTypes = append(resultTypes, a.Type())
 	}
 
 	expected := []attribute.AttrType{1, 3, 16}
 
-	if len(result) != len(expected) {
-		t.Fatalf("results have unexpected length: got %d, expected %d", len(result), len(expected))
+	if len(resultTypes) != len(expected) {
+		t.Fatalf("results have unexpected length: got %d, expected %d", len(resultTypes), len(expected))
 	}
 
-	for i, _ := range expected {
-		if expected[i] != result[i] {
-			t.Fatalf("position %d expected %d got %d", i, expected[i], result[i])
+	for i := range expected {
+		if expected[i] != resultTypes[i] {
+			t.Fatalf("position %d expected %d got %d", i, expected[i], resultTypes[i])
 		}
 	}
 }
@@ -407,7 +383,7 @@ func TestAttrTypeLocationInSlice(t *testing.T) {
 		t.Fatalf("expected %d results, got %d", len(expected), len(result))
 	}
 
-	for i, _ := range expected {
+	for i := range expected {
 		if expected[i] != result[i] {
 			t.Fatalf("result %d expected %d got %d", i, expected[i], result[i])
 		}
@@ -424,7 +400,7 @@ func TestMarshalMsg_Minimal(t *testing.T) {
 	}
 
 	expected := []byte{1, 1, 0, 5, 0}
-	result := msg.Marshal()
+	result := msg.Marshal(nil)
 	if len(result) != len(expected) {
 		t.Fatalf("expected 5 bytes")
 	}
@@ -447,35 +423,35 @@ func TestMarshalMsg_ReqDstStandard(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	builder.AddAttr(a)
+	builder.SetAttr(a)
 
 	// Attribute should be {3, 4, 12, 34}
 	a, err = attribute.NewAttrBuilder().SetType(attribute.VlanType).SetInt(3106).Build()
 	if err != nil {
 		t.Fatal(err)
 	}
-	builder.AddAttr(a)
+	builder.SetAttr(a)
 
 	// Attribute should be {16, 6, 102, 111, 111, 0}
 	a, err = attribute.NewAttrBuilder().SetType(attribute.NbrDevIDType).SetString("foo").Build()
 	if err != nil {
 		t.Fatal(err)
 	}
-	builder.AddAttr(a)
+	builder.SetAttr(a)
 
 	// Attribute should be {14, 6, 1, 2, 3, 4}
 	a, err = attribute.NewAttrBuilder().SetType(attribute.SrcIPv4Type).SetString("1.2.3.4").Build()
 	if err != nil {
 		t.Fatal(err)
 	}
-	builder.AddAttr(a)
+	builder.SetAttr(a)
 
 	// Attribute should be {1, 8, 255, 254, 253, 5, 6, 7}
 	a, err = attribute.NewAttrBuilder().SetType(attribute.SrcMacType).SetString("ff-fe-fd-05-06-07").Build()
 	if err != nil {
 		t.Fatal(err)
 	}
-	builder.AddAttr(a)
+	builder.SetAttr(a)
 
 	msg := builder.Build()
 	if err != nil {
@@ -502,9 +478,9 @@ func TestMarshalMsg_ReqDstStandard(t *testing.T) {
 		14, 6, 1, 2, 3, 4,
 		16, 6, 102, 111, 111, 0,
 	}
-	result := msg.Marshal()
+	result := msg.Marshal(nil)
 	if len(result) != len(expected) {
-		t.Fatalf("got %d bytes, expected %d", len(expected), len(result))
+		t.Fatalf("got %d bytes, expected %d", len(result), len(expected))
 	}
 
 	if bytes.Compare(result, expected) != 0 {
@@ -525,42 +501,42 @@ func TestMarshalMsg_ReqDstOversize(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	builder.AddAttr(a)
+	builder.SetAttr(a)
 
 	// Attribute should be {3, 4, 12, 34}
 	a, err = attribute.NewAttrBuilder().SetType(attribute.VlanType).SetInt(3106).Build()
 	if err != nil {
 		t.Fatal(err)
 	}
-	builder.AddAttr(a)
+	builder.SetAttr(a)
 
 	// Attribute should be {16, 6, 102, 111, 111, 0}
 	a, err = attribute.NewAttrBuilder().SetType(attribute.NbrDevIDType).SetString("foo").Build()
 	if err != nil {
 		t.Fatal(err)
 	}
-	builder.AddAttr(a)
+	builder.SetAttr(a)
 
 	// Superflous Attribute should be {11, 3, 0}
 	a, err = attribute.NewAttrBuilder().SetType(attribute.InPortDuplexType).SetInt(0).Build()
 	if err != nil {
 		t.Fatal(err)
 	}
-	builder.AddAttr(a)
+	builder.SetAttr(a)
 
 	// Attribute should be {14, 6, 1, 2, 3, 4}
 	a, err = attribute.NewAttrBuilder().SetType(attribute.SrcIPv4Type).SetString("1.2.3.4").Build()
 	if err != nil {
 		t.Fatal(err)
 	}
-	builder.AddAttr(a)
+	builder.SetAttr(a)
 
 	// Attribute should be {1, 8, 255, 254, 253, 5, 6, 7}
 	a, err = attribute.NewAttrBuilder().SetType(attribute.SrcMacType).SetString("ff-fe-fd-05-06-07").Build()
 	if err != nil {
 		t.Fatal(err)
 	}
-	builder.AddAttr(a)
+	builder.SetAttr(a)
 
 	msg := builder.Build()
 	if err != nil {
@@ -590,14 +566,12 @@ func TestMarshalMsg_ReqDstOversize(t *testing.T) {
 		16, 6, 102, 111, 111, 0,
 		11, 3, 0,
 	}
-	result := msg.Marshal()
+	result := msg.Marshal(nil)
 	if len(result) != len(expected) {
 		t.Fatalf("got %d bytes, expected %d", len(expected), len(result))
 	}
 
 	if bytes.Compare(result, expected) != 0 {
-		log.Println(expected)
-		log.Println(result)
 		t.Fatalf("RequestDst oversize message bad data")
 	}
 }
@@ -615,28 +589,28 @@ func TestMarshalMsg_ReqDstUndersize(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	builder.AddAttr(a)
+	builder.SetAttr(a)
 
 	// Attribute should be {3, 4, 12, 34}
 	a, err = attribute.NewAttrBuilder().SetType(attribute.VlanType).SetInt(3106).Build()
 	if err != nil {
 		t.Fatal(err)
 	}
-	builder.AddAttr(a)
+	builder.SetAttr(a)
 
 	// Attribute should be {16, 6, 102, 111, 111, 0}
 	a, err = attribute.NewAttrBuilder().SetType(attribute.NbrDevIDType).SetString("foo").Build()
 	if err != nil {
 		t.Fatal(err)
 	}
-	builder.AddAttr(a)
+	builder.SetAttr(a)
 
 	// Attribute should be {1, 8, 255, 254, 253, 5, 6, 7}
 	a, err = attribute.NewAttrBuilder().SetType(attribute.SrcMacType).SetString("ff-fe-fd-05-06-07").Build()
 	if err != nil {
 		t.Fatal(err)
 	}
-	builder.AddAttr(a)
+	builder.SetAttr(a)
 
 	msg := builder.Build()
 	if err != nil {
@@ -661,7 +635,7 @@ func TestMarshalMsg_ReqDstUndersize(t *testing.T) {
 		3, 4, 12, 34,
 		16, 6, 102, 111, 111, 0,
 	}
-	result := msg.Marshal()
+	result := msg.Marshal(nil)
 	if len(result) != len(expected) {
 		t.Fatalf("got %d bytes, expected %d", len(expected), len(result))
 	}
@@ -693,14 +667,6 @@ func TestUnmarshalMessage(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	log.Println(MsgTypeToString[msg.Type()])
-	log.Println(msg.Ver())
-	log.Println(msg.Len())
-	log.Println(msg.AttrCount())
-
-	for _, a := range msg.Attributes() {
-		log.Println(attribute.AttrTypePrettyString[a.Type()], a.String())
-	}
-
 	_ = msg
+	// TODO inspect the message
 }
