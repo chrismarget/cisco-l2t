@@ -77,3 +77,23 @@ func Communicate(outmsg message.Msg, target *net.UDPAddr) (message.Msg, *net.UDP
 
 	return reply, respondent, nil
 }
+
+//func getNearestSwitchAddress(addr *net.UDPAddr) (*net.UDPAddr, bool, error) {
+//	conn, err := net.ListenUDP(UdpProtocol, &net.UDPAddr{})
+//	if err != nil {
+//		return nil, false, err
+//	}
+//	defer conn.Close()
+//
+//	m := message.TestMsg()
+//	localIP, err := m.SrcIpForTarget(&target.IP)
+//	a, err := attribute.NewAttrBuilder().
+//		SetType(attribute.SrcIPv4Type).
+//		SetString(localIP.String()).
+//		Build()
+//
+//
+//	n, err := conn.WriteToUDP(payload, target)
+//
+//	return nil, false
+//}

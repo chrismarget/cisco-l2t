@@ -7,6 +7,7 @@ import (
 	"github.com/chrismarget/cisco-l2t/attribute"
 	"math"
 	"net"
+	"os"
 )
 
 type (
@@ -426,4 +427,34 @@ func ListMissingAttributes(t msgType, a map[attribute.AttrType]attribute.Attribu
 		}
 	}
 	return missing
+}
+
+// TestMsg returns a pre-built message useful for probing for a switch
+func TestMsg() Msg {
+	var a attribute.Attribute
+	var err error
+	builder := NewMsgBuilder()
+	a, err = attribute.NewAttrBuilder().SetType(attribute.SrcMacType).SetString("ffff.ffff.ffff").Build()
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	builder.SetAttr(a)
+
+	a, err = attribute.NewAttrBuilder().SetType(attribute.DstMacType).SetString("ffff.ffff.ffff").Build()
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(2)
+	}
+	builder.SetAttr(a)
+
+	a, err = attribute.NewAttrBuilder().SetType(attribute.VlanType).SetInt(uint32(1)).Build()
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(3)
+	}
+	builder.SetAttr(a)
+
+	return builder.Build()
+
 }
