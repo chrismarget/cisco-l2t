@@ -7,6 +7,8 @@ import (
 	"net"
 	"strconv"
 	"time"
+
+	"github.com/chrismarget/cisco-l2t/message"
 )
 
 const (
@@ -37,6 +39,11 @@ type defaultTarget struct {
 	cxn             *net.UDPConn
 	ourIp           net.IP
 	useDial         bool
+	outgoing        chan SendMessageConfig
+}
+
+func (o *defaultTarget) Send(m SendMessageConfig) {
+	o.outgoing <- m
 }
 
 func (o defaultTarget) String() string {
@@ -77,6 +84,16 @@ func (o defaultTarget) String() string {
 	return out.String()
 }
 
+type SendMessageConfig struct {
+	M     message.Msg
+	Inbox chan MessageResponse
+}
+
+type MessageResponse struct {
+	Response message.Msg
+	Err      error
+}
+
 type Builder interface {
 	AddIp(net.IP) Builder
 	Build() (Target, error)
@@ -95,10 +112,12 @@ func (o *defaultTargetBuilder) AddIp(ip net.IP) Builder {
 }
 
 func (o *defaultTargetBuilder) Build() (Target, error) {
+	// TODO: plz initialize as close to 'return' as possible.
 	result := defaultTarget{
 		theirIp:         o.addresses,
 		talkToThemIdx:   -1,
 		listenToThemIdx: -1,
+		outgoing:        make(chan SendMessageConfig),
 	}
 
 	// We keep track of every address the target replies from, ordered for
@@ -143,6 +162,7 @@ func (o *defaultTargetBuilder) Build() (Target, error) {
 			result.listenToThemIdx = i
 			result.useDial = true
 			result.cxn = cxn
+			spawnSenderRoutine(result.outgoing, cxn)
 			return result, nil
 		}
 	}
@@ -178,7 +198,52 @@ func (o *defaultTargetBuilder) Build() (Target, error) {
 		}
 	}
 
+	spawnSenderRoutine(result.outgoing, result.cxn)
 	return result, nil
+}
+
+// TODO: Carefully consider where this code should go / how it's invoked.
+//  What happens if a caller calls 'Build()' more than once?
+//  What happens if Send() is called and this thread has not been spawned yet?
+func spawnSenderRoutine(messagesToSend chan SendMessageConfig, c *net.UDPConn) {
+	go func() {
+		for sendConfig := range messagesToSend {
+			// TODO: Need a timeout.
+			_, err := c.Write(sendConfig.M.Marshal(nil))
+			if err != nil {
+				sendConfig.Inbox <- MessageResponse{
+					Err: err,
+				}
+				continue
+			}
+
+			// TODO: Fixed buffer size == not good
+			// TODO: Need a timeout.
+			b := make([]byte, inBufferSize)
+			_, err = c.Read(b)
+			if err != nil {
+				sendConfig.Inbox <- MessageResponse{
+					Err: err,
+				}
+				continue
+			}
+
+			m, err := message.UnmarshalMessage(b)
+			if err != nil {
+				sendConfig.Inbox <- MessageResponse{
+					Err: err,
+				}
+				continue
+			}
+
+			sendConfig.Inbox <- MessageResponse{
+				Response: m,
+			}
+		}
+
+		// TODO: If the channel is closed and the loop exits, should
+		//  this routine close the socket or cleanup other stuff?
+	}()
 }
 
 func NewTarget() Builder {
