@@ -3,7 +3,7 @@ package target
 import (
 	"bytes"
 	"fmt"
-	"log"
+	"github.com/chrismarget/cisco-l2t/message"
 	"net"
 	"strconv"
 	"time"
@@ -37,6 +37,8 @@ type defaultTarget struct {
 	cxn             *net.UDPConn
 	ourIp           net.IP
 	useDial         bool
+	InBox           chan message.Msg
+	OutBox          chan message.Msg
 }
 
 func (o defaultTarget) String() string {
@@ -94,21 +96,15 @@ func (o *defaultTargetBuilder) AddIp(ip net.IP) Builder {
 	return o
 }
 
-func (o *defaultTargetBuilder) Build() (Target, error) {
-	result := defaultTarget{
-		theirIp:         o.addresses,
-		talkToThemIdx:   -1,
-		listenToThemIdx: -1,
-	}
-
+func (o defaultTargetBuilder) Build() (Target, error) {
 	// We keep track of every address the target replies from, ordered for
 	// correlation with the slice of addresses we spoke to (o.addresses)
 	var observedIps []net.IP
 
-	// Loop until every element in result.theirIp
+	// Loop until every element in o.addresses
 	// has a corresponding observedIps element
-	for len(result.theirIp) > len(observedIps) {
-		testIp := result.theirIp[len(observedIps)]
+	for len(o.addresses) > len(observedIps) {
+		testIp := o.addresses[len(observedIps)]
 		respondingIp, err := checkTargetIp(&testIp)
 		if err != nil {
 			return nil, err
@@ -128,22 +124,26 @@ func (o *defaultTargetBuilder) Build() (Target, error) {
 
 	// Check to see whether we had symmetric comms with any of
 	// those addresses. If so, open a connection.
-	for i, ip := range result.theirIp {
-		//if ip.String() == observedIps[i].String() {
+	for i, ip := range o.addresses {
 		if ip.Equal(observedIps[i]) {
-			cxn, err := net.DialUDP(UdpProtocol, nil, &net.UDPAddr{IP: ip, Port: udpPort})
+			cxn, err := net.DialUDP(UdpProtocol, &net.UDPAddr{}, &net.UDPAddr{IP: ip, Port: udpPort})
 			if err != nil {
-				return result, err
+				return nil, err
 			}
 			// Get the local system address that faces that target.
 			ourIp, err := getSrcIp(&ip)
+			if err != nil {
+				return nil, err
+			}
 
-			result.ourIp = *ourIp
-			result.talkToThemIdx = i
-			result.listenToThemIdx = i
-			result.useDial = true
-			result.cxn = cxn
-			return result, nil
+			return defaultTarget{
+				theirIp:         o.addresses,
+				talkToThemIdx:   i,
+				listenToThemIdx: i,
+				ourIp:           *ourIp,
+				useDial:         true,
+				cxn:             cxn,
+			}, nil
 		}
 	}
 
@@ -157,28 +157,39 @@ func (o *defaultTargetBuilder) Build() (Target, error) {
 			// We found one. The target replies from "replyAddr".
 			// Get the local system address that faces that target.
 			ourIp, err := getSrcIp(&replyAddr)
-			result.ourIp = *ourIp
-
-			// Record the index of the address we need to talk to.
-			result.talkToThemIdx = i
+			if err != nil {
+				return nil, err
+			}
 
 			// Find the responding address in the target's address list.
-			for k, v := range result.theirIp {
+			var listenIdx int
+			for k, v := range o.addresses {
 				if v.String() == replyAddr.String() {
-					result.listenToThemIdx = k
+					listenIdx = k
 				}
 			}
 
 			cxn, err := net.ListenUDP(UdpProtocol, &net.UDPAddr{IP: *ourIp})
 			if err != nil {
-				return result, err
+				return nil, err
 			}
 
-			result.cxn = cxn
+			return defaultTarget{
+				theirIp:         o.addresses,
+				talkToThemIdx:   i,
+				listenToThemIdx: listenIdx,
+				ourIp:           *ourIp,
+				useDial:         false,
+				cxn:             cxn,
+			}, nil
 		}
 	}
 
-	return result, nil
+	return defaultTarget{
+		theirIp: o.addresses,
+		talkToThemIdx: -1,
+		listenToThemIdx: -1,
+	}, nil
 }
 
 func NewTarget() Builder {
@@ -218,7 +229,6 @@ func checkTargetIp(t *net.IP) (*net.IP, error) {
 	buffIn := make([]byte, inBufferSize)
 	var respondent *net.UDPAddr
 	for timedOut == false {
-		log.Println("sending to", t)
 		if wait > maxRTT {
 			timedOut = true
 			wait = maxRTT
