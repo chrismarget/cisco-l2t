@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"github.com/chrismarget/cisco-l2t/attribute"
-	"github.com/chrismarget/cisco-l2t/communicate"
 	"github.com/chrismarget/cisco-l2t/message"
 	"log"
 	"net"
@@ -63,24 +62,24 @@ func main() {
 		}
 
 		log.Println(msg.Len())
-		response, _, err := communicate.Communicate(msg, &net.UDPAddr{IP: target})
+		//response, _, err := communicate.Communicate(msg, &net.UDPAddr{IP: target})
 		log.Println(msg.Len())
-		response, _, err = communicate.Communicate(msg, &net.UDPAddr{IP: target})
+		//response, _, err = communicate.Communicate(msg, &net.UDPAddr{IP: target})
 		log.Println(msg.Len())
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(8)
 		}
 
-		for _, a := range response.Attributes() {
-			if a.Type() == attribute.ReplyStatusType {
-				log.Println(i, a.String())
-				if a.String() == "Source Mac address not found" {
-					found = append(found, i)
-					//log.Printf("%d", i)
-				}
-			}
-		}
+		//for _, a := range response.Attributes() {
+		//	if a.Type() == attribute.ReplyStatusType {
+		//		log.Println(i, a.String())
+		//		if a.String() == "Source Mac address not found" {
+		//			found = append(found, i)
+		//			//log.Printf("%d", i)
+		//		}
+		//	}
+		//}
 	}
 
 	log.Println(found)

@@ -3,10 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/chrismarget/cisco-l2t/attribute"
-	"github.com/chrismarget/cisco-l2t/communicate"
 	"github.com/chrismarget/cisco-l2t/message"
-	"log"
-	"net"
 	"os"
 )
 
@@ -53,15 +50,15 @@ func main() {
 		os.Exit(7)
 	}
 
-	response, respondent, err := communicate.Communicate(msg, &net.UDPAddr{IP: []byte{192, 168, 96, 167}})
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(8)
-	}
-
-	log.Println(respondent.IP.String())
-	log.Println(message.MsgTypeToString[response.Type()])
-	for _, a := range response.Attributes() {
-		log.Println(attribute.AttrTypePrettyString[a.Type()], a.String())
-	}
+	//response, respondent, err := communicate.Communicate(msg, &net.UDPAddr{IP: []byte{192, 168, 96, 167}})
+	//if err != nil {
+	//	fmt.Println(err)
+	//	os.Exit(8)
+	//}
+	//
+	//log.Println(respondent.IP.String())
+	//log.Println(message.MsgTypeToString[response.Type()])
+	//for _, a := range response.Attributes() {
+	//	log.Println(attribute.AttrTypePrettyString[a.Type()], a.String())
+	//}
 }
