@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"github.com/chrismarget/cisco-l2t/attribute"
 	"math"
-	"net"
 	"os"
 )
 
@@ -113,22 +112,23 @@ type Msg interface {
 	//	AddAttr(attribute.Attribute) attrCount
 	//	DelAttr(attrCount) error
 
-	// SrcIpForTarget allows the caller to specify a function which picks
-	// the Type 14 (L2_ATTR_SRC_IP) payload (our IP address) when sending
-	// a message. Default behavior loads this value using egress interface
-	// address if the Type 14 attribute is omitted. There's probably no
-	// reason to call this function.
-	SrcIpForTarget(*net.IP) (*net.IP, error)
+	//// SrcIpForTarget allows the caller to specify a function which picks
+	//// the Type 14 (L2_ATTR_SRC_IP) payload (our IP address) when sending
+	//// a message. Default behavior loads this value using egress interface
+	//// address if the Type 14 attribute is omitted. There's probably no
+	//// reason to call this function.
+	//SrcIpForTarget(*net.IP) (*net.IP, error)
 
 	// Marshal returns the message formatted for transmission onto the wire.
 	Marshal([]attribute.Attribute) []byte
 }
 
 type defaultMsg struct {
-	msgType   msgType
-	msgVer    msgVer
-	attrs     map[attribute.AttrType]attribute.Attribute
-	srcIpFunc func(*net.IP) (*net.IP, error)
+	msgType       msgType
+	msgVer        msgVer
+	attrs         map[attribute.AttrType]attribute.Attribute
+	srcIpIncluded bool
+	//srcIpFunc func(*net.IP) (*net.IP, error)
 }
 
 func (o *defaultMsg) Type() msgType {
@@ -194,9 +194,9 @@ func (o *defaultMsg) Validate() error {
 	return nil
 }
 
-func (o *defaultMsg) SrcIpForTarget(t *net.IP) (*net.IP, error) {
-	return o.srcIpFunc(t)
-}
+//func (o *defaultMsg) SrcIpForTarget(t *net.IP) (*net.IP, error) {
+//	return o.srcIpFunc(t)
+//}
 
 func (o *defaultMsg) Marshal(extraAttrs []attribute.Attribute) []byte {
 
@@ -241,7 +241,7 @@ func (o *defaultMsg) Marshal(extraAttrs []attribute.Attribute) []byte {
 type MsgBuilder interface {
 	// SetType sets the message type. Only 4 types are known to exist,
 	// of those, only the queries are likely relevant to this method
-	// (unless you're writing a Cisco switch replacement)
+	// because I don't think we'll be sending replies...
 	//
 	// Default value is 1 (L2T_REQUEST_DST)
 	SetType(msgType) MsgBuilder
@@ -254,10 +254,10 @@ type MsgBuilder interface {
 	// Attribute order matters on the wire, but not within this slice.
 	SetAttr(attribute.Attribute) MsgBuilder
 
-	// SetSrcIpFunc sets the function that will be called to calculate
-	// the attribute SrcIPv4Type (14) payload if one is required but
-	// not otherwise specified.
-	SetSrcIpFunc(func(*net.IP) (*net.IP, error)) MsgBuilder
+	//// SetSrcIpFunc sets the function that will be called to calculate
+	//// the attribute SrcIPv4Type (14) payload if one is required but
+	//// not otherwise specified.
+	//SetSrcIpFunc(func(*net.IP) (*net.IP, error)) MsgBuilder
 
 	// Build returns a message.Msg object with the specified type,
 	// version and attributes.
@@ -265,28 +265,28 @@ type MsgBuilder interface {
 }
 
 type defaultMsgBuilder struct {
-	msgType   msgType
-	msgVer    msgVer
-	attrs     map[attribute.AttrType]attribute.Attribute
-	srcIpFunc func(*net.IP) (*net.IP, error)
+	msgType msgType
+	msgVer  msgVer
+	attrs   map[attribute.AttrType]attribute.Attribute
+	//	srcIpFunc func(*net.IP) (*net.IP, error)
 }
 
-func defaultSrcIpFunc(target *net.IP) (*net.IP, error) {
-	c, err := net.Dial("udp4", target.String()+":1")
-	if err != nil {
-		return nil, err
-	}
-	defer c.Close()
-
-	return &c.LocalAddr().(*net.UDPAddr).IP, nil
-}
+//func defaultSrcIpFunc(target *net.IP) (*net.IP, error) {
+//	c, err := net.Dial("udp4", target.String()+":1")
+//	if err != nil {
+//		return nil, err
+//	}
+//	defer c.Close()
+//
+//	return &c.LocalAddr().(*net.UDPAddr).IP, nil
+//}
 
 func NewMsgBuilder() MsgBuilder {
 	return &defaultMsgBuilder{
-		msgType:   defaultMsgType,
-		msgVer:    defaultMsgVer,
-		srcIpFunc: defaultSrcIpFunc,
-		attrs:     make(map[attribute.AttrType]attribute.Attribute),
+		msgType: defaultMsgType,
+		msgVer:  defaultMsgVer,
+		//srcIpFunc: defaultSrcIpFunc,
+		attrs: make(map[attribute.AttrType]attribute.Attribute),
 	}
 }
 
@@ -305,17 +305,22 @@ func (o *defaultMsgBuilder) SetAttr(a attribute.Attribute) MsgBuilder {
 	return o
 }
 
-func (o *defaultMsgBuilder) SetSrcIpFunc(f func(*net.IP) (*net.IP, error)) MsgBuilder {
-	o.srcIpFunc = f
-	return o
-}
+//func (o *defaultMsgBuilder) SetSrcIpFunc(f func(*net.IP) (*net.IP, error)) MsgBuilder {
+//	o.srcIpFunc = f
+//	return o
+//}
 
 func (o *defaultMsgBuilder) Build() Msg {
+	srcIpIncluded := false
+	if _, exists := o.attrs[attribute.SrcIPv4Type]; exists {
+		srcIpIncluded = true
+	}
 	m := &defaultMsg{
-		msgType:   o.msgType,
-		msgVer:    o.msgVer,
-		attrs:     o.attrs,
-		srcIpFunc: o.srcIpFunc,
+		msgType: o.msgType,
+		msgVer:  o.msgVer,
+		attrs:   o.attrs,
+		srcIpIncluded: srcIpIncluded,
+		//srcIpFunc: o.srcIpFunc,
 	}
 	return m
 }

@@ -14,7 +14,7 @@ const (
 	UdpProtocol  = "udp4"
 	IPv4         = "ipv4"
 	nilIP        = "<nil>"
-	inBufferSize = 2048
+	inBufferSize = 65535
 	initialRTT   = 17 * time.Millisecond
 	maxRTT       = 2500 * time.Millisecond
 )
@@ -80,6 +80,58 @@ func (o defaultTarget) String() string {
 	out.WriteString(strconv.FormatBool(o.useDial))
 
 	return out.String()
+}
+
+// TODO: Carefully consider where this code should go / how it's invoked.
+//  What happens if a caller calls 'Build()' more than once?
+//  What happens if Send() is called and this thread has not been spawned yet?
+func (o defaultTarget) spawnSenderRoutine(messagesToSend chan SendMessageConfig) {
+	go func() {
+		for sendConfig := range messagesToSend {
+			// TODO: Need a timeout.
+			_, err := o.cxn.Write(sendConfig.M.Marshal(nil))
+			if err != nil {
+				sendConfig.Inbox <- MessageResponse{
+					Err: err,
+				}
+				continue
+			}
+
+			// TODO: Fixed buffer size == not good
+			// TODO: Need a timeout.
+			b := make([]byte, inBufferSize)
+			_, err = o.cxn.Read(b)
+			if err != nil {
+				sendConfig.Inbox <- MessageResponse{
+					Err: err,
+				}
+				continue
+			}
+
+			m, err := message.UnmarshalMessage(b)
+			if err != nil {
+				sendConfig.Inbox <- MessageResponse{
+					Err: err,
+				}
+				continue
+			}
+
+			sendConfig.Inbox <- MessageResponse{
+				Response: m,
+			}
+		}
+
+		// TODO: If the channel is closed and the loop exits, should
+		//  this routine close the socket or cleanup other stuff?
+	}()
+}
+
+func (o defaultTarget) communicateViaConventionalSocket() {
+
+}
+
+func (o defaultTarget) communicateViaDialSocket() {
+
 }
 
 type SendMessageConfig struct {
@@ -200,57 +252,13 @@ func (o defaultTargetBuilder) Build() (Target, error) {
 
 	//todo this thing needs to be called in both the dial and listen cases,
 	// also needs detail about how the cxn is to be used.
-//	spawnSenderRoutine(result.outgoing, result.cxn)
+	//	spawnSenderRoutine(result.outgoing, result.cxn)
 
 	return defaultTarget{
-		theirIp: o.addresses,
-		talkToThemIdx: -1,
+		theirIp:         o.addresses,
+		talkToThemIdx:   -1,
 		listenToThemIdx: -1,
 	}, nil
-}
-
-// TODO: Carefully consider where this code should go / how it's invoked.
-//  What happens if a caller calls 'Build()' more than once?
-//  What happens if Send() is called and this thread has not been spawned yet?
-func spawnSenderRoutine(messagesToSend chan SendMessageConfig, c *net.UDPConn) {
-	go func() {
-		for sendConfig := range messagesToSend {
-			// TODO: Need a timeout.
-			_, err := c.Write(sendConfig.M.Marshal(nil))
-			if err != nil {
-				sendConfig.Inbox <- MessageResponse{
-					Err: err,
-				}
-				continue
-			}
-
-			// TODO: Fixed buffer size == not good
-			// TODO: Need a timeout.
-			b := make([]byte, inBufferSize)
-			_, err = c.Read(b)
-			if err != nil {
-				sendConfig.Inbox <- MessageResponse{
-					Err: err,
-				}
-				continue
-			}
-
-			m, err := message.UnmarshalMessage(b)
-			if err != nil {
-				sendConfig.Inbox <- MessageResponse{
-					Err: err,
-				}
-				continue
-			}
-
-			sendConfig.Inbox <- MessageResponse{
-				Response: m,
-			}
-		}
-
-		// TODO: If the channel is closed and the loop exits, should
-		//  this routine close the socket or cleanup other stuff?
-	}()
 }
 
 func NewTarget() Builder {
