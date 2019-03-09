@@ -7,8 +7,6 @@ import (
 	"net"
 	"strconv"
 	"time"
-
-	"github.com/chrismarget/cisco-l2t/message"
 )
 
 const (
@@ -200,7 +198,10 @@ func (o defaultTargetBuilder) Build() (Target, error) {
 		}
 	}
 
-	spawnSenderRoutine(result.outgoing, result.cxn)
+	//todo this thing needs to be called in both the dial and listen cases,
+	// also needs detail about how the cxn is to be used.
+//	spawnSenderRoutine(result.outgoing, result.cxn)
+
 	return defaultTarget{
 		theirIp: o.addresses,
 		talkToThemIdx: -1,
