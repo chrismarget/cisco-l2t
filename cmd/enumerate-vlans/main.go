@@ -33,14 +33,14 @@ func main() {
 		builder := message.NewMsgBuilder()
 		builder.SetType(message.RequestSrc)
 
-		att, err = attribute.NewAttrBuilder().SetType(attribute.SrcMacType).SetString("1000.1000.1000").Build()
+		att, err = attribute.NewAttrBuilder().SetType(attribute.SrcMacType).SetString("ffff.ffff.ffff").Build()
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
 		}
 		builder.SetAttr(att)
 
-		att, err = attribute.NewAttrBuilder().SetType(attribute.DstMacType).SetString("2000.2000.2000").Build()
+		att, err = attribute.NewAttrBuilder().SetType(attribute.DstMacType).SetString("ffff.ffff.ffff").Build()
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(2)
