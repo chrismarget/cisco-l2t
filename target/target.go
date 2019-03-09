@@ -37,8 +37,11 @@ type defaultTarget struct {
 	cxn             *net.UDPConn
 	ourIp           net.IP
 	useDial         bool
-	InBox           chan message.Msg
-	OutBox          chan message.Msg
+	outbox          chan SendMessageConfig
+}
+
+func (o *defaultTarget) Send(m SendMessageConfig) {
+	o.outbox <- m
 }
 
 func (o defaultTarget) String() string {
@@ -79,6 +82,16 @@ func (o defaultTarget) String() string {
 	return out.String()
 }
 
+type SendMessageConfig struct {
+	M     message.Msg
+	Inbox chan MessageResponse
+}
+
+type MessageResponse struct {
+	Response message.Msg
+	Err      error
+}
+
 type Builder interface {
 	AddIp(net.IP) Builder
 	Build() (Target, error)
@@ -90,7 +103,7 @@ type defaultTargetBuilder struct {
 }
 
 func (o *defaultTargetBuilder) AddIp(ip net.IP) Builder {
-	if addressIsNew(&ip, o.addresses) {
+	if addressIsNew(ip, o.addresses) {
 		o.addresses = append(o.addresses, ip)
 	}
 	return o
@@ -105,16 +118,16 @@ func (o defaultTargetBuilder) Build() (Target, error) {
 	// has a corresponding observedIps element
 	for len(o.addresses) > len(observedIps) {
 		testIp := o.addresses[len(observedIps)]
-		respondingIp, err := checkTargetIp(&testIp)
+		respondingIp, err := checkTargetIp(testIp)
 		if err != nil {
 			return nil, err
 		}
 
 		if respondingIp != nil {
 			// We got a reply. Add the address to the list(s) as appropriate.
-			observedIps = append(observedIps, *respondingIp)
+			observedIps = append(observedIps, respondingIp)
 			if addressIsNew(respondingIp, o.addresses) {
-				o.addresses = append(o.addresses, *respondingIp)
+				o.addresses = append(o.addresses, respondingIp)
 			}
 		} else {
 			// No reply, dump a placeholder in the list.
@@ -131,7 +144,7 @@ func (o defaultTargetBuilder) Build() (Target, error) {
 				return nil, err
 			}
 			// Get the local system address that faces that target.
-			ourIp, err := getSrcIp(&ip)
+			ourIp, err := getSrcIp(ip)
 			if err != nil {
 				return nil, err
 			}
@@ -140,7 +153,7 @@ func (o defaultTargetBuilder) Build() (Target, error) {
 				theirIp:         o.addresses,
 				talkToThemIdx:   i,
 				listenToThemIdx: i,
-				ourIp:           *ourIp,
+				ourIp:           ourIp,
 				useDial:         true,
 				cxn:             cxn,
 			}, nil
@@ -156,7 +169,7 @@ func (o defaultTargetBuilder) Build() (Target, error) {
 		if replyAddr != nil {
 			// We found one. The target replies from "replyAddr".
 			// Get the local system address that faces that target.
-			ourIp, err := getSrcIp(&replyAddr)
+			ourIp, err := getSrcIp(replyAddr)
 			if err != nil {
 				return nil, err
 			}
@@ -169,7 +182,7 @@ func (o defaultTargetBuilder) Build() (Target, error) {
 				}
 			}
 
-			cxn, err := net.ListenUDP(UdpProtocol, &net.UDPAddr{IP: *ourIp})
+			cxn, err := net.ListenUDP(UdpProtocol, &net.UDPAddr{IP: ourIp})
 			if err != nil {
 				return nil, err
 			}
@@ -178,7 +191,7 @@ func (o defaultTargetBuilder) Build() (Target, error) {
 				theirIp:         o.addresses,
 				talkToThemIdx:   i,
 				listenToThemIdx: listenIdx,
-				ourIp:           *ourIp,
+				ourIp:           ourIp,
 				useDial:         false,
 				cxn:             cxn,
 			}, nil
@@ -198,25 +211,25 @@ func NewTarget() Builder {
 
 // getSrcIp returns a *net.IP representing the local interface
 // that's best suited for talking to the passed target address
-func getSrcIp(t *net.IP) (*net.IP, error) {
+func getSrcIp(t net.IP) (net.IP, error) {
 	c, err := net.Dial("udp4", t.String()+":1")
 	if err != nil {
 		return nil, err
 	}
 	defer c.Close()
 
-	return &c.LocalAddr().(*net.UDPAddr).IP, nil
+	return c.LocalAddr().(*net.UDPAddr).IP, nil
 }
 
 // testTarget sends a test L2T message to the specified IP address. It
 // returns the address that replied to the message without evaluating
 // the contents of the reply, <nil> if no reply.
-func checkTargetIp(t *net.IP) (*net.IP, error) {
+func checkTargetIp(t net.IP) (net.IP, error) {
 	ourIp, err := getSrcIp(t)
 	if err != nil {
 		return nil, err
 	}
-	payload := append(testMsg, *ourIp...)
+	payload := append(testMsg, ourIp...)
 
 	conn, err := net.ListenUDP(UdpProtocol, &net.UDPAddr{})
 	if err != nil {
@@ -234,7 +247,7 @@ func checkTargetIp(t *net.IP) (*net.IP, error) {
 			wait = maxRTT
 		}
 
-		n, err := conn.WriteToUDP(payload, &net.UDPAddr{IP: *t, Port: udpPort})
+		n, err := conn.WriteToUDP(payload, &net.UDPAddr{IP: t, Port: udpPort})
 		if err != nil {
 			return nil, err
 		}
@@ -263,12 +276,12 @@ func checkTargetIp(t *net.IP) (*net.IP, error) {
 		return nil, nil
 	}
 
-	return &respondent.IP, nil
+	return respondent.IP, nil
 }
 
 // addressIsNew returns a boolean indicating whether
 // the net.IP is found in the []net.IP
-func addressIsNew(a *net.IP, known []net.IP) bool {
+func addressIsNew(a net.IP, known []net.IP) bool {
 	for _, k := range known {
 		if a.String() == k.String() {
 			return false

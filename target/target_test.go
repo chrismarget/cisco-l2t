@@ -8,10 +8,8 @@ import (
 
 func TestNewTargetBuilder(t *testing.T) {
 	tb, err := NewTarget().
-		AddIp(net.IP{192,168,0,1}).
-		AddIp(net.IP{192,168,0,253}).
+		AddIp(net.IP{192,168,0,254}).
 		AddIp(net.IP{192,168,0,252}).
-		AddIp(net.IP{192,168,0,1}).
 		Build()
 	if err != nil {
 		t.Fatal(err)
@@ -22,7 +20,7 @@ func TestNewTargetBuilder(t *testing.T) {
 
 func TestCheckTargetIp(t *testing.T) {
 	testIp := net.IP{192,168,0,254}
-	responseIp, err := checkTargetIp(&testIp)
+	responseIp, err := checkTargetIp(testIp)
 	if err != nil {
 		t.Fatal(err)
 	}
