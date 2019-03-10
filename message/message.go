@@ -109,6 +109,10 @@ type Msg interface {
 	// Validate checks the message for problems.
 	Validate() error
 
+	// NeedsSrcIp indicates whether this message requires an
+	// attribute.SrcIPv4Type to be added before it can be sent.
+	NeedsSrcIp() bool
+
 	//	AddAttr(attribute.Attribute) attrCount
 	//	DelAttr(attrCount) error
 
@@ -120,6 +124,14 @@ type Msg interface {
 	//SrcIpForTarget(*net.IP) (*net.IP, error)
 
 	// Marshal returns the message formatted for transmission onto the wire.
+	// Extra attributes beyond those already built into the message may be
+	// included when calling Marshal().
+	//
+	// Support for these last-minute attributes stems from the requirement to
+	// include our local IP address in the L2T payload (attribute 14). When
+	// Marshal()ing a message to several different targets we might need to
+	// source traffic from different local IP interfaces, so this lets us tack
+	// the source attribute on at the last moment.
 	Marshal([]attribute.Attribute) []byte
 }
 
@@ -192,6 +204,10 @@ func (o *defaultMsg) Validate() error {
 	}
 
 	return nil
+}
+
+func (o *defaultMsg) NeedsSrcIp() bool {
+	return !o.srcIpIncluded
 }
 
 //func (o *defaultMsg) SrcIpForTarget(t *net.IP) (*net.IP, error) {

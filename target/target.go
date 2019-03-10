@@ -3,6 +3,7 @@ package target
 import (
 	"bytes"
 	"fmt"
+	"github.com/chrismarget/cisco-l2t/attribute"
 	"github.com/chrismarget/cisco-l2t/message"
 	"net"
 	"strconv"
@@ -22,7 +23,7 @@ const (
 var (
 	testMsg = []byte{
 		1, 1, 0, 31, 4, 2, 8, 255, 255, 255, 255, 255, 255,
-		1, 8, 255, 255, 255, 255, 255, 255, 3, 4, 0, 4, 14, 6,
+		1, 8, 255, 255, 255, 255, 255, 255, 3, 4, 0, 1, 14, 6,
 	}
 )
 
@@ -88,6 +89,26 @@ func (o defaultTarget) String() string {
 func (o defaultTarget) spawnSenderRoutine(messagesToSend chan SendMessageConfig) {
 	go func() {
 		for sendConfig := range messagesToSend {
+			msg := sendConfig.M
+			var payload []byte
+			switch msg.NeedsSrcIp() {
+			case true:
+				srcIpAttr, _ := attribute.NewAttrBuilder().
+					SetType(attribute.SrcIPv4Type).
+					SetString(o.ourIp.String()).
+					Build()
+				// TODO: An error isn't very likely here, but I'm not sure what to do with it
+				payload = msg.Marshal([]attribute.Attribute{srcIpAttr})
+			case false:
+				payload = msg.Marshal([]attribute.Attribute{})
+			}
+			switch o.useDial {
+			case true:
+				o.communicateViaDialSocket(payload, sendConfig.Inbox)
+			case false:
+				o.communicateViaConventionalSocket(payload, sendConfig.Inbox)
+
+			}
 			// TODO: Need a timeout.
 			_, err := o.cxn.Write(sendConfig.M.Marshal(nil))
 			if err != nil {
@@ -126,11 +147,44 @@ func (o defaultTarget) spawnSenderRoutine(messagesToSend chan SendMessageConfig)
 	}()
 }
 
-func (o defaultTarget) communicateViaConventionalSocket() {
+func (o defaultTarget) communicateViaConventionalSocket(b []byte, inbox chan MessageResponse) {
+	destination := &net.UDPAddr{
+		IP:   o.theirIp[o.talkToThemIdx],
+		Port: udpPort,
+	}
+	n, err := o.cxn.WriteToUDP(b, destination)
+	if err != nil {
+		inbox <- MessageResponse{Err: err}
+	}
+	if n != len(b) {
+		inbox <- MessageResponse{
+			Err: fmt.Errorf("attemtped send of %d bytes, only managed %d", len(b), n),
+		}
+	}
 
+	// todo: there's no retrys, no timeouts here yet
+	buffIn := make([]byte, inBufferSize)
+	n, respondent, err := o.cxn.ReadFromUDP(buffIn)
+	switch {
+	case err != nil:
+		inbox <- MessageResponse{Err: err}
+	case n == len(buffIn):
+		inbox <- MessageResponse{Err: fmt.Errorf("got full buffer: %d bytes", n)}
+	case !respondent.IP.Equal(o.theirIp[o.listenToThemIdx]):
+		tIp := o.theirIp[o.talkToThemIdx].String()
+		eIp := o.theirIp[o.listenToThemIdx].String()
+		aIp := respondent.IP.String()
+		inbox <- MessageResponse{Err: fmt.Errorf("%s replied from unexpected address %s, rather than %s", tIp, aIp, eIp)}
+	}
+
+	msg, err := message.UnmarshalMessage(b[:n])
+	inbox <- MessageResponse{
+		Response: msg,
+		Err:      err,
+	}
 }
 
-func (o defaultTarget) communicateViaDialSocket() {
+func (o defaultTarget) communicateViaDialSocket(b []byte, inbox chan MessageResponse) {
 
 }
 
