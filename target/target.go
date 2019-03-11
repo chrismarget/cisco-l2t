@@ -153,31 +153,36 @@ func (o defaultTarget) communicateViaConventionalSocket(b []byte, inbox chan Mes
 		Port: udpPort,
 	}
 	n, err := o.cxn.WriteToUDP(b, destination)
-	if err != nil {
+	switch {
+	case err != nil:
 		inbox <- MessageResponse{Err: err}
-	}
-	if n != len(b) {
+		return
+	case n != len(b):
 		inbox <- MessageResponse{
 			Err: fmt.Errorf("attemtped send of %d bytes, only managed %d", len(b), n),
 		}
+		return
 	}
 
-	// todo: there's no retrys, no timeouts here yet
+	// todo: there's no retry, no timeout here yet
 	buffIn := make([]byte, inBufferSize)
 	n, respondent, err := o.cxn.ReadFromUDP(buffIn)
 	switch {
 	case err != nil:
 		inbox <- MessageResponse{Err: err}
+		return
 	case n == len(buffIn):
 		inbox <- MessageResponse{Err: fmt.Errorf("got full buffer: %d bytes", n)}
+		return
 	case !respondent.IP.Equal(o.theirIp[o.listenToThemIdx]):
 		tIp := o.theirIp[o.talkToThemIdx].String()
 		eIp := o.theirIp[o.listenToThemIdx].String()
 		aIp := respondent.IP.String()
 		inbox <- MessageResponse{Err: fmt.Errorf("%s replied from unexpected address %s, rather than %s", tIp, aIp, eIp)}
+		return
 	}
 
-	msg, err := message.UnmarshalMessage(b[:n])
+	msg, err := message.UnmarshalMessage(buffIn[:n])
 	inbox <- MessageResponse{
 		Response: msg,
 		Err:      err,
@@ -185,7 +190,25 @@ func (o defaultTarget) communicateViaConventionalSocket(b []byte, inbox chan Mes
 }
 
 func (o defaultTarget) communicateViaDialSocket(b []byte, inbox chan MessageResponse) {
+	n, err := o.cxn.Write(b)
+	switch {
+	case err != nil:
+		inbox <- MessageResponse{Err: err}
+		return
+	case n != len(b):
+		inbox <- MessageResponse{
+			Err: fmt.Errorf("attemtped send of %d bytes, only managed %d", len(b), n),
+		}
+		return
+	}
 
+	buffIn := make([]byte, inBufferSize)
+	o.cxn.Read(buffIn)
+	msg, err := message.UnmarshalMessage(buffIn[:n])
+	inbox <- MessageResponse{
+		Response: msg,
+		Err:      err,
+	}
 }
 
 type SendMessageConfig struct {
