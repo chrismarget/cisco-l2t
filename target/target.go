@@ -28,6 +28,7 @@ var (
 )
 
 type Target interface {
+	Send(message.Msg) (message.Msg, error)
 	String() string
 }
 
@@ -35,14 +36,43 @@ type defaultTarget struct {
 	theirIp         []net.IP
 	talkToThemIdx   int
 	listenToThemIdx int
-	cxn             *net.UDPConn
 	ourIp           net.IP
 	useDial         bool
-	outbox          chan SendMessageConfig
+	useListen       bool
+	latency         []time.Duration
 }
 
-func (o *defaultTarget) Send(m SendMessageConfig) {
-	o.outbox <- m
+func (o defaultTarget) Send(msg message.Msg) (message.Msg, error) {
+	var payload []byte
+	switch msg.NeedsSrcIp() {
+	case true:
+		srcIpAttr, err := attribute.NewAttrBuilder().
+			SetType(attribute.SrcIPv4Type).
+			SetString(o.ourIp.String()).
+			Build()
+		if err != nil {
+			return nil, err
+		}
+		payload = msg.Marshal([]attribute.Attribute{srcIpAttr})
+	case false:
+		payload = msg.Marshal([]attribute.Attribute{})
+	}
+
+	switch o.useDial {
+	case true:
+		reply, err := o.communicateViaDialSocket(payload)
+		if err != nil {
+			return nil, err
+		}
+		return message.UnmarshalMessage(reply)
+	case false:
+		reply, err := o.communicateViaConventionalSocket(payload)
+		if err != nil {
+			return nil, err
+		}
+		return message.UnmarshalMessage(reply)
+	}
+	return nil, nil
 }
 
 func (o defaultTarget) String() string {
@@ -83,132 +113,87 @@ func (o defaultTarget) String() string {
 	return out.String()
 }
 
-// TODO: Carefully consider where this code should go / how it's invoked.
-//  What happens if a caller calls 'Build()' more than once?
-//  What happens if Send() is called and this thread has not been spawned yet?
-func (o defaultTarget) spawnSenderRoutine(messagesToSend chan SendMessageConfig) {
-	go func() {
-		for sendConfig := range messagesToSend {
-			msg := sendConfig.M
-			var payload []byte
-			switch msg.NeedsSrcIp() {
-			case true:
-				srcIpAttr, _ := attribute.NewAttrBuilder().
-					SetType(attribute.SrcIPv4Type).
-					SetString(o.ourIp.String()).
-					Build()
-				// TODO: An error isn't very likely here, but I'm not sure what to do with it
-				payload = msg.Marshal([]attribute.Attribute{srcIpAttr})
-			case false:
-				payload = msg.Marshal([]attribute.Attribute{})
-			}
-			switch o.useDial {
-			case true:
-				o.communicateViaDialSocket(payload, sendConfig.Inbox)
-			case false:
-				o.communicateViaConventionalSocket(payload, sendConfig.Inbox)
-
-			}
-			// TODO: Need a timeout.
-			_, err := o.cxn.Write(sendConfig.M.Marshal(nil))
-			if err != nil {
-				sendConfig.Inbox <- MessageResponse{
-					Err: err,
-				}
-				continue
-			}
-
-			// TODO: Fixed buffer size == not good
-			// TODO: Need a timeout.
-			b := make([]byte, inBufferSize)
-			_, err = o.cxn.Read(b)
-			if err != nil {
-				sendConfig.Inbox <- MessageResponse{
-					Err: err,
-				}
-				continue
-			}
-
-			m, err := message.UnmarshalMessage(b)
-			if err != nil {
-				sendConfig.Inbox <- MessageResponse{
-					Err: err,
-				}
-				continue
-			}
-
-			sendConfig.Inbox <- MessageResponse{
-				Response: m,
-			}
-		}
-
-		// TODO: If the channel is closed and the loop exits, should
-		//  this routine close the socket or cleanup other stuff?
-	}()
-}
-
-func (o defaultTarget) communicateViaConventionalSocket(b []byte, inbox chan MessageResponse) {
+//TODO timeout, retry, etc
+func (o defaultTarget) communicateViaConventionalSocket(b []byte) ([]byte, error) {
 	destination := &net.UDPAddr{
 		IP:   o.theirIp[o.talkToThemIdx],
 		Port: udpPort,
 	}
-	n, err := o.cxn.WriteToUDP(b, destination)
+
+	cxn, err := net.ListenUDP(UdpProtocol, &net.UDPAddr{IP: o.ourIp})
+	if err != nil {
+		return nil, err
+	}
+	defer cxn.Close()
+
+	n, err := cxn.WriteToUDP(b, destination)
 	switch {
 	case err != nil:
-		inbox <- MessageResponse{Err: err}
-		return
+		return nil, err
 	case n != len(b):
-		inbox <- MessageResponse{
-			Err: fmt.Errorf("attemtped send of %d bytes, only managed %d", len(b), n),
-		}
-		return
+		return nil, fmt.Errorf("attemtped send of %d bytes, only managed %d", len(b), n)
 	}
 
 	// todo: there's no retry, no timeout here yet
 	buffIn := make([]byte, inBufferSize)
-	n, respondent, err := o.cxn.ReadFromUDP(buffIn)
+	n, respondent, err := cxn.ReadFromUDP(buffIn)
 	switch {
 	case err != nil:
-		inbox <- MessageResponse{Err: err}
-		return
+		return nil, err
 	case n == len(buffIn):
-		inbox <- MessageResponse{Err: fmt.Errorf("got full buffer: %d bytes", n)}
-		return
+		return nil, fmt.Errorf("got full buffer: %d bytes", n)
 	case !respondent.IP.Equal(o.theirIp[o.listenToThemIdx]):
 		tIp := o.theirIp[o.talkToThemIdx].String()
 		eIp := o.theirIp[o.listenToThemIdx].String()
 		aIp := respondent.IP.String()
-		inbox <- MessageResponse{Err: fmt.Errorf("%s replied from unexpected address %s, rather than %s", tIp, aIp, eIp)}
-		return
+		return nil, fmt.Errorf("%s replied from unexpected address %s, rather than %s", tIp, aIp, eIp)
 	}
 
-	msg, err := message.UnmarshalMessage(buffIn[:n])
-	inbox <- MessageResponse{
-		Response: msg,
-		Err:      err,
-	}
+	return buffIn, nil
 }
 
-func (o defaultTarget) communicateViaDialSocket(b []byte, inbox chan MessageResponse) {
-	n, err := o.cxn.Write(b)
+// todo timeout, etc..
+func (o defaultTarget) communicateViaDialSocket(b []byte) ([]byte, error) {
+	destination := &net.UDPAddr{
+		IP:   o.theirIp[o.talkToThemIdx],
+		Port: udpPort,
+	}
+
+	cxn, err := net.DialUDP(UdpProtocol, &net.UDPAddr{}, destination)
+	if err != nil {
+		return nil, err
+	}
+	defer cxn.Close()
+
+	n, err := cxn.Write(b)
 	switch {
 	case err != nil:
-		inbox <- MessageResponse{Err: err}
-		return
+		return nil, err
 	case n != len(b):
-		inbox <- MessageResponse{
-			Err: fmt.Errorf("attemtped send of %d bytes, only managed %d", len(b), n),
-		}
-		return
+		return nil, fmt.Errorf("attemtped send of %d bytes, only managed %d", len(b), n)
 	}
 
 	buffIn := make([]byte, inBufferSize)
-	o.cxn.Read(buffIn)
-	msg, err := message.UnmarshalMessage(buffIn[:n])
-	inbox <- MessageResponse{
-		Response: msg,
-		Err:      err,
+	cxn.Read(buffIn)
+	return buffIn, nil
+}
+
+func (o *defaultTarget) estimateLatency() (time.Duration) {
+	// delete first (oldest) element of latency slice until
+	// length falls under the threshold (10 values)
+	for len(o.latency) > 10 {
+		o.latency = o.latency[1:]
 	}
+
+	var result int64
+	for i, l := range o.latency {
+		switch i {
+		case 0:
+			result = int64(l)
+		default: result = (result + int64(l))/2
+		}
+	}
+	return time.Duration(float32(result) * float32(1.15))
 }
 
 type SendMessageConfig struct {
@@ -242,38 +227,37 @@ func (o defaultTargetBuilder) Build() (Target, error) {
 	// We keep track of every address the target replies from, ordered for
 	// correlation with the slice of addresses we spoke to (o.addresses)
 	var observedIps []net.IP
+	var latency []time.Duration
 
-	// Loop until every element in o.addresses
-	// has a corresponding observedIps element
+	// Loop until every element in o.addresses has a corresponding
+	// observedIps element (these will be <nil> if no reply)
 	for len(o.addresses) > len(observedIps) {
 		testIp := o.addresses[len(observedIps)]
-		respondingIp, err := checkTargetIp(testIp)
+		respondingIp, responseTime, err := checkTargetIp(testIp)
 		if err != nil {
 			return nil, err
 		}
 
+		// add the result (maybe <nil>) to the list of observed addresses
+		observedIps = append(observedIps, respondingIp)
+
+		// Did we hear back from the target?
 		if respondingIp != nil {
-			// We got a reply. Add the address to the list(s) as appropriate.
-			observedIps = append(observedIps, respondingIp)
+			latency = append(latency, responseTime)
+			// if the observed address is previously unseen, add it to o.addresses
 			if addressIsNew(respondingIp, o.addresses) {
 				o.addresses = append(o.addresses, respondingIp)
 			}
-		} else {
-			// No reply, dump a placeholder in the list.
-			observedIps = append(observedIps, nil)
 		}
 	}
 
-	// Check to see whether we had symmetric comms with any of
-	// those addresses. If so, open a connection.
+	// Now that we've probed every address, check to see whether we had
+	// symmetric comms with any of those addresses. These will be index
+	// locations where o.addresses and observedIps have the same value.
 	for i, ip := range o.addresses {
 		if ip.Equal(observedIps[i]) {
-			cxn, err := net.DialUDP(UdpProtocol, &net.UDPAddr{}, &net.UDPAddr{IP: ip, Port: udpPort})
-			if err != nil {
-				return nil, err
-			}
 			// Get the local system address that faces that target.
-			ourIp, err := getSrcIp(ip)
+			ourIp, err := getOurIpForTarget(ip)
 			if err != nil {
 				return nil, err
 			}
@@ -284,21 +268,19 @@ func (o defaultTargetBuilder) Build() (Target, error) {
 				listenToThemIdx: i,
 				ourIp:           ourIp,
 				useDial:         true,
-				cxn:             cxn,
 			}, nil
 		}
 	}
 
 	// If we got here, then no symmetric comms are possible.
 	// Did we get ANY reply?
-	// If so, open a listener for use with this target.
 
 	// Loop over observed (reply source) address list. Ignore any that are <nil>
 	for i, replyAddr := range observedIps {
 		if replyAddr != nil {
 			// We found one. The target replies from "replyAddr".
 			// Get the local system address that faces that target.
-			ourIp, err := getSrcIp(replyAddr)
+			ourIp, err := getOurIpForTarget(replyAddr)
 			if err != nil {
 				return nil, err
 			}
@@ -311,25 +293,15 @@ func (o defaultTargetBuilder) Build() (Target, error) {
 				}
 			}
 
-			cxn, err := net.ListenUDP(UdpProtocol, &net.UDPAddr{IP: ourIp})
-			if err != nil {
-				return nil, err
-			}
-
 			return defaultTarget{
 				theirIp:         o.addresses,
 				talkToThemIdx:   i,
 				listenToThemIdx: listenIdx,
 				ourIp:           ourIp,
-				useDial:         false,
-				cxn:             cxn,
+				useListen:       true,
 			}, nil
 		}
 	}
-
-	//todo this thing needs to be called in both the dial and listen cases,
-	// also needs detail about how the cxn is to be used.
-	//	spawnSenderRoutine(result.outgoing, result.cxn)
 
 	return defaultTarget{
 		theirIp:         o.addresses,
@@ -342,9 +314,9 @@ func NewTarget() Builder {
 	return &defaultTargetBuilder{}
 }
 
-// getSrcIp returns a *net.IP representing the local interface
+// getOurIpForTarget returns a *net.IP representing the local interface
 // that's best suited for talking to the passed target address
-func getSrcIp(t net.IP) (net.IP, error) {
+func getOurIpForTarget(t net.IP) (net.IP, error) {
 	c, err := net.Dial("udp4", t.String()+":1")
 	if err != nil {
 		return nil, err
@@ -357,22 +329,23 @@ func getSrcIp(t net.IP) (net.IP, error) {
 // testTarget sends a test L2T message to the specified IP address. It
 // returns the address that replied to the message without evaluating
 // the contents of the reply, <nil> if no reply.
-func checkTargetIp(t net.IP) (net.IP, error) {
-	ourIp, err := getSrcIp(t)
+func checkTargetIp(t net.IP) (net.IP, time.Duration, error) {
+	ourIp, err := getOurIpForTarget(t)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	payload := append(testMsg, ourIp...)
 
 	conn, err := net.ListenUDP(UdpProtocol, &net.UDPAddr{})
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer conn.Close()
 
 	timedOut := false
 	wait := initialRTT
 	buffIn := make([]byte, inBufferSize)
+	var latency time.Duration
 	var respondent *net.UDPAddr
 	for timedOut == false {
 		if wait > maxRTT {
@@ -380,22 +353,25 @@ func checkTargetIp(t net.IP) (net.IP, error) {
 			wait = maxRTT
 		}
 
+		start := time.Now()
 		n, err := conn.WriteToUDP(payload, &net.UDPAddr{IP: t, Port: udpPort})
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 		if n != len(payload) {
-			return nil, fmt.Errorf("attemtped send of %d bytes, only managed %d", len(payload), n)
+			return nil, 0, fmt.Errorf("attemtped send of %d bytes, only managed %d", len(payload), n)
 		}
 
 		err = conn.SetReadDeadline(time.Now().Add(wait))
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 
 		n, respondent, err = conn.ReadFromUDP(buffIn)
+		stop := time.Now()
+		latency = stop.Sub(start)
 		if n == len(buffIn) {
-			return nil, fmt.Errorf("got full buffer: %d bytes", n)
+			return nil, 0, fmt.Errorf("got full buffer: %d bytes", n)
 		}
 
 		if n > 0 {
@@ -406,10 +382,10 @@ func checkTargetIp(t net.IP) (net.IP, error) {
 	}
 
 	if timedOut == true {
-		return nil, nil
+		return nil, -1, nil
 	}
 
-	return respondent.IP, nil
+	return respondent.IP, latency, nil
 }
 
 // addressIsNew returns a boolean indicating whether
