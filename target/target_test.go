@@ -19,7 +19,7 @@ func TestNewTargetBuilder(t *testing.T) {
 }
 
 func TestCheckTargetIp(t *testing.T) {
-	testIp := net.IP{192,168,0,254}
+	testIp := net.IP{192,168,96,2}
 	responseIp, latency, err := checkTargetIp(testIp)
 	if err != nil {
 		t.Fatal(err)
@@ -56,4 +56,9 @@ func TestEstimateLatency(t *testing.T){
 	}
 	log.Println(result)
 	log.Println(len(o.latency))
+
+	latency = []time.Duration{}
+	o = defaultTarget{latency: latency}
+	result = o.estimateLatency()
+	log.Println(result)
 }

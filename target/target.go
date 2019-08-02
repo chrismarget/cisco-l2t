@@ -18,6 +18,7 @@ const (
 	inBufferSize = 65535
 	initialRTT   = 17 * time.Millisecond
 	maxRTT       = 2500 * time.Millisecond
+	maxRetries   = 10
 )
 
 var (
@@ -136,7 +137,18 @@ func (o defaultTarget) communicateViaConventionalSocket(b []byte) ([]byte, error
 
 	// todo: there's no retry, no timeout here yet
 	buffIn := make([]byte, inBufferSize)
-	n, respondent, err := cxn.ReadFromUDP(buffIn)
+
+	received := 0
+	wait := o.estimateLatency()
+	start := time.Now()
+	for received == 0 {
+		err = cxn.SetReadDeadline(start.Add(wait))
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	received, respondent, err := cxn.ReadFromUDP(buffIn)
 	switch {
 	case err != nil:
 		return nil, err
@@ -165,6 +177,8 @@ func (o defaultTarget) communicateViaDialSocket(b []byte) ([]byte, error) {
 	}
 	defer cxn.Close()
 
+	buffIn := make([]byte, inBufferSize)
+	//	start := time.Now()
 	n, err := cxn.Write(b)
 	switch {
 	case err != nil:
@@ -173,16 +187,21 @@ func (o defaultTarget) communicateViaDialSocket(b []byte) ([]byte, error) {
 		return nil, fmt.Errorf("attemtped send of %d bytes, only managed %d", len(b), n)
 	}
 
-	buffIn := make([]byte, inBufferSize)
 	cxn.Read(buffIn)
 	return buffIn, nil
 }
 
-func (o *defaultTarget) estimateLatency() (time.Duration) {
-	// delete first (oldest) element of latency slice until
-	// length falls under the threshold (10 values)
-	for len(o.latency) > 10 {
-		o.latency = o.latency[1:]
+// estimateLatency tries to estimate the response time for this target.
+func (o *defaultTarget) estimateLatency() time.Duration {
+	// delete old elements of latency slice because we care more about
+	// recent data (and certainly want to purge early bad assumptions)
+	if len(o.latency) > 10 {
+		o.latency = o.latency[len(o.latency)-10 : len(o.latency)]
+	}
+
+	// short on samples? add some assumptions to the data
+	for len(o.latency) <= 5 {
+		o.latency = append(o.latency, 100*time.Millisecond)
 	}
 
 	var result int64
@@ -190,7 +209,8 @@ func (o *defaultTarget) estimateLatency() (time.Duration) {
 		switch i {
 		case 0:
 			result = int64(l)
-		default: result = (result + int64(l))/2
+		default:
+			result = (result + int64(l)) / 2
 		}
 	}
 	return time.Duration(float32(result) * float32(1.15))
