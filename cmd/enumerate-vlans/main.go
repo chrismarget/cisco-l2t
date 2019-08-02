@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/chrismarget/cisco-l2t/attribute"
 	"github.com/chrismarget/cisco-l2t/message"
+	"github.com/chrismarget/cisco-l2t/target"
 	"log"
 	"net"
 	"os"
@@ -17,17 +18,20 @@ func main() {
 		os.Exit(1)
 	}
 
-	target := net.ParseIP(flag.Arg(0))
-	if target == nil {
-		log.Printf("bogus target: `%s'", flag.Arg(0))
+	target, err := target.NewTarget().
+		AddIp(net.ParseIP(flag.Arg(0))).
+		Build()
+	if err != nil {
+		fmt.Println(err)
 		os.Exit(2)
 	}
 
 	var att attribute.Attribute
-	var err error
 	var found []int
 
-	for i := 1; i <= 1; i++ {
+
+	// loop over all VLANs
+	for i := 1; i <= 4094; i++ {
 
 		builder := message.NewMsgBuilder()
 		builder.SetType(message.RequestSrc)
@@ -61,46 +65,64 @@ func main() {
 			os.Exit(7)
 		}
 
-		log.Println(msg.Len())
-		//response, _, err := communicate.Communicate(msg, &net.UDPAddr{IP: target})
-		log.Println(msg.Len())
-		//response, _, err = communicate.Communicate(msg, &net.UDPAddr{IP: target})
-		log.Println(msg.Len())
+		response, err := target.Send(msg)
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(8)
 		}
 
-		//for _, a := range response.Attributes() {
-		//	if a.Type() == attribute.ReplyStatusType {
-		//		log.Println(i, a.String())
-		//		if a.String() == "Source Mac address not found" {
-		//			found = append(found, i)
-		//			//log.Printf("%d", i)
-		//		}
-		//	}
-		//}
-	}
-
-	log.Println(found)
-
-	var a []int
-	for _, v := range found {
-		if len(a) > 0 {
-			if len(a) > 0 && a[len(a)-1]+1 == v {
-				a = append(a, v)
-			} else {
-				if len(a) == 1 {
-					fmt.Printf("%d ", a[0])
-				} else {
-					fmt.Printf("%d - %d ", a[0], a[len(a)-1])
+		// Parse response. If we got the "good" error, add the VLAN to the list.
+		for _, a := range response.Attributes() {
+			if a.Type() == attribute.ReplyStatusType {
+				if a.String() == "Source Mac address not found" {
+					found = append(found, i)
 				}
-				a = append([]int{}, v)
 			}
-		} else {
-			a = append(a, v)
 		}
 	}
-	fmt.Printf("%d - %d", a[0], found[len(found)-1])
+
+	fmt.Printf("%d VLANs found:", len(found))
+	var somefound bool
+	// Pretty print results
+	var a []int
+	// iterate over found VLAN numbers
+	for _, v := range found {
+		somefound = true
+		// Not the first one, right?
+		if len(a) == 0 {
+			// First VLAN. Initial slice population.
+			a = append(a, v)
+		} else {
+			// Not the first VLAN, do sequential check
+			if a[len(a)-1]+1 == v {
+				// this VLAN is the next one in sequence
+				a = append(a, v)
+			} else {
+				// there was a sequence gap, do some printing.
+				if len(a) == 1 {
+					// Just one number? Print it.
+					fmt.Printf(" %d", a[0])
+				} else {
+					// More than one numbers? Print as a range.
+					fmt.Printf(" %d-%d", a[0], a[len(a)-1])
+				}
+				a = []int{v}
+			}
+		}
+	}
+	if len(a) == 1 {
+		// Just one number? Print it.
+		fmt.Printf(" %d", a[0])
+	} else {
+		// More than one numbers? Print as a range.
+		fmt.Printf(" %d-%d", a[0], a[len(a)-1])
+	}
+	if somefound {
+		fmt.Printf(".\n")
+	} else {
+		fmt.Printf("<none>.\n")
+	}
+
+	//fmt.Printf("%d - %d", a[0], found[len(found)-1], "\n")
 
 }
