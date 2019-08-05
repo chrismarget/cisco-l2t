@@ -2,7 +2,7 @@ package attribute
 
 import (
 	"fmt"
-	"github.com/getlantern/errors"
+	"errors"
 	"strings"
 )
 
