@@ -5,20 +5,22 @@ import (
 	"fmt"
 	"github.com/chrismarget/cisco-l2t/attribute"
 	"github.com/chrismarget/cisco-l2t/message"
+	"log"
 	"net"
 	"strconv"
 	"time"
 )
 
 const (
-	udpPort      = 2228
-	UdpProtocol  = "udp4"
-	IPv4         = "ipv4"
-	nilIP        = "<nil>"
-	inBufferSize = 65535
-	initialRTT   = 17 * time.Millisecond
-	maxRTT       = 2500 * time.Millisecond
-	maxRetries   = 10
+	udpPort           = 2228
+	UdpProtocol       = "udp4"
+	IPv4              = "ipv4"
+	nilIP             = "<nil>"
+	inBufferSize      = 65535
+	initialRTTGuess   = 17 * time.Millisecond
+	maxLatencySamples = 10
+	maxRetries        = 10
+	maxRTT            = 2500 * time.Millisecond
 )
 
 var (
@@ -38,11 +40,8 @@ type defaultTarget struct {
 	talkToThemIdx   int
 	listenToThemIdx int
 	ourIp           net.IP
-	// todo: Why have I used two booleans here? Especially when this
-	//  info can be divined from the talk/listenToThemIdx values
-	useDial   bool
-	useListen bool
-	latency   []time.Duration
+	useDial         bool
+	latency         []time.Duration
 }
 
 func (o *defaultTarget) Send(msg message.Msg) (message.Msg, error) {
@@ -117,7 +116,8 @@ func (o *defaultTarget) String() string {
 }
 
 //TODO timeout, retry, etc
-func (o defaultTarget) communicateViaConventionalSocket(b []byte) ([]byte, error) {
+func (o *defaultTarget) communicateViaConventionalSocket(b []byte) ([]byte, error) {
+	var rtt time.Duration
 	destination := &net.UDPAddr{
 		IP:   o.theirIp[o.talkToThemIdx],
 		Port: udpPort,
@@ -129,44 +129,62 @@ func (o defaultTarget) communicateViaConventionalSocket(b []byte) ([]byte, error
 	}
 	defer cxn.Close()
 
-	n, err := cxn.WriteToUDP(b, destination)
-	switch {
-	case err != nil:
-		return nil, err
-	case n != len(b):
-		return nil, fmt.Errorf("attemtped send of %d bytes, only managed %d", len(b), n)
-	}
 
 	// todo: there's no retry, no timeout here yet
 	buffIn := make([]byte, inBufferSize)
 
 	received := 0
-	wait := o.estimateLatency()
-	start := time.Now()
+	retries := 0
 	for received == 0 {
+		if retries >= maxRetries {
+			return nil, fmt.Errorf("Lost connection with switch %s after %d retries", destination.IP.String(), retries)
+		}
+		wait := o.estimateLatency()
+		var respondent *net.UDPAddr
+
+		// Send the packet
+		n, err := cxn.WriteToUDP(b, destination)
+		switch {
+		case err != nil:
+			return nil, err
+		case n != len(b):
+			return nil, fmt.Errorf("attemtped send of %d bytes, only managed %d", len(b), n)
+		}
+
+		// collect start time for later RTT calculation, set deadline
+		start := time.Now()
 		err = cxn.SetReadDeadline(start.Add(wait))
 		if err != nil {
 			return nil, err
 		}
 
-		var respondent *net.UDPAddr
+		// read until packet or deadline
 		received, respondent, err = cxn.ReadFromUDP(buffIn)
-		rtt := time.Since(start)
-		o.latency = append(o.latency, rtt)
+		rtt = time.Since(start)
+		// How can things go wrong here?
 		switch {
 		case err != nil:
-			return nil, err
+			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+				// Socket timeout; Double the timeout interval, stick it in the latency history.
+				retries += 1
+				o.updateLatency(2 * rtt)
+				continue
+			} else {
+				// Mystery error
+				return nil, fmt.Errorf("error waiting for reply via conventional socket - %s", err.Error())
+			}
 		case n == len(buffIn):
+			// Unexpectedly large read
 			return nil, fmt.Errorf("got full buffer: %d bytes", n)
 		case !respondent.IP.Equal(o.theirIp[o.listenToThemIdx]):
+			// Alien reply
 			tIp := o.theirIp[o.talkToThemIdx].String()
 			eIp := o.theirIp[o.listenToThemIdx].String()
 			aIp := respondent.IP.String()
 			return nil, fmt.Errorf("%s replied from unexpected address %s, rather than %s", tIp, aIp, eIp)
 		}
 	}
-
-
+	o.updateLatency(rtt)
 	return buffIn, nil
 }
 
@@ -197,19 +215,12 @@ func (o defaultTarget) communicateViaDialSocket(b []byte) ([]byte, error) {
 	return buffIn, nil
 }
 
-// estimateLatency tries to estimate the response time for this target.
+// estimateLatency tries to estimate the response time for this target
+// using the contents of the objects latency slice.
 func (o *defaultTarget) estimateLatency() time.Duration {
-	// delete old elements of latency slice because we care more about
-	// recent data (and certainly want to purge early bad assumptions)
-	if len(o.latency) > 10 {
-		o.latency = o.latency[len(o.latency)-10 : len(o.latency)]
+	if len(o.latency) == 0 {
+		return initialRTTGuess
 	}
-
-	// short on samples? add some assumptions to the data
-	for len(o.latency) <= 5 {
-		o.latency = append(o.latency, 100*time.Millisecond)
-	}
-
 	var result int64
 	for i, l := range o.latency {
 		switch i {
@@ -222,6 +233,22 @@ func (o *defaultTarget) estimateLatency() time.Duration {
 	return time.Duration(float32(result) * float32(1.15))
 }
 
+// updateLatency adds the passed time.Duration as the most recent
+// latency sample, trims the latency slice to size.
+func (o *defaultTarget) updateLatency(t time.Duration) {
+	log.Println("samples: ",o.latency)
+	log.Println("update:", t)
+	o.latency = append(o.latency, t)
+	log.Println("new samples: ",o.latency)
+	// delete old elements of latency slice because we care more about
+	// recent data (and certainly want to purge early bad assumptions)
+	if len(o.latency) > maxLatencySamples {
+		log.Println("trim")
+		o.latency = o.latency[len(o.latency)-maxLatencySamples : len(o.latency)]
+	}
+
+}
+
 type SendMessageConfig struct {
 	M     message.Msg
 	Inbox chan MessageResponse
@@ -231,6 +258,3 @@ type MessageResponse struct {
 	Response message.Msg
 	Err      error
 }
-
-
-
