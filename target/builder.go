@@ -72,6 +72,7 @@ func (o defaultTargetBuilder) Build() (Target, error) {
 				listenToThemIdx: i,
 				ourIp:           ourIp,
 				useDial:         true,
+				latency:         initialLatency(),
 			}, nil
 		}
 	}
@@ -102,7 +103,8 @@ func (o defaultTargetBuilder) Build() (Target, error) {
 				talkToThemIdx:   i,
 				listenToThemIdx: listenIdx,
 				ourIp:           ourIp,
-				useListen:       true,
+				useDial:         false,
+				latency:         initialLatency(),
 			}, nil
 		}
 	}
@@ -140,7 +142,7 @@ func checkTargetIp(t net.IP) (net.IP, time.Duration, error) {
 	defer conn.Close()
 
 	timedOut := false
-	wait := initialRTT
+	wait := initialRTTGuess
 	buffIn := make([]byte, inBufferSize)
 	var latency time.Duration
 	var respondent *net.UDPAddr
@@ -197,4 +199,10 @@ func getOurIpForTarget(t net.IP) (net.IP, error) {
 	return c.LocalAddr().(*net.UDPAddr).IP, nil
 }
 
-
+func initialLatency() []time.Duration {
+	var l []time.Duration
+	for len(l) < 5 {
+		l = append(l, initialRTTGuess)
+	}
+	return l
+}
