@@ -8,7 +8,7 @@ import (
 )
 
 func TestNewTargetBuilder(t *testing.T) {
-	tb, err := NewTarget().
+	tb, err := TargetBuilder().
 		AddIp(net.IP{192,168,0,1}).
 		Build()
 	if err != nil {

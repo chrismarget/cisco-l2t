@@ -13,7 +13,7 @@ import (
 
 type vlan int
 
-func enumerate_vlans(t target.Target) []vlan{
+func enumerate_vlans(t target.Target) []vlan {
 	var att attribute.Attribute
 	var found []vlan
 	var err error
@@ -74,11 +74,13 @@ func enumerate_vlans(t target.Target) []vlan{
 func printResults(found []vlan) {
 	fmt.Printf("%d VLANs found:", len(found))
 	var somefound bool
+	if len(found) > 0 {
+		somefound = true
+	}
 	// Pretty print results
 	var a []vlan
 	// iterate over found VLAN numbers
 	for _, v := range found {
-		somefound = true
 		// Not the first one, right?
 		if len(a) == 0 {
 			// First VLAN. Initial slice population.
@@ -123,7 +125,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	target, err := target.NewTarget().
+	target, err := target.TargetBuilder().
 		AddIp(net.ParseIP(flag.Arg(0))).
 		Build()
 	if err != nil {
@@ -131,7 +133,7 @@ func main() {
 		os.Exit(2)
 	}
 
-    found := enumerate_vlans(target)
+	found := enumerate_vlans(target)
 
-    printResults(found)
+	printResults(found)
 }
