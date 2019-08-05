@@ -1,2 +1,3 @@
 .idea
 *.swp
+cmd/enumerate-vlans/enumerate-vlans
