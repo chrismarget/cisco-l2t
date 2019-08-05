@@ -140,7 +140,6 @@ func (o *defaultTarget) communicateViaConventionalSocket(b []byte) ([]byte, erro
 			return nil, fmt.Errorf("Lost connection with switch %s after %d retries", destination.IP.String(), retries)
 		}
 		wait := o.estimateLatency()
-		var respondent *net.UDPAddr
 
 		// Send the packet
 		n, err := cxn.WriteToUDP(b, destination)
@@ -159,6 +158,7 @@ func (o *defaultTarget) communicateViaConventionalSocket(b []byte) ([]byte, erro
 		}
 
 		// read until packet or deadline
+		var respondent *net.UDPAddr
 		received, respondent, err = cxn.ReadFromUDP(buffIn)
 		rtt = time.Since(start)
 		// How can things go wrong here?
