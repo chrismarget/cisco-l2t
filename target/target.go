@@ -148,20 +148,24 @@ func (o defaultTarget) communicateViaConventionalSocket(b []byte) ([]byte, error
 		if err != nil {
 			return nil, err
 		}
+
+		var respondent *net.UDPAddr
+		received, respondent, err = cxn.ReadFromUDP(buffIn)
+		rtt := time.Since(start)
+		o.latency = append(o.latency, rtt)
+		switch {
+		case err != nil:
+			return nil, err
+		case n == len(buffIn):
+			return nil, fmt.Errorf("got full buffer: %d bytes", n)
+		case !respondent.IP.Equal(o.theirIp[o.listenToThemIdx]):
+			tIp := o.theirIp[o.talkToThemIdx].String()
+			eIp := o.theirIp[o.listenToThemIdx].String()
+			aIp := respondent.IP.String()
+			return nil, fmt.Errorf("%s replied from unexpected address %s, rather than %s", tIp, aIp, eIp)
+		}
 	}
 
-	received, respondent, err := cxn.ReadFromUDP(buffIn)
-	switch {
-	case err != nil:
-		return nil, err
-	case n == len(buffIn):
-		return nil, fmt.Errorf("got full buffer: %d bytes", n)
-	case !respondent.IP.Equal(o.theirIp[o.listenToThemIdx]):
-		tIp := o.theirIp[o.talkToThemIdx].String()
-		eIp := o.theirIp[o.listenToThemIdx].String()
-		aIp := respondent.IP.String()
-		return nil, fmt.Errorf("%s replied from unexpected address %s, rather than %s", tIp, aIp, eIp)
-	}
 
 	return buffIn, nil
 }

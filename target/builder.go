@@ -6,6 +6,15 @@ import (
 	"time"
 )
 
+type Builder interface {
+	AddIp(net.IP) Builder
+	Build() (Target, error)
+}
+
+func TargetBuilder() Builder {
+	return &defaultTargetBuilder{}
+}
+
 type defaultTargetBuilder struct {
 	addresses           []net.IP
 	preferredAddressIdx int
@@ -174,15 +183,6 @@ func checkTargetIp(t net.IP) (net.IP, time.Duration, error) {
 	}
 
 	return respondent.IP, latency, nil
-}
-
-func TargetBuilder() Builder {
-	return &defaultTargetBuilder{}
-}
-
-type Builder interface {
-	AddIp(net.IP) Builder
-	Build() (Target, error)
 }
 
 // getOurIpForTarget returns a *net.IP representing the local interface
