@@ -13,7 +13,7 @@ import (
 
 type vlan int
 
-func enumerate_vlans(t target.Target) []vlan {
+func enumerate_vlans(t target.Target) ([]vlan, error) {
 	var att attribute.Attribute
 	var found []vlan
 	var err error
@@ -26,22 +26,19 @@ func enumerate_vlans(t target.Target) []vlan {
 
 		att, err = attribute.NewAttrBuilder().SetType(attribute.SrcMacType).SetString("ffff.ffff.ffff").Build()
 		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
+			return nil, err
 		}
 		builder.SetAttr(att)
 
 		att, err = attribute.NewAttrBuilder().SetType(attribute.DstMacType).SetString("ffff.ffff.ffff").Build()
 		if err != nil {
-			fmt.Println(err)
-			os.Exit(2)
+			return nil, err
 		}
 		builder.SetAttr(att)
 
 		att, err = attribute.NewAttrBuilder().SetType(attribute.VlanType).SetInt(uint32(i)).Build()
 		if err != nil {
-			fmt.Println(err)
-			os.Exit(3)
+			return nil, err
 		}
 		builder.SetAttr(att)
 
@@ -49,14 +46,12 @@ func enumerate_vlans(t target.Target) []vlan {
 
 		err = msg.Validate()
 		if err != nil {
-			fmt.Println(err)
-			os.Exit(7)
+			return nil, err
 		}
 
 		response, err := t.Send(msg)
 		if err != nil {
-			fmt.Println(err)
-			os.Exit(8)
+			return nil, err
 		}
 
 		// Parse response. If we got the "good" error, add the VLAN to the list.
@@ -68,7 +63,7 @@ func enumerate_vlans(t target.Target) []vlan {
 			}
 		}
 	}
-	return found
+	return found, nil
 }
 
 func printResults(found []vlan) {
@@ -125,7 +120,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	target, err := target.TargetBuilder().
+	t, err := target.TargetBuilder().
 		AddIp(net.ParseIP(flag.Arg(0))).
 		Build()
 	if err != nil {
@@ -133,7 +128,11 @@ func main() {
 		os.Exit(2)
 	}
 
-	found := enumerate_vlans(target)
+	found, err := enumerate_vlans(t)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(3)
+	}
 
 	printResults(found)
 }
