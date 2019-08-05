@@ -38,12 +38,14 @@ type defaultTarget struct {
 	talkToThemIdx   int
 	listenToThemIdx int
 	ourIp           net.IP
-	useDial         bool
-	useListen       bool
-	latency         []time.Duration
+	// todo: Why have I used two booleans here? Especially when this
+	//  info can be divined from the talk/listenToThemIdx values
+	useDial   bool
+	useListen bool
+	latency   []time.Duration
 }
 
-func (o defaultTarget) Send(msg message.Msg) (message.Msg, error) {
+func (o *defaultTarget) Send(msg message.Msg) (message.Msg, error) {
 	var payload []byte
 	switch msg.NeedsSrcIp() {
 	case true:
@@ -76,7 +78,7 @@ func (o defaultTarget) Send(msg message.Msg) (message.Msg, error) {
 	return nil, nil
 }
 
-func (o defaultTarget) String() string {
+func (o *defaultTarget) String() string {
 	var out bytes.Buffer
 	out.WriteString("Known IP Addresses:")
 	for _, ip := range o.theirIp {
@@ -255,7 +257,7 @@ func (o defaultTargetBuilder) Build() (Target, error) {
 		testIp := o.addresses[len(observedIps)]
 		respondingIp, responseTime, err := checkTargetIp(testIp)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("no response from address %s - %s", respondingIp, err.Error())
 		}
 
 		// add the result (maybe <nil>) to the list of observed addresses
@@ -282,7 +284,7 @@ func (o defaultTargetBuilder) Build() (Target, error) {
 				return nil, err
 			}
 
-			return defaultTarget{
+			return &defaultTarget{
 				theirIp:         o.addresses,
 				talkToThemIdx:   i,
 				listenToThemIdx: i,
@@ -313,7 +315,7 @@ func (o defaultTargetBuilder) Build() (Target, error) {
 				}
 			}
 
-			return defaultTarget{
+			return &defaultTarget{
 				theirIp:         o.addresses,
 				talkToThemIdx:   i,
 				listenToThemIdx: listenIdx,
@@ -323,11 +325,13 @@ func (o defaultTargetBuilder) Build() (Target, error) {
 		}
 	}
 
-	return defaultTarget{
-		theirIp:         o.addresses,
-		talkToThemIdx:   -1,
-		listenToThemIdx: -1,
-	}, nil
+	//return &defaultTarget{
+	//	theirIp:         o.addresses,
+	//},
+
+	return nil, &UnreachableTargetError{
+		AddressesTried: o.addresses,
+	}
 }
 
 func NewTarget() Builder {
