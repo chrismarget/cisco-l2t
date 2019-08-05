@@ -11,24 +11,12 @@ import (
 	"os"
 )
 
-func main() {
-	flag.Parse()
-	if flag.NArg() != 1 {
-		log.Println("You need to specify a target switch")
-		os.Exit(1)
-	}
+type vlan int
 
-	target, err := target.NewTarget().
-		AddIp(net.ParseIP(flag.Arg(0))).
-		Build()
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(2)
-	}
-
+func enumerate_vlans(t target.Target) []vlan{
 	var att attribute.Attribute
-	var found []int
-
+	var found []vlan
+	var err error
 
 	// loop over all VLANs
 	for i := 1; i <= 4094; i++ {
@@ -65,7 +53,7 @@ func main() {
 			os.Exit(7)
 		}
 
-		response, err := target.Send(msg)
+		response, err := t.Send(msg)
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(8)
@@ -75,16 +63,19 @@ func main() {
 		for _, a := range response.Attributes() {
 			if a.Type() == attribute.ReplyStatusType {
 				if a.String() == "Source Mac address not found" {
-					found = append(found, i)
+					found = append(found, vlan(i))
 				}
 			}
 		}
 	}
+	return found
+}
 
+func printResults(found []vlan) {
 	fmt.Printf("%d VLANs found:", len(found))
 	var somefound bool
 	// Pretty print results
-	var a []int
+	var a []vlan
 	// iterate over found VLAN numbers
 	for _, v := range found {
 		somefound = true
@@ -106,7 +97,7 @@ func main() {
 					// More than one numbers? Print as a range.
 					fmt.Printf(" %d-%d", a[0], a[len(a)-1])
 				}
-				a = []int{v}
+				a = []vlan{v}
 			}
 		}
 	}
@@ -118,11 +109,29 @@ func main() {
 		fmt.Printf(" %d-%d", a[0], a[len(a)-1])
 	}
 	if somefound {
-		fmt.Printf(".\n")
+		fmt.Printf("\n")
 	} else {
-		fmt.Printf("<none>.\n")
+		fmt.Printf("<none>\n")
 	}
 
-	//fmt.Printf("%d - %d", a[0], found[len(found)-1], "\n")
+}
 
+func main() {
+	flag.Parse()
+	if flag.NArg() != 1 {
+		log.Println("You need to specify a target switch")
+		os.Exit(1)
+	}
+
+	target, err := target.NewTarget().
+		AddIp(net.ParseIP(flag.Arg(0))).
+		Build()
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(2)
+	}
+
+    found := enumerate_vlans(target)
+
+    printResults(found)
 }
