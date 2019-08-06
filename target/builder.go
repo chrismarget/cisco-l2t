@@ -125,7 +125,7 @@ func addressIsNew(a net.IP, known []net.IP) bool {
 	return true
 }
 
-// testTarget sends a test L2T message to the specified IP address. It
+// checkTargetIp sends a test L2T message to the specified IP address. It
 // returns the address that replied to the message without evaluating
 // the contents of the reply, <nil> if no reply.
 func checkTargetIp(t net.IP) (net.IP, time.Duration, error) {
