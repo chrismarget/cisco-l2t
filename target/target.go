@@ -19,13 +19,7 @@ const (
 	maxLatencySamples = 10
 	maxRetries        = 10
 	maxRTT            = 2500 * time.Millisecond
-)
-
-var (
-	testMsg = []byte{
-		1, 1, 0, 31, 4, 2, 8, 255, 255, 255, 255, 255, 255,
-		1, 8, 255, 255, 255, 255, 255, 255, 3, 4, 0, 1, 14, 6,
-	}
+	retryMultiplier   = 2
 )
 
 type Target interface {
