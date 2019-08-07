@@ -199,18 +199,18 @@ type testPacketResult struct {
 	name     string
 }
 
-func getLatency(resultChan chan<- testPacketResult, destination *net.UDPAddr) {
+func getLatency(destination *net.UDPAddr) testPacketResult {
 	// Build up the test message. It requires our IP address which, on a
 	// multihomed system requires that we look up the route to the target.
 	ourIp, err := getOurIpForTarget(destination.IP)
 	if err != nil {
-		resultChan <- testPacketResult{err: err}
+		return testPacketResult{err: err}
 	}
 	//payload := append(testMsg, ourIp...)
 	//payload := append(message.TestMsg(), ourIp...)
 	ourIpAttr, err := attribute.NewAttrBuilder().SetType(attribute.SrcIPv4Type).SetString(ourIp.String()).Build()
 	if err != nil {
-		resultChan <- testPacketResult{err: err}
+		return testPacketResult{err: err}
 	}
 
 	payload := message.TestMsg().Marshal([]attribute.Attribute{ourIpAttr})
@@ -232,27 +232,12 @@ func getLatency(resultChan chan<- testPacketResult, destination *net.UDPAddr) {
 				go sendFromNewSocket(testResultChan, payload, destination, end)
 			} else {
 				// timer expired. We never got a reply.
-				resultChan <- testPacketResult{latency: 0}
-				break
+				return testPacketResult{latency: 0}
 			}
 		case testResult := <-testResultChan:
-			if testResult.err != nil {
-				resultChan <- testPacketResult{err: testResult.err}
-			}
-			resultChan <- testResult
-
+			return testResult
 		}
 	}
-
-	//// Loop until expiration
-	//for time.Now().Before(end) {
-	//	attempts += 1
-	//	wait := initialRTTGuess * time.Duration(attempts)
-	//	go sendFromNewSocket(rtt, err)
-	//
-	//	attempts += 1
-	//}
-
 }
 
 func sendFromNewSocket(result chan<- testPacketResult, payload []byte, destination *net.UDPAddr, end time.Time) {
@@ -352,78 +337,7 @@ func checkTargetIp(target net.IP) testPacketResult {
 		Port: udpPort,
 	}
 
-	resultChan := make(chan testPacketResult)
-
-	go getLatency(resultChan, destination)
-
-	select {
-	case result := <-resultChan:
-		return result
-	}
-
-	//timedOut := false
-	//wait := initialRTTGuess
-	//buffIn := make([]byte, inBufferSize)
-	//var xlatency time.Duration
-	//var respondent *net.UDPAddr
-	//for timedOut == false {
-	//
-	//	conn, err := net.ListenUDP(UdpProtocol, &net.UDPAddr{})
-	//	if err != nil {
-	//		return nil, 0, err
-	//	}
-	//	defer conn.Close()
-	//
-	//	if wait > maxRTT {
-	//		timedOut = true
-	//		wait = maxRTT
-	//	}
-	//
-	//	// Send the packet. Error handling happens after noting the start time.
-	//	n, err := conn.WriteToUDP(payload, &net.UDPAddr{IP: t, Port: udpPort})
-	//
-	//	// collect start time for later RTT calculation
-	//	start := time.Now()
-	//
-	//	switch {
-	//	case err != nil:
-	//		return nil, err
-	//	case n != len(payload):
-	//		return nil, fmt.Errorf("attemtped send of %d bytes, only managed %d", len(b), n)
-	//	}
-	//
-	//
-	//	if err != nil {
-	//		return nil, 0, err
-	//	}
-	//	if n != len(payload) {
-	//		return nil, 0, fmt.Errorf("attemtped send of %d bytes, only managed %d", len(payload), n)
-	//	}
-	//
-	//	err = conn.SetReadDeadline(time.Now().Add(wait))
-	//	if err != nil {
-	//		return nil, 0, err
-	//	}
-	//
-	//	n, respondent, err = conn.ReadFromUDP(buffIn)
-	//	stop := time.Now()
-	//	xlatency = stop.Sub(start)
-	//	if n == len(buffIn) {
-	//		return nil, 0, fmt.Errorf("got full buffer: %d bytes", n)
-	//	}
-	//
-	//	if n > 0 {
-	//		break
-	//	} else {
-	//		wait = wait * 4
-	//	}
-	//}
-	//
-	//if timedOut == true {
-	//	return nil, -1, nil
-	//}
-	//
-	//return respondent.IP, xlatency, nil
+	return getLatency(destination)
 }
 
 // getOurIpForTarget returns a *net.IP representing the local interface
