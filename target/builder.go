@@ -8,10 +8,6 @@ import (
 	"time"
 )
 
-const (
-	timesUp = -1
-)
-
 // todo: consider using message.TestMsg instead?
 var (
 	testMsg = []byte{
@@ -168,24 +164,22 @@ func addressIsNew(a net.IP, known []net.IP) bool {
 //  @t=300  2 (retransmit after 200ms)
 //  @t=700  3 (retransmit after 400ms)
 //  @t=1500 4 (retransmit after 800ms)
-func packetTimerFunc(counter chan<- int, end time.Time) {
+func packetTimerFunc(doSend chan<- bool, end time.Time) {
 	// initialize timers
 	duration := initialRTTGuess
 
-	// first iteration is written to the channel immediately
-	iterations := 0
-	counter <- iterations
+	// first packet should be sent immediately
+	doSend <- true
 
 	// loop until end time, progressively increasing the interval
 	for time.Now().Before(end) {
 		time.Sleep(duration)
-		iterations++
 		if time.Now().Before(end) {
 			// there's still time left...
-			counter <- iterations
+			doSend <- true
 		} else {
 			// timer expired while we were sleeping
-			counter <- timesUp
+			doSend <- false
 		}
 		duration = duration * retryMultiplier
 	}
@@ -314,7 +308,7 @@ func checkTargetIp(target net.IP) testPacketResult {
 	payload := message.TestMsg().Marshal([]attribute.Attribute{ourIpAttr})
 
 	// packetTimerFunc tells us when to send a packet (and the attempt number) here.
-	sendNowChan := make(chan int)
+	sendNowChan := make(chan bool)
 
 	// sendFromNewSocket tells us what happened here.
 	testResultChan := make(chan testPacketResult)
@@ -325,8 +319,8 @@ func checkTargetIp(target net.IP) testPacketResult {
 
 	for {
 		select {
-		case attempt := <-sendNowChan:
-			if attempt >= 0 {
+		case sendNow := <-sendNowChan:
+			if sendNow {
 				go sendFromNewSocket(testResultChan, payload, destination, end)
 			} else {
 				// timer expired. We never got a reply.
