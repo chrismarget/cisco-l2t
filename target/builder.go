@@ -195,12 +195,11 @@ type testPacketResult struct {
 	name     string
 }
 
-func sendFromNewSocket(result chan<- testPacketResult, payload []byte, destination *net.UDPAddr, end time.Time) {
+func sendFromNewSocket(payload []byte, destination *net.UDPAddr, end time.Time) testPacketResult {
 	// create the socket
 	conn, err := net.ListenUDP(UdpProtocol, &net.UDPAddr{})
 	if err != nil {
-		result <- testPacketResult{err: err}
-		return
+		return testPacketResult{err:err}
 	}
 	defer conn.Close()
 
@@ -209,20 +208,17 @@ func sendFromNewSocket(result chan<- testPacketResult, payload []byte, destinati
 	start := time.Now()
 	switch {
 	case err != nil:
-		result <- testPacketResult{err: err}
-		return
+		return testPacketResult{err:err}
 	case n != len(payload):
-		result <- testPacketResult{
+		return testPacketResult{
 			err: fmt.Errorf("attemtped send of %d bytes, only managed %d", len(payload), n),
 		}
-		return
 	}
 
 	// set the read deadline
 	err = conn.SetReadDeadline(end)
 	if err != nil {
-		result <- testPacketResult{err: err}
-		return
+		return testPacketResult{err:err}
 	}
 
 	// read from the socket
@@ -238,28 +234,24 @@ func sendFromNewSocket(result chan<- testPacketResult, payload []byte, destinati
 	case err != nil:
 		if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
 			// Socket timeout
-			result <- testPacketResult{latency: 0}
-		} else {
-			// Mystery error
-			result <- testPacketResult{err: err}
+			return testPacketResult{latency: 0}
 		}
+		// Mystery error
+		return testPacketResult{err:err}
 	case n == len(buffIn):
 		// Unexpectedly large read
-		result <- testPacketResult{
-			err: fmt.Errorf("got full buffer: %d bytes", n),
-		}
+		return testPacketResult{err: fmt.Errorf("got full buffer: %d bytes", n)}
 	}
 
 	// Unpack and and validate the message
 	msg, err := message.UnmarshalMessage(buffIn)
 	if err != nil {
-		result <- testPacketResult{err: err}
-		return
+		return testPacketResult{err:err}
 	}
+
 	err = msg.Validate()
 	if err != nil {
-		result <- testPacketResult{err: err}
-		return
+		return testPacketResult{err:err}
 	}
 
 	var name string
@@ -274,13 +266,12 @@ func sendFromNewSocket(result chan<- testPacketResult, payload []byte, destinati
 	}
 
 	// If we got all the way here, it looks like we've got a legit reply.
-	result <- testPacketResult{
+	return testPacketResult{
 		latency:  rtt,
 		IP:       respondent.IP,
 		name:     name,
 		platform: platform,
 	}
-
 }
 
 // checkTargetIp sends test L2T messages to the specified IP address. It
@@ -313,7 +304,7 @@ func checkTargetIp(target net.IP) testPacketResult {
 	sendNowChan := make(chan bool)
 
 	// sendFromNewSocket tells us what happened here.
-	testResultChan := make(chan testPacketResult)
+	testResultChan := make(chan testPacketResult, 1)
 
 	// Start the timer that will tell us when to send packets
 	end := time.Now().Add(maxRTT)
@@ -323,7 +314,12 @@ func checkTargetIp(target net.IP) testPacketResult {
 		select {
 		case sendNow := <-sendNowChan:
 			if sendNow {
-				go sendFromNewSocket(testResultChan, payload, destination, end)
+				go func() {
+					select {
+					case testResultChan <- sendFromNewSocket(payload, destination, end):
+					default:
+					}
+				}()
 			} else {
 				// timer expired. We never got a reply.
 				return testPacketResult{latency: 0}
