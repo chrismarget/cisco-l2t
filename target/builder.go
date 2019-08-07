@@ -295,15 +295,18 @@ func checkTargetIp(target net.IP) testPacketResult {
 		Port: udpPort,
 	}
 
-	// Build up the test message. It requires our IP address which, on a
-	// multihomed system requires that we look up the route to the target.
+	// Build up the test message. Doing so requires that we know our IP address
+	// which, on a multihomed system requires that we look up the route to the
+	// target. So, we need to know about the target before we can form the
+	// message.
 	ourIp, err := getOurIpForTarget(destination.IP)
 	if err != nil {
 		return testPacketResult{err: err}
 	}
-	//payload := append(testMsg, ourIp...)
-	//payload := append(message.TestMsg(), ourIp...)
-	ourIpAttr, err := attribute.NewAttrBuilder().SetType(attribute.SrcIPv4Type).SetString(ourIp.String()).Build()
+	ourIpAttr, err := attribute.NewAttrBuilder().
+		SetType(attribute.SrcIPv4Type).
+		SetString(ourIp.String()).
+		Build()
 	if err != nil {
 		return testPacketResult{err: err}
 	}
