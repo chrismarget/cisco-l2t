@@ -300,16 +300,17 @@ func checkTargetIp(target net.IP) testPacketResult {
 
 	payload := message.TestMsg().Marshal([]attribute.Attribute{ourIpAttr})
 
-	// packetTimerFunc tells us when to send a packet (and the attempt number) here.
+	// packetTimerFunc tells us when to send a packet on this channel.
 	sendNowChan := make(chan bool)
 
-	// sendFromNewSocket tells us what happened here.
+	// sendFromNewSocket tells us what happened on this channel.
 	testResultChan := make(chan testPacketResult, 1)
 
 	// Start the timer that will tell us when to send packets
 	end := time.Now().Add(maxRTT)
 	go packetTimerFunc(sendNowChan, end)
 
+	// loop sending packets. return when we get a result (reply)
 	for {
 		select {
 		case sendNow := <-sendNowChan:
