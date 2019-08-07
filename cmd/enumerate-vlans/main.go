@@ -128,6 +128,8 @@ func main() {
 		os.Exit(2)
 	}
 
+	log.Println(t.String())
+
 	found, err := enumerate_vlans(t)
 	if err != nil {
 		fmt.Println(err)

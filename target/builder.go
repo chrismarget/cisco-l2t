@@ -2,7 +2,8 @@ package target
 
 import (
 	"fmt"
-	"log"
+	"github.com/chrismarget/cisco-l2t/attribute"
+	"github.com/chrismarget/cisco-l2t/message"
 	"net"
 	"time"
 )
@@ -11,6 +12,7 @@ const (
 	timesUp = -1
 )
 
+// todo: consider using message.TestMsg instead?
 var (
 	testMsg = []byte{
 		1, 1, 0, 31, 4, 2, 8, 255, 255, 255, 255, 255, 255,
@@ -44,25 +46,36 @@ func (o defaultTargetBuilder) Build() (Target, error) {
 	// correlation with the slice of addresses we spoke to (o.addresses)
 	var observedIps []net.IP
 	var latency []time.Duration
+	var result testPacketResult
+	var name string
+	var platform string
 
 	// Loop until every element in o.addresses has a corresponding
 	// observedIps element (these will be <nil> if no reply)
 	for len(o.addresses) > len(observedIps) {
 		testIp := o.addresses[len(observedIps)]
-		respondingIp, responseTime, err := checkTargetIp(testIp)
-		if err != nil {
-			return nil, fmt.Errorf("no response from address %s - %s", respondingIp, err.Error())
+		result = checkTargetIp(testIp)
+		if result.err != nil {
+			return nil, fmt.Errorf("no response from address %s - %s", result.IP, result.err.Error())
+		}
+
+		// save "name" and "result" so they're not crushed by a future failed query
+		if result.name != "" {
+			name = result.name
+		}
+		if result.platform != "" {
+			platform = result.platform
 		}
 
 		// add the result (maybe <nil>) to the list of observed addresses
-		observedIps = append(observedIps, respondingIp)
+		observedIps = append(observedIps, result.IP)
 
 		// Did we hear back from the target?
-		if respondingIp != nil {
-			latency = append(latency, responseTime)
+		if result.IP != nil {
+			latency = append(latency, result.latency)
 			// if the observed address is previously unseen, add it to o.addresses
-			if addressIsNew(respondingIp, o.addresses) {
-				o.addresses = append(o.addresses, respondingIp)
+			if addressIsNew(result.IP, o.addresses) {
+				o.addresses = append(o.addresses, result.IP)
 			}
 		}
 	}
@@ -70,6 +83,7 @@ func (o defaultTargetBuilder) Build() (Target, error) {
 	// Now that we've probed every address, check to see whether we had
 	// symmetric comms with any of those addresses. These will be index
 	// locations where o.addresses and observedIps have the same value.
+	// todo: we could be inspecting RTT latency here to make an even better choice
 	for i, ip := range o.addresses {
 		if ip.Equal(observedIps[i]) {
 			// Get the local system address that faces that target.
@@ -85,6 +99,8 @@ func (o defaultTargetBuilder) Build() (Target, error) {
 				ourIp:           ourIp,
 				useDial:         true,
 				latency:         initialLatency(),
+				name:            name,
+				platform:        platform,
 			}, nil
 		}
 	}
@@ -93,6 +109,7 @@ func (o defaultTargetBuilder) Build() (Target, error) {
 	// Did we get ANY reply?
 
 	// Loop over observed (reply source) address list. Ignore any that are <nil>
+	// todo: we could be inspecting RTT latency here to make an even better choice
 	for i, replyAddr := range observedIps {
 		if replyAddr != nil {
 			// We found one. The target replies from "replyAddr".
@@ -117,6 +134,8 @@ func (o defaultTargetBuilder) Build() (Target, error) {
 				ourIp:           ourIp,
 				useDial:         false,
 				latency:         initialLatency(),
+				name:            name,
+				platform:        platform,
 			}, nil
 		}
 	}
@@ -152,7 +171,6 @@ func addressIsNew(a net.IP, known []net.IP) bool {
 func packetTimerFunc(counter chan<- int, end time.Time) {
 	// initialize timers
 	duration := initialRTTGuess
-	log.Println(time.Now(), "-", end)
 
 	// first iteration is written to the channel immediately
 	iterations := 0
@@ -174,27 +192,36 @@ func packetTimerFunc(counter chan<- int, end time.Time) {
 }
 
 type testPacketResult struct {
-	err     error
-	latency time.Duration
+	err      error
+	latency  time.Duration
+	IP       net.IP
+	platform string
+	name     string
 }
 
-func getLatency(resultChan chan<- testPacketResult, target net.IP) {
-
-	// build up the message we'll be using to test
-	ourIp, err := getOurIpForTarget(target)
+func getLatency(resultChan chan<- testPacketResult, destination *net.UDPAddr) {
+	// Build up the test message. It requires our IP address which, on a
+	// multihomed system requires that we look up the route to the target.
+	ourIp, err := getOurIpForTarget(destination.IP)
 	if err != nil {
 		resultChan <- testPacketResult{err: err}
 	}
-	payload := append(testMsg, ourIp...)
+	//payload := append(testMsg, ourIp...)
+	//payload := append(message.TestMsg(), ourIp...)
+	ourIpAttr, err := attribute.NewAttrBuilder().SetType(attribute.SrcIPv4Type).SetString(ourIp.String()).Build()
+	if err != nil {
+		resultChan <- testPacketResult{err: err}
+	}
+
+	payload := message.TestMsg().Marshal([]attribute.Attribute{ourIpAttr})
 
 	// packetTimerFunc tells us when to send a packet (and the attempt number) here.
 	sendNowChan := make(chan int)
 
 	// sendFromNewSocket tells us what happened here.
 	testResultChan := make(chan testPacketResult)
-	_ = testResultChan
 
-	// start the timer that will tell us when to send packets
+	// Start the timer that will tell us when to send packets
 	end := time.Now().Add(maxRTT)
 	go packetTimerFunc(sendNowChan, end)
 
@@ -202,12 +229,17 @@ func getLatency(resultChan chan<- testPacketResult, target net.IP) {
 		select {
 		case attempt := <-sendNowChan:
 			if attempt >= 0 {
-				go sendFromNewSocket(testResultChan, end, payload)
+				go sendFromNewSocket(testResultChan, payload, destination, end)
 			} else {
 				// timer expired. We never got a reply.
+				resultChan <- testPacketResult{latency: 0}
 				break
 			}
-			//case testResult := <- testResultChan:
+		case testResult := <-testResultChan:
+			if testResult.err != nil {
+				resultChan <- testPacketResult{err: testResult.err}
+			}
+			resultChan <- testResult
 
 		}
 	}
@@ -223,45 +255,110 @@ func getLatency(resultChan chan<- testPacketResult, target net.IP) {
 
 }
 
-func sendFromNewSocket(result chan<- testPacketResult, end time.Time, payload []byte) {
+func sendFromNewSocket(result chan<- testPacketResult, payload []byte, destination *net.UDPAddr, end time.Time) {
 	// create the socket
 	conn, err := net.ListenUDP(UdpProtocol, &net.UDPAddr{})
 	if err != nil {
-		result <- testPacketResult{ err: err }
+		result <- testPacketResult{err: err}
+		return
 	}
 	defer conn.Close()
 
 	// send on the socket
-	n, err := conn.WriteToUDP(payload, &net.UDPAddr{IP: t, Port: udpPort})
-	// todo error handling
+	n, err := conn.WriteToUDP(payload, destination)
+	start := time.Now()
 	switch {
 	case err != nil:
-		result <- testPacketResult{ err: err }
+		result <- testPacketResult{err: err}
+		return
 	case n != len(payload):
 		result <- testPacketResult{
-			err: fmt.Errorf("attemtped send of %d bytes, only managed %d", len(b), n),
+			err: fmt.Errorf("attemtped send of %d bytes, only managed %d", len(payload), n),
 		}
+		return
+	}
+
+	// set the read deadline
+	err = conn.SetReadDeadline(end)
+	if err != nil {
+		result <- testPacketResult{err: err}
+		return
+	}
+
+	// read from the socket
+	buffIn := make([]byte, inBufferSize)
+	var respondent *net.UDPAddr
+	n, respondent, err = conn.ReadFromUDP(buffIn)
+
+	// Note the elapsed time
+	rtt := time.Since(start)
+
+	// How might things have gone wrong?
+	switch {
+	case err != nil:
+		if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+			// Socket timeout
+			result <- testPacketResult{latency: 0}
+		} else {
+			// Mystery error
+			result <- testPacketResult{err: err}
+		}
+	case n == len(buffIn):
+		// Unexpectedly large read
+		result <- testPacketResult{
+			err: fmt.Errorf("got full buffer: %d bytes", n),
+		}
+	}
+
+	// Unpack and and validate the message
+	msg, err := message.UnmarshalMessage(buffIn)
+	if err != nil {
+		result <- testPacketResult{err: err}
+		return
+	}
+	err = msg.Validate()
+	if err != nil {
+		result <- testPacketResult{err: err}
+		return
+	}
+
+	var name string
+	var platform string
+	for _, att := range msg.Attributes() {
+		if att.Type() == attribute.DevNameType {
+			name = att.String()
+		}
+		if att.Type() == attribute.DevTypeType {
+			platform = att.String()
+		}
+	}
+
+	// If we got all the way here, it looks like we've got a legit reply.
+	result <- testPacketResult{
+		latency:  rtt,
+		IP:       respondent.IP,
+		name:     name,
+		platform: platform,
 	}
 
 }
 
 // checkTargetIp sends test L2T messages to the specified IP address. It
-// returns the address that replied to the message without evaluating
-// the contents of the reply (<nil> if no reply) and the observed latency.
-func checkTargetIp(t net.IP) (net.IP, time.Duration, error) {
-	ourIp, err := getOurIpForTarget(t)
-	if err != nil {
-		return nil, 0, err
+// returns the address that replied to the message (<nil> if no reply) and
+// the observed latency.
+func checkTargetIp(target net.IP) testPacketResult {
+	destination := &net.UDPAddr{
+		IP:   target,
+		Port: udpPort,
 	}
-	payload := append(testMsg, ourIp...)
-	_ = payload
 
 	resultChan := make(chan testPacketResult)
 
-	go getLatency(resultChan, t)
+	go getLatency(resultChan, destination)
 
 	select {
-	case <-resultChan:
+	case result := <-resultChan:
+		return result
 	}
 
 	//timedOut := false
@@ -327,7 +424,6 @@ func checkTargetIp(t net.IP) (net.IP, time.Duration, error) {
 	//}
 	//
 	//return respondent.IP, xlatency, nil
-	return nil, 0, nil
 }
 
 // getOurIpForTarget returns a *net.IP representing the local interface
