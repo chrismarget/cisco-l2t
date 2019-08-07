@@ -199,47 +199,6 @@ type testPacketResult struct {
 	name     string
 }
 
-func getLatency(destination *net.UDPAddr) testPacketResult {
-	// Build up the test message. It requires our IP address which, on a
-	// multihomed system requires that we look up the route to the target.
-	ourIp, err := getOurIpForTarget(destination.IP)
-	if err != nil {
-		return testPacketResult{err: err}
-	}
-	//payload := append(testMsg, ourIp...)
-	//payload := append(message.TestMsg(), ourIp...)
-	ourIpAttr, err := attribute.NewAttrBuilder().SetType(attribute.SrcIPv4Type).SetString(ourIp.String()).Build()
-	if err != nil {
-		return testPacketResult{err: err}
-	}
-
-	payload := message.TestMsg().Marshal([]attribute.Attribute{ourIpAttr})
-
-	// packetTimerFunc tells us when to send a packet (and the attempt number) here.
-	sendNowChan := make(chan int)
-
-	// sendFromNewSocket tells us what happened here.
-	testResultChan := make(chan testPacketResult)
-
-	// Start the timer that will tell us when to send packets
-	end := time.Now().Add(maxRTT)
-	go packetTimerFunc(sendNowChan, end)
-
-	for {
-		select {
-		case attempt := <-sendNowChan:
-			if attempt >= 0 {
-				go sendFromNewSocket(testResultChan, payload, destination, end)
-			} else {
-				// timer expired. We never got a reply.
-				return testPacketResult{latency: 0}
-			}
-		case testResult := <-testResultChan:
-			return testResult
-		}
-	}
-}
-
 func sendFromNewSocket(result chan<- testPacketResult, payload []byte, destination *net.UDPAddr, end time.Time) {
 	// create the socket
 	conn, err := net.ListenUDP(UdpProtocol, &net.UDPAddr{})
@@ -329,15 +288,51 @@ func sendFromNewSocket(result chan<- testPacketResult, payload []byte, destinati
 }
 
 // checkTargetIp sends test L2T messages to the specified IP address. It
-// returns the address that replied to the message (<nil> if no reply) and
-// the observed latency.
+// returns a testPacketResult that represents the result of the check.
 func checkTargetIp(target net.IP) testPacketResult {
 	destination := &net.UDPAddr{
 		IP:   target,
 		Port: udpPort,
 	}
 
-	return getLatency(destination)
+	// Build up the test message. It requires our IP address which, on a
+	// multihomed system requires that we look up the route to the target.
+	ourIp, err := getOurIpForTarget(destination.IP)
+	if err != nil {
+		return testPacketResult{err: err}
+	}
+	//payload := append(testMsg, ourIp...)
+	//payload := append(message.TestMsg(), ourIp...)
+	ourIpAttr, err := attribute.NewAttrBuilder().SetType(attribute.SrcIPv4Type).SetString(ourIp.String()).Build()
+	if err != nil {
+		return testPacketResult{err: err}
+	}
+
+	payload := message.TestMsg().Marshal([]attribute.Attribute{ourIpAttr})
+
+	// packetTimerFunc tells us when to send a packet (and the attempt number) here.
+	sendNowChan := make(chan int)
+
+	// sendFromNewSocket tells us what happened here.
+	testResultChan := make(chan testPacketResult)
+
+	// Start the timer that will tell us when to send packets
+	end := time.Now().Add(maxRTT)
+	go packetTimerFunc(sendNowChan, end)
+
+	for {
+		select {
+		case attempt := <-sendNowChan:
+			if attempt >= 0 {
+				go sendFromNewSocket(testResultChan, payload, destination, end)
+			} else {
+				// timer expired. We never got a reply.
+				return testPacketResult{latency: 0}
+			}
+		case testResult := <-testResultChan:
+			return testResult
+		}
+	}
 }
 
 // getOurIpForTarget returns a *net.IP representing the local interface
