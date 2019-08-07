@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/chrismarget/cisco-l2t/attribute"
 	"github.com/chrismarget/cisco-l2t/message"
-	"log"
 	"net"
 	"strconv"
 	"time"
@@ -259,7 +258,6 @@ func (o *defaultTarget) communicateViaDialSocket(b []byte) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		log.Println(wait)
 
 		// read until packet or deadline
 		received, err = cxn.Read(buffIn)
