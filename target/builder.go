@@ -5,6 +5,7 @@ import (
 	"github.com/chrismarget/cisco-l2t/attribute"
 	"github.com/chrismarget/cisco-l2t/message"
 	"net"
+	"strings"
 	"time"
 )
 
@@ -50,59 +51,66 @@ func (o defaultTargetBuilder) Build() (Target, error) {
 	var pref string
 	var last string
 	var f []failure
-	lowestLatency := 1 * time.Minute
-	observedIps := o.addresses
+	lowestLatency := maxRTT * 2
+	ipsToTest := o.addresses
 	// TODO: Use the map instead of a slice.
-	good := make(map[string]net.IP)
+	// TODO: map[something]replyData - need to record:
+	//  - who replied
+	//  - rtt
+	//  - local IP address for communicating w/ target
+	//  - target address (because why not?)
+	//  so we can find things, like symetric comms.
+	goodIpStrsToIp := make(map[string]net.IP)
 	var goods []net.IP
 
-	for i := 0; i < len(observedIps); i++ {
-		testIp := observedIps[i]
-		if _, ok := good[testIp.String()]; ok {
+	for i := 0; i < len(ipsToTest); i++ {
+		testIp := ipsToTest[i]
+		if _, hasIpRepliedBefore := goodIpStrsToIp[testIp.String()]; hasIpRepliedBefore {
 			continue
 		}
 
-		result := checkTargetIp(testIp)
-		if result.err != nil {
+		reply := checkTargetIp(testIp)
+		if reply.err != nil {
 			f = append(f, failure{
 				ip:  testIp,
-				err: result.err,
+				err: reply.err,
 			})
-			if len(f) == len(observedIps) {
-				return nil, fmt.Errorf("failed to communicate with all provided addresses")
-			}
 			continue
 		}
 
-		if _, ok := good[result.IP.String()]; !ok {
-			observedIps = append(observedIps, result.IP)
+		if _, hasReplyIpBeenSeen := goodIpStrsToIp[reply.IP.String()]; !hasReplyIpBeenSeen {
+			ipsToTest = append(ipsToTest, reply.IP)
 		}
 
-		good[testIp.String()] = testIp
+		goodIpStrsToIp[testIp.String()] = testIp
 		goods = append(goods, testIp)
 
-		// Check if we should prefer this address.
-		if result.latency < lowestLatency {
+		if reply.latency < lowestLatency {
 			pref = testIp.String()
-			lowestLatency = result.latency
-			prefIndex = len(goods) - 1
-		} else if testIp.Equal(result.IP) {
-			pref = testIp.String()
-			lowestLatency = result.latency
+			lowestLatency = reply.latency
 			prefIndex = len(goods) - 1
 		}
 
-		latency = append(latency, result.latency)
+		latency = append(latency, reply.latency)
 
 		if len(name) == 0 {
-			name = result.name
+			name = reply.name
 		}
 
 		if len(platform) == 0 {
-			platform = result.platform
+			platform = reply.platform
 		}
 
 		last = testIp.String()
+	}
+
+	if len(goodIpStrsToIp) == 0 {
+		var s []string
+		for i := range f {
+			s = append(s, fmt.Sprintf("%s - reason: %s", f[i].ip.String(), f[i].err.Error()))
+		}
+
+		return nil, fmt.Errorf("failed to communicate with all of the host's addresses - %s", strings.Join(s, "|"))
 	}
 
 	if len(pref) == 0 {
@@ -110,10 +118,9 @@ func (o defaultTargetBuilder) Build() (Target, error) {
 		lowestLatency = initialRTTGuess
 	}
 
-	ourIp, err := getOurIpForTarget(good[pref])
+	ourIp, err := getOurIpForTarget(goodIpStrsToIp[pref])
 	if err != nil {
-		return nil, fmt.Errorf("failed to get local IP address for communicating with preffered address '%s' - %s",
-			pref, err.Error())
+		return nil, fmt.Errorf("failed to get local IP address for communicating with preffered address - %s", err.Error())
 	}
 
 	return &defaultTarget{
