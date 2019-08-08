@@ -333,11 +333,3 @@ func getOurIpForTarget(t net.IP) (net.IP, error) {
 
 	return c.LocalAddr().(*net.UDPAddr).IP, nil
 }
-
-func initialLatency() []time.Duration {
-	var l []time.Duration
-	for len(l) < 5 {
-		l = append(l, initialRTTGuess)
-	}
-	return l
-}
