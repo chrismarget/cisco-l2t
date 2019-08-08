@@ -26,8 +26,7 @@ func TargetBuilder() Builder {
 }
 
 type defaultTargetBuilder struct {
-	addresses           []net.IP
-	preferredAddressIdx int
+	addresses []net.IP
 }
 
 func (o *defaultTargetBuilder) AddIp(ip net.IP) Builder {
