@@ -5,6 +5,7 @@ import (
 	"github.com/chrismarget/cisco-l2t/attribute"
 	"github.com/chrismarget/cisco-l2t/message"
 	"net"
+	"strings"
 	"time"
 )
 
@@ -26,8 +27,7 @@ func TargetBuilder() Builder {
 }
 
 type defaultTargetBuilder struct {
-	addresses           []net.IP
-	preferredAddressIdx int
+	addresses []net.IP
 }
 
 func (o *defaultTargetBuilder) AddIp(ip net.IP) Builder {
@@ -38,102 +38,105 @@ func (o *defaultTargetBuilder) AddIp(ip net.IP) Builder {
 }
 
 func (o defaultTargetBuilder) Build() (Target, error) {
+	if len(o.addresses) == 0 {
+		return nil, fmt.Errorf("no target addresses were provided")
+	}
+
 	// We keep track of every address the target replies from, ordered for
-	// correlation with the slice of addresses we spoke to (o.addresses)
-	var observedIps []net.IP
+	// correlation with the slice of addresses we spoke to.
+	var prefIndex int
 	var latency []time.Duration
-	var result testPacketResult
 	var name string
 	var platform string
+	var pref string
+	var last string
+	var f []failure
+	lowestLatency := maxRTT * 2
+	ipsToTest := o.addresses
+	// TODO: Use the map instead of a slice.
+	// TODO: map[something]replyData - need to record:
+	//  - who replied
+	//  - rtt
+	//  - local IP address for communicating w/ target
+	//  - target address (because why not?)
+	//  so we can find things, like symetric comms.
+	goodIpStrsToIp := make(map[string]net.IP)
+	var goods []net.IP
 
-	// Loop until every element in o.addresses has a corresponding
-	// observedIps element (these will be <nil> if no reply)
-	for len(o.addresses) > len(observedIps) {
-		testIp := o.addresses[len(observedIps)]
-		result = checkTargetIp(testIp)
-		if result.err != nil {
-			return nil, fmt.Errorf("no response from address %s - %s", result.IP, result.err.Error())
+	for i := 0; i < len(ipsToTest); i++ {
+		testIp := ipsToTest[i]
+		if _, hasIpRepliedBefore := goodIpStrsToIp[testIp.String()]; hasIpRepliedBefore {
+			continue
 		}
 
-		// save "name" and "result" so they're not crushed by a future failed query
-		if result.name != "" {
-			name = result.name
-		}
-		if result.platform != "" {
-			platform = result.platform
+		reply := checkTargetIp(testIp)
+		if reply.err != nil {
+			f = append(f, failure{
+				ip:  testIp,
+				err: reply.err,
+			})
+			continue
 		}
 
-		// add the result (maybe <nil>) to the list of observed addresses
-		observedIps = append(observedIps, result.IP)
-
-		// Did we hear back from the target?
-		if result.IP != nil {
-			latency = append(latency, result.latency)
-			// if the observed address is previously unseen, add it to o.addresses
-			if addressIsNew(result.IP, o.addresses) {
-				o.addresses = append(o.addresses, result.IP)
-			}
+		if _, hasReplyIpBeenSeen := goodIpStrsToIp[reply.IP.String()]; !hasReplyIpBeenSeen {
+			ipsToTest = append(ipsToTest, reply.IP)
 		}
+
+		goodIpStrsToIp[testIp.String()] = testIp
+		goods = append(goods, testIp)
+
+		if reply.latency < lowestLatency {
+			pref = testIp.String()
+			lowestLatency = reply.latency
+			prefIndex = len(goods) - 1
+		}
+
+		latency = append(latency, reply.latency)
+
+		if len(name) == 0 {
+			name = reply.name
+		}
+
+		if len(platform) == 0 {
+			platform = reply.platform
+		}
+
+		last = testIp.String()
 	}
 
-	// Now that we've probed every address, check to see whether we had
-	// symmetric comms with any of those addresses. These will be index
-	// locations where o.addresses and observedIps have the same value.
-	// todo: we could be inspecting RTT latency here to make an even better choice
-	for i, ip := range o.addresses {
-		if ip.Equal(observedIps[i]) {
-			// Get the local system address that faces that target.
-			ourIp, err := getOurIpForTarget(ip)
-			if err != nil {
-				return nil, err
-			}
-
-			return &defaultTarget{
-				theirIp:         o.addresses,
-				talkToThemIdx:   i,
-				listenToThemIdx: i,
-				ourIp:           ourIp,
-				latency:         initialLatency(),
-				name:            name,
-				platform:        platform,
-			}, nil
+	if len(goodIpStrsToIp) == 0 {
+		var s []string
+		for i := range f {
+			s = append(s, fmt.Sprintf("%s - reason: %s", f[i].ip.String(), f[i].err.Error()))
 		}
+
+		return nil, fmt.Errorf("failed to communicate with all of the host's addresses - %s", strings.Join(s, "|"))
 	}
 
-	// Loop over observed (reply source) address list. Ignore any that are <nil>
-	// todo: we could be inspecting RTT latency here to make an even better choice
-	for i, replyAddr := range observedIps {
-		if replyAddr != nil {
-			// We found one. The target replies from "replyAddr".
-			// Get the local system address that faces that target.
-			ourIp, err := getOurIpForTarget(replyAddr)
-			if err != nil {
-				return nil, err
-			}
-
-			// Find the responding address in the target's address list.
-			var listenIdx int
-			for k, v := range o.addresses {
-				if v.String() == replyAddr.String() {
-					listenIdx = k
-				}
-			}
-
-			return &defaultTarget{
-				theirIp:         o.addresses,
-				talkToThemIdx:   i,
-				listenToThemIdx: listenIdx,
-				ourIp:           ourIp,
-				latency:         initialLatency(),
-				name:            name,
-				platform:        platform,
-			}, nil
-		}
+	if len(pref) == 0 {
+		pref = last
+		lowestLatency = initialRTTGuess
 	}
 
-	return nil, &UnreachableTargetError{
-		AddressesTried: o.addresses,
+	ourIp, err := getOurIpForTarget(goodIpStrsToIp[pref])
+	if err != nil {
+		return nil, fmt.Errorf("failed to get local IP address for communicating with preffered address - %s", err.Error())
 	}
+
+	return &defaultTarget{
+		theirIp:         goods,
+		talkToThemIdx:   prefIndex,
+		listenToThemIdx: prefIndex,
+		ourIp:           ourIp,
+		latency:         latency,
+		name:            name,
+		platform:        platform,
+	}, nil
+}
+
+type failure struct {
+	ip  net.IP
+	err error
 }
 
 // addressIsNew returns a boolean indicating whether
@@ -190,6 +193,8 @@ type testPacketResult struct {
 	name     string
 }
 
+// TODO: hang around for max rtt or number of packets received == sent
+// TODO: separate errors from return struct?
 func sendFromNewSocket(payload []byte, destination *net.UDPAddr, end time.Time) testPacketResult {
 	// create the socket
 	conn, err := net.ListenUDP(UdpProtocol, &net.UDPAddr{})
@@ -229,7 +234,7 @@ func sendFromNewSocket(payload []byte, destination *net.UDPAddr, end time.Time) 
 	case err != nil:
 		if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
 			// Socket timeout
-			return testPacketResult{latency: 0}
+			return testPacketResult{err:err}
 		}
 		// Mystery error
 		return testPacketResult{err:err}
@@ -271,9 +276,9 @@ func sendFromNewSocket(payload []byte, destination *net.UDPAddr, end time.Time) 
 
 // checkTargetIp sends test L2T messages to the specified IP address. It
 // returns a testPacketResult that represents the result of the check.
-func checkTargetIp(target net.IP) testPacketResult {
+func checkTargetIp(testIp net.IP) testPacketResult {
 	destination := &net.UDPAddr{
-		IP:   target,
+		IP:   testIp,
 		Port: udpPort,
 	}
 
@@ -302,7 +307,8 @@ func checkTargetIp(target net.IP) testPacketResult {
 	testResultChan := make(chan testPacketResult, 1)
 
 	// Start the timer that will tell us when to send packets
-	end := time.Now().Add(maxRTT)
+	start := time.Now()
+	end := start.Add(maxRTT)
 	go packetTimerFunc(sendNowChan, end)
 
 	// loop sending packets. return when we get a result (reply)
@@ -318,7 +324,10 @@ func checkTargetIp(target net.IP) testPacketResult {
 				}()
 			} else {
 				// timer expired. We never got a reply.
-				return testPacketResult{latency: 0}
+				return testPacketResult{
+					err: fmt.Errorf("gave up on %s after sending test packets for %s",
+						testIp.String(), time.Since(start)),
+				}
 			}
 		case testResult := <-testResultChan:
 			return testResult
@@ -336,12 +345,4 @@ func getOurIpForTarget(t net.IP) (net.IP, error) {
 	defer c.Close()
 
 	return c.LocalAddr().(*net.UDPAddr).IP, nil
-}
-
-func initialLatency() []time.Duration {
-	var l []time.Duration
-	for len(l) < 5 {
-		l = append(l, initialRTTGuess)
-	}
-	return l
 }
