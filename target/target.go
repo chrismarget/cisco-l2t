@@ -144,6 +144,9 @@ func (o *defaultTarget) communicateViaConventionalSocket(b []byte) ([]byte, erro
 	if err != nil {
 		return nil, err
 	}
+
+	// todo: this close causes ICMP unreachables. some sort of delay where the socket
+	//  hangs around after we don't need it anymore would be good.
 	defer cxn.Close()
 
 	buffIn := make([]byte, inBufferSize)
@@ -164,7 +167,7 @@ func (o *defaultTarget) communicateViaConventionalSocket(b []byte) ([]byte, erro
 		}
 		wait := o.estimateLatency()
 
-		// Send the packet. Error handling happens after noting the start time.
+		// Send the packet.
 		n, err := cxn.WriteToUDP(b, destination)
 
 		switch {
@@ -236,6 +239,13 @@ func (o *defaultTarget) communicateViaDialSocket(b []byte) ([]byte, error) {
 
 	buffIn := make([]byte, inBufferSize)
 
+	// Collect start time for later RTT calculation. Note that we're only
+	// collecting the start time *once* even though we may send several
+	// packets. In the case of no jitter/loss, the numbers will be correct.
+	// In case we send the packet twice, which measurement is correct?
+	// Elapsed time since packet zero or since packet one? We're
+	// deliberately opting to accept the more pessimistic measurement.
+	start := time.Now()
 	var rtt time.Duration
 	received := 0
 	attempts := 0
@@ -244,7 +254,10 @@ func (o *defaultTarget) communicateViaDialSocket(b []byte) ([]byte, error) {
 			return nil, fmt.Errorf("lost connection with switch %s after %d attempts", destination.IP.String(), attempts)
 		}
 		wait := o.estimateLatency()
+
+		// Send the packet.
 		n, err := cxn.Write(b)
+
 		switch {
 		case err != nil:
 			return nil, err
@@ -252,8 +265,7 @@ func (o *defaultTarget) communicateViaDialSocket(b []byte) ([]byte, error) {
 			return nil, fmt.Errorf("attemtped send of %d bytes, only managed %d", len(b), n)
 		}
 
-		// collect start time for later RTT calculation, set deadline
-		start := time.Now()
+		// set deadline based on start time
 		err = cxn.SetReadDeadline(start.Add(wait))
 		if err != nil {
 			return nil, err
@@ -261,6 +273,8 @@ func (o *defaultTarget) communicateViaDialSocket(b []byte) ([]byte, error) {
 
 		// read until packet or deadline
 		received, err = cxn.Read(buffIn)
+
+		// Note the elapsed time
 		rtt = time.Since(start)
 
 		// How might things have gone wrong?
