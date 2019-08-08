@@ -15,17 +15,11 @@ const (
 	UdpProtocol       = "udp4"
 	nilIP             = "<nil>"
 	inBufferSize      = 65535
-	initialRTTGuess   = 50 * time.Millisecond
+	initialRTTGuess   = 250 * time.Millisecond
 	maxLatencySamples = 10
 	maxRetries        = 10
 	maxRTT            = 2500 * time.Millisecond
-)
-
-var (
-	testMsg = []byte{
-		1, 1, 0, 31, 4, 2, 8, 255, 255, 255, 255, 255, 255,
-		1, 8, 255, 255, 255, 255, 255, 255, 3, 4, 0, 1, 14, 6,
-	}
+	retryMultiplier   = 2
 )
 
 type Target interface {
@@ -40,6 +34,8 @@ type defaultTarget struct {
 	ourIp           net.IP
 	useDial         bool
 	latency         []time.Duration
+	name            string
+	platform        string
 }
 
 func (o *defaultTarget) Send(msg message.Msg) (message.Msg, error) {
@@ -77,13 +73,30 @@ func (o *defaultTarget) Send(msg message.Msg) (message.Msg, error) {
 
 func (o *defaultTarget) String() string {
 	var out bytes.Buffer
-	out.WriteString("Known IP Addresses:")
+
+	out.WriteString("\nTarget Hostname:    ")
+	switch o.name {
+	case "":
+		out.WriteString("<unknown>")
+	default:
+		out.WriteString(o.name)
+	}
+
+	out.WriteString("\nTarget Platform:    ")
+	switch o.platform {
+	case "":
+		out.WriteString("<unknown>")
+	default:
+		out.WriteString(o.platform)
+	}
+
+	out.WriteString("\nKnown IP Addresses:")
 	for _, ip := range o.theirIp {
 		out.WriteString(" ")
 		out.WriteString(ip.String())
 	}
 
-	out.WriteString("\nTarget address: ")
+	out.WriteString("\nTarget address:     ")
 	switch {
 	case o.talkToThemIdx >= 0:
 		out.WriteString(o.theirIp[o.talkToThemIdx].String())
@@ -91,7 +104,7 @@ func (o *defaultTarget) String() string {
 		out.WriteString("none")
 	}
 
-	out.WriteString("\nListen address: ")
+	out.WriteString("\nListen address:     ")
 	switch {
 	case o.listenToThemIdx >= 0:
 		out.WriteString(o.theirIp[o.listenToThemIdx].String())
@@ -99,7 +112,7 @@ func (o *defaultTarget) String() string {
 		out.WriteString("none")
 	}
 
-	out.WriteString("\nLocal address:  ")
+	out.WriteString("\nLocal address:      ")
 	switch o.ourIp.String() {
 	case nilIP:
 		out.WriteString("none")
@@ -107,7 +120,7 @@ func (o *defaultTarget) String() string {
 		out.WriteString(o.ourIp.String())
 	}
 
-	out.WriteString("\nUse Dial:       ")
+	out.WriteString("\nUse Dial:           ")
 	out.WriteString(strconv.FormatBool(o.useDial))
 
 	return out.String()
@@ -135,6 +148,13 @@ func (o *defaultTarget) communicateViaConventionalSocket(b []byte) ([]byte, erro
 
 	buffIn := make([]byte, inBufferSize)
 
+	// Collect start time for later RTT calculation. Note that we're only
+	// collecting the start time *once* even though we may send several
+	// packets. In the case of no jitter/loss, the numbers will be correct.
+	// In case we send the packet twice, which measurement is correct?
+	// Elapsed time since packet zero or since packet one? We're
+	// deliberately opting to accept the more pessimistic measurement.
+	start := time.Now()
 	var rtt time.Duration
 	received := 0
 	attempts := 0
@@ -146,9 +166,6 @@ func (o *defaultTarget) communicateViaConventionalSocket(b []byte) ([]byte, erro
 
 		// Send the packet. Error handling happens after noting the start time.
 		n, err := cxn.WriteToUDP(b, destination)
-
-		// collect start time for later RTT calculation
-		start := time.Now()
 
 		switch {
 		case err != nil:
@@ -203,7 +220,7 @@ func (o *defaultTarget) communicateViaConventionalSocket(b []byte) ([]byte, erro
 // targets that reply from the address to which we sent the query. That is the
 // natural behavior of most UDP services, but not the Cisco L2T server. This is
 // the preferred method because it's friendly to stateful middleboxes like NAT.
-func (o defaultTarget) communicateViaDialSocket(b []byte) ([]byte, error) {
+func (o *defaultTarget) communicateViaDialSocket(b []byte) ([]byte, error) {
 	destination := &net.UDPAddr{
 		IP:   o.theirIp[o.talkToThemIdx],
 		Port: udpPort,
@@ -213,6 +230,8 @@ func (o defaultTarget) communicateViaDialSocket(b []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	// todo: this close causes ICMP unreachables. some sort of delay where the socket
+	//  hangs around after we don't need it anymore would be good.
 	defer cxn.Close()
 
 	buffIn := make([]byte, inBufferSize)
@@ -262,6 +281,7 @@ func (o defaultTarget) communicateViaDialSocket(b []byte) ([]byte, error) {
 		}
 	}
 
+	o.updateLatency(rtt)
 	return buffIn, nil
 }
 

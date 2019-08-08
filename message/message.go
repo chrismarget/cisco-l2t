@@ -18,7 +18,7 @@ type (
 
 const (
 	version1       = msgVer(1)
-	defaultMsgType = RequestDst
+	defaultMsgType = RequestSrc
 	defaultMsgVer  = version1
 
 	RequestDst = msgType(1)
