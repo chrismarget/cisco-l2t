@@ -186,6 +186,8 @@ type testPacketResult struct {
 	name     string
 }
 
+// TODO: hang around for max rtt or number of packets received == sent
+// TODO: separate errors from return struct?
 func sendFromNewSocket(payload []byte, destination *net.UDPAddr, end time.Time) testPacketResult {
 	// create the socket
 	conn, err := net.ListenUDP(UdpProtocol, &net.UDPAddr{})
@@ -225,7 +227,7 @@ func sendFromNewSocket(payload []byte, destination *net.UDPAddr, end time.Time) 
 	case err != nil:
 		if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
 			// Socket timeout
-			return testPacketResult{latency: 0}
+			return testPacketResult{err:err}
 		}
 		// Mystery error
 		return testPacketResult{err:err}
@@ -267,9 +269,9 @@ func sendFromNewSocket(payload []byte, destination *net.UDPAddr, end time.Time) 
 
 // checkTargetIp sends test L2T messages to the specified IP address. It
 // returns a testPacketResult that represents the result of the check.
-func checkTargetIp(target net.IP) testPacketResult {
+func checkTargetIp(testIp net.IP) testPacketResult {
 	destination := &net.UDPAddr{
-		IP:   target,
+		IP:   testIp,
 		Port: udpPort,
 	}
 
@@ -298,7 +300,8 @@ func checkTargetIp(target net.IP) testPacketResult {
 	testResultChan := make(chan testPacketResult, 1)
 
 	// Start the timer that will tell us when to send packets
-	end := time.Now().Add(maxRTT)
+	start := time.Now()
+	end := start.Add(maxRTT)
 	go packetTimerFunc(sendNowChan, end)
 
 	// loop sending packets. return when we get a result (reply)
@@ -314,7 +317,10 @@ func checkTargetIp(target net.IP) testPacketResult {
 				}()
 			} else {
 				// timer expired. We never got a reply.
-				return testPacketResult{latency: 0}
+				return testPacketResult{
+					err: fmt.Errorf("gave up on %s after sending test packets for %s",
+						testIp.String(), time.Since(start)),
+				}
 			}
 		case testResult := <-testResultChan:
 			return testResult
