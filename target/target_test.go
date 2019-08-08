@@ -62,3 +62,15 @@ func TestEstimateLatency(t *testing.T){
 	result = o.estimateLatency()
 	log.Println(result)
 }
+
+func TestTimerFunc(t *testing.T) {
+	in := make(chan int)
+	start := time.Now()
+	go packetTimerFunc(in)
+	for time.Now().Before(start.Add(maxRTT).Add(maxRTT)) {
+		select {
+		case i := <- in:
+			log.Println(time.Now(), i)
+		}
+	}
+}
