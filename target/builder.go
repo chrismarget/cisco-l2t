@@ -38,102 +38,99 @@ func (o *defaultTargetBuilder) AddIp(ip net.IP) Builder {
 }
 
 func (o defaultTargetBuilder) Build() (Target, error) {
+	if len(o.addresses) == 0 {
+		return nil, fmt.Errorf("no target addresses were provided")
+	}
+
 	// We keep track of every address the target replies from, ordered for
-	// correlation with the slice of addresses we spoke to (o.addresses)
-	var observedIps []net.IP
+	// correlation with the slice of addresses we spoke to.
+	var prefIndex int
 	var latency []time.Duration
-	var result testPacketResult
 	var name string
 	var platform string
+	var pref string
+	var last string
+	var f []failure
+	lowestLatency := 1 * time.Minute
+	observedIps := o.addresses
+	// TODO: Use the map instead of a slice.
+	good := make(map[string]net.IP)
+	var goods []net.IP
 
-	// Loop until every element in o.addresses has a corresponding
-	// observedIps element (these will be <nil> if no reply)
-	for len(o.addresses) > len(observedIps) {
-		testIp := o.addresses[len(observedIps)]
-		result = checkTargetIp(testIp)
-		if result.err != nil {
-			return nil, fmt.Errorf("no response from address %s - %s", result.IP, result.err.Error())
+	for i := 0; i < len(observedIps); i++ {
+		testIp := observedIps[i]
+		if _, ok := good[testIp.String()]; ok {
+			continue
 		}
 
-		// save "name" and "result" so they're not crushed by a future failed query
-		if result.name != "" {
+		result := checkTargetIp(testIp)
+		if result.err != nil {
+			f = append(f, failure{
+				ip:  testIp,
+				err: result.err,
+			})
+			if len(f) == len(observedIps) {
+				return nil, fmt.Errorf("failed to communicate with all provided addresses")
+			}
+			continue
+		}
+
+		if _, ok := good[result.IP.String()]; !ok {
+			observedIps = append(observedIps, result.IP)
+		}
+
+		good[testIp.String()] = testIp
+		goods = append(goods, testIp)
+
+		// Check if we should prefer this address.
+		if result.latency < lowestLatency {
+			pref = testIp.String()
+			lowestLatency = result.latency
+			prefIndex = len(goods) - 1
+		} else if testIp.Equal(result.IP) {
+			pref = testIp.String()
+			lowestLatency = result.latency
+			prefIndex = len(goods) - 1
+		}
+
+		latency = append(latency, result.latency)
+
+		if len(name) == 0 {
 			name = result.name
 		}
-		if result.platform != "" {
+
+		if len(platform) == 0 {
 			platform = result.platform
 		}
 
-		// add the result (maybe <nil>) to the list of observed addresses
-		observedIps = append(observedIps, result.IP)
-
-		// Did we hear back from the target?
-		if result.IP != nil {
-			latency = append(latency, result.latency)
-			// if the observed address is previously unseen, add it to o.addresses
-			if addressIsNew(result.IP, o.addresses) {
-				o.addresses = append(o.addresses, result.IP)
-			}
-		}
+		last = testIp.String()
 	}
 
-	// Now that we've probed every address, check to see whether we had
-	// symmetric comms with any of those addresses. These will be index
-	// locations where o.addresses and observedIps have the same value.
-	// todo: we could be inspecting RTT latency here to make an even better choice
-	for i, ip := range o.addresses {
-		if ip.Equal(observedIps[i]) {
-			// Get the local system address that faces that target.
-			ourIp, err := getOurIpForTarget(ip)
-			if err != nil {
-				return nil, err
-			}
-
-			return &defaultTarget{
-				theirIp:         o.addresses,
-				talkToThemIdx:   i,
-				listenToThemIdx: i,
-				ourIp:           ourIp,
-				latency:         initialLatency(),
-				name:            name,
-				platform:        platform,
-			}, nil
-		}
+	if len(pref) == 0 {
+		pref = last
+		lowestLatency = initialRTTGuess
 	}
 
-	// Loop over observed (reply source) address list. Ignore any that are <nil>
-	// todo: we could be inspecting RTT latency here to make an even better choice
-	for i, replyAddr := range observedIps {
-		if replyAddr != nil {
-			// We found one. The target replies from "replyAddr".
-			// Get the local system address that faces that target.
-			ourIp, err := getOurIpForTarget(replyAddr)
-			if err != nil {
-				return nil, err
-			}
-
-			// Find the responding address in the target's address list.
-			var listenIdx int
-			for k, v := range o.addresses {
-				if v.String() == replyAddr.String() {
-					listenIdx = k
-				}
-			}
-
-			return &defaultTarget{
-				theirIp:         o.addresses,
-				talkToThemIdx:   i,
-				listenToThemIdx: listenIdx,
-				ourIp:           ourIp,
-				latency:         initialLatency(),
-				name:            name,
-				platform:        platform,
-			}, nil
-		}
+	ourIp, err := getOurIpForTarget(good[pref])
+	if err != nil {
+		return nil, fmt.Errorf("failed to get local IP address for communicating with preffered address '%s' - %s",
+			pref, err.Error())
 	}
 
-	return nil, &UnreachableTargetError{
-		AddressesTried: o.addresses,
-	}
+	return &defaultTarget{
+		theirIp:         goods,
+		talkToThemIdx:   prefIndex,
+		listenToThemIdx: prefIndex,
+		ourIp:           ourIp,
+		latency:         latency,
+		name:            name,
+		platform:        platform,
+	}, nil
+}
+
+type failure struct {
+	ip  net.IP
+	err error
 }
 
 // addressIsNew returns a boolean indicating whether
