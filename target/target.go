@@ -6,7 +6,6 @@ import (
 	"github.com/chrismarget/cisco-l2t/attribute"
 	"github.com/chrismarget/cisco-l2t/message"
 	"net"
-	"strconv"
 	"time"
 )
 
@@ -32,7 +31,6 @@ type defaultTarget struct {
 	talkToThemIdx   int
 	listenToThemIdx int
 	ourIp           net.IP
-	useDial         bool
 	latency         []time.Duration
 	name            string
 	platform        string
@@ -54,21 +52,11 @@ func (o *defaultTarget) Send(msg message.Msg) (message.Msg, error) {
 		payload = msg.Marshal([]attribute.Attribute{})
 	}
 
-	switch o.useDial {
-	case true:
-		reply, err := o.communicateViaDialSocket(payload)
-		if err != nil {
-			return nil, err
-		}
-		return message.UnmarshalMessage(reply)
-	case false:
-		reply, err := o.communicateViaConventionalSocket(payload)
-		if err != nil {
-			return nil, err
-		}
-		return message.UnmarshalMessage(reply)
+	reply, err := o.communicateViaConventionalSocket(payload)
+	if err != nil {
+		return nil, err
 	}
-	return nil, nil
+	return message.UnmarshalMessage(reply)
 }
 
 func (o *defaultTarget) String() string {
@@ -119,9 +107,6 @@ func (o *defaultTarget) String() string {
 	default:
 		out.WriteString(o.ourIp.String())
 	}
-
-	out.WriteString("\nUse Dial:           ")
-	out.WriteString(strconv.FormatBool(o.useDial))
 
 	return out.String()
 }
@@ -215,89 +200,89 @@ func (o *defaultTarget) communicateViaConventionalSocket(b []byte) ([]byte, erro
 	return buffIn, nil
 }
 
-// communicateViaDialSocket sends a byte slice to the target using a UDP
-// socket. It includes retry logic for handling packet loss. On success it
-// returns a byte slice containing the reply payload.
+//// communicateViaDialSocket sends a byte slice to the target using a UDP
+//// socket. It includes retry logic for handling packet loss. On success it
+//// returns a byte slice containing the reply payload.
+////
+//// Because this function uses the net.DialUDP method it is only useful for
+//// targets that reply from the address to which we sent the query. That is the
+//// natural behavior of most UDP services, but not the Cisco L2T server. This is
+//// the preferred method because it's friendly to stateful middleboxes like NAT.
+//func (o *defaultTarget) communicateViaDialSocket(b []byte) ([]byte, error) {
+//	destination := &net.UDPAddr{
+//		IP:   o.theirIp[o.talkToThemIdx],
+//		Port: udpPort,
+//	}
 //
-// Because this function uses the net.DialUDP method it is only useful for
-// targets that reply from the address to which we sent the query. That is the
-// natural behavior of most UDP services, but not the Cisco L2T server. This is
-// the preferred method because it's friendly to stateful middleboxes like NAT.
-func (o *defaultTarget) communicateViaDialSocket(b []byte) ([]byte, error) {
-	destination := &net.UDPAddr{
-		IP:   o.theirIp[o.talkToThemIdx],
-		Port: udpPort,
-	}
-
-	cxn, err := net.DialUDP(UdpProtocol, &net.UDPAddr{}, destination)
-	if err != nil {
-		return nil, err
-	}
-	// todo: this close causes ICMP unreachables. some sort of delay where the socket
-	//  hangs around after we don't need it anymore would be good.
-	defer cxn.Close()
-
-	buffIn := make([]byte, inBufferSize)
-
-	// Collect start time for later RTT calculation. Note that we're only
-	// collecting the start time *once* even though we may send several
-	// packets. In the case of no jitter/loss, the numbers will be correct.
-	// In case we send the packet twice, which measurement is correct?
-	// Elapsed time since packet zero or since packet one? We're
-	// deliberately opting to accept the more pessimistic measurement.
-	start := time.Now()
-	var rtt time.Duration
-	received := 0
-	attempts := 0
-	for received == 0 {
-		if attempts >= maxRetries {
-			return nil, fmt.Errorf("lost connection with switch %s after %d attempts", destination.IP.String(), attempts)
-		}
-		wait := o.estimateLatency()
-
-		// Send the packet.
-		n, err := cxn.Write(b)
-
-		switch {
-		case err != nil:
-			return nil, err
-		case n != len(b):
-			return nil, fmt.Errorf("attemtped send of %d bytes, only managed %d", len(b), n)
-		}
-
-		// set deadline based on start time
-		err = cxn.SetReadDeadline(start.Add(wait))
-		if err != nil {
-			return nil, err
-		}
-
-		// read until packet or deadline
-		received, err = cxn.Read(buffIn)
-
-		// Note the elapsed time
-		rtt = time.Since(start)
-
-		// How might things have gone wrong?
-		switch {
-		case err != nil:
-			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
-				// Socket timeout; Double the timeout interval, stick it in the latency history.
-				attempts += 1
-				o.updateLatency(2 * rtt)
-				continue
-			} else {
-				// Mystery error
-				return nil, fmt.Errorf("error waiting for reply via conventional socket - %s", err.Error())
-			}
-		case n == len(buffIn):
-			// Unexpectedly large read
-			return nil, fmt.Errorf("got full buffer: %d bytes", n)
-		}
-	}
-
-	o.updateLatency(rtt)
-	return buffIn, nil
-}
+//	cxn, err := net.DialUDP(UdpProtocol, &net.UDPAddr{}, destination)
+//	if err != nil {
+//		return nil, err
+//	}
+//	// todo: this close causes ICMP unreachables. some sort of delay where the socket
+//	//  hangs around after we don't need it anymore would be good.
+//	defer cxn.Close()
+//
+//	buffIn := make([]byte, inBufferSize)
+//
+//	// Collect start time for later RTT calculation. Note that we're only
+//	// collecting the start time *once* even though we may send several
+//	// packets. In the case of no jitter/loss, the numbers will be correct.
+//	// In case we send the packet twice, which measurement is correct?
+//	// Elapsed time since packet zero or since packet one? We're
+//	// deliberately opting to accept the more pessimistic measurement.
+//	start := time.Now()
+//	var rtt time.Duration
+//	received := 0
+//	attempts := 0
+//	for received == 0 {
+//		if attempts >= maxRetries {
+//			return nil, fmt.Errorf("lost connection with switch %s after %d attempts", destination.IP.String(), attempts)
+//		}
+//		wait := o.estimateLatency()
+//
+//		// Send the packet.
+//		n, err := cxn.Write(b)
+//
+//		switch {
+//		case err != nil:
+//			return nil, err
+//		case n != len(b):
+//			return nil, fmt.Errorf("attemtped send of %d bytes, only managed %d", len(b), n)
+//		}
+//
+//		// set deadline based on start time
+//		err = cxn.SetReadDeadline(start.Add(wait))
+//		if err != nil {
+//			return nil, err
+//		}
+//
+//		// read until packet or deadline
+//		received, err = cxn.Read(buffIn)
+//
+//		// Note the elapsed time
+//		rtt = time.Since(start)
+//
+//		// How might things have gone wrong?
+//		switch {
+//		case err != nil:
+//			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+//				// Socket timeout; Double the timeout interval, stick it in the latency history.
+//				attempts += 1
+//				o.updateLatency(2 * rtt)
+//				continue
+//			} else {
+//				// Mystery error
+//				return nil, fmt.Errorf("error waiting for reply via conventional socket - %s", err.Error())
+//			}
+//		case n == len(buffIn):
+//			// Unexpectedly large read
+//			return nil, fmt.Errorf("got full buffer: %d bytes", n)
+//		}
+//	}
+//
+//	o.updateLatency(rtt)
+//	return buffIn, nil
+//}
 
 // estimateLatency tries to estimate the response time for this target
 // using the contents of the objects latency slice.

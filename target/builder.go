@@ -93,16 +93,12 @@ func (o defaultTargetBuilder) Build() (Target, error) {
 				talkToThemIdx:   i,
 				listenToThemIdx: i,
 				ourIp:           ourIp,
-				useDial:         true,
 				latency:         initialLatency(),
 				name:            name,
 				platform:        platform,
 			}, nil
 		}
 	}
-
-	// If we got here, then no symmetric comms are possible.
-	// Did we get ANY reply?
 
 	// Loop over observed (reply source) address list. Ignore any that are <nil>
 	// todo: we could be inspecting RTT latency here to make an even better choice
@@ -128,7 +124,6 @@ func (o defaultTargetBuilder) Build() (Target, error) {
 				talkToThemIdx:   i,
 				listenToThemIdx: listenIdx,
 				ourIp:           ourIp,
-				useDial:         false,
 				latency:         initialLatency(),
 				name:            name,
 				platform:        platform,
