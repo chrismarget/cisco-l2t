@@ -20,16 +20,16 @@ func TestNewTargetBuilder(t *testing.T) {
 
 func TestCheckTargetIp(t *testing.T) {
 	testIp := net.IP{192,168,96,2}
-	responseIp, latency, err := checkTargetIp(testIp)
-	if err != nil {
-		t.Fatal(err)
+	result := checkTargetIp(testIp)
+	if result.err != nil {
+		t.Fatal(result.err)
 	}
-	if latency <= 0 {
-		t.Fatalf("observed latency %d units of duration", latency)
+	if result.latency <= 0 {
+		t.Fatalf("observed latency %d units of duration", result.latency)
 	}
 	log.Println("testIp:",testIp)
-	log.Println("responseIp:",responseIp)
-	log.Println("latency:",latency)
+	log.Println("responseIp:",result.IP)
+	log.Println("latency:",result.latency)
 }
 
 func TestEstimateLatency(t *testing.T){
@@ -64,10 +64,11 @@ func TestEstimateLatency(t *testing.T){
 }
 
 func TestTimerFunc(t *testing.T) {
-	in := make(chan int)
+	in := make(chan bool)
 	start := time.Now()
-	go packetTimerFunc(in)
-	for time.Now().Before(start.Add(maxRTT).Add(maxRTT)) {
+	end := start.Add(2*maxRTT)
+	go packetTimerFunc(in, end)
+	for time.Now().Before(end) {
 		select {
 		case i := <- in:
 			log.Println(time.Now(), i)

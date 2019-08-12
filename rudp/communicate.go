@@ -87,7 +87,7 @@ func transmit(cxn *net.UDPConn, destination *net.UDPAddr, payload []byte) error 
 	return nil
 }
 
-func highlander(out sendThis) sendResult {
+func communicate(out sendThis) sendResult {
 	// determine the local interface IP
 	ourIp, err := GetOutgoingIpForDestination(out.destination.IP)
 	if err != nil {

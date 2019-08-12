@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/chrismarget/cisco-l2t/attribute"
 	"github.com/chrismarget/cisco-l2t/message"
+	"github.com/chrismarget/cisco-l2t/rudp"
 	"net"
 	"time"
 )
@@ -83,7 +84,7 @@ func (o defaultTargetBuilder) Build() (Target, error) {
 	for i, ip := range o.addresses {
 		if ip.Equal(observedIps[i]) {
 			// Get the local system address that faces that target.
-			ourIp, err := getOurIpForTarget(ip)
+			ourIp, err := rudp.GetOutgoingIpForDestination(ip)
 			if err != nil {
 				return nil, err
 			}
@@ -110,7 +111,7 @@ func (o defaultTargetBuilder) Build() (Target, error) {
 		if replyAddr != nil {
 			// We found one. The target replies from "replyAddr".
 			// Get the local system address that faces that target.
-			ourIp, err := getOurIpForTarget(replyAddr)
+			ourIp, err := rudp.GetOutgoingIpForDestination(replyAddr)
 			if err != nil {
 				return nil, err
 			}
@@ -286,7 +287,7 @@ func checkTargetIp(target net.IP) testPacketResult {
 	// which, on a multihomed system requires that we look up the route to the
 	// target. So, we need to know about the target before we can form the
 	// message.
-	ourIp, err := getOurIpForTarget(destination.IP)
+	ourIp, err := rudp.GetOutgoingIpForDestination(destination.IP)
 	if err != nil {
 		return testPacketResult{err: err}
 	}
@@ -331,17 +332,6 @@ func checkTargetIp(target net.IP) testPacketResult {
 	}
 }
 
-// getOurIpForTarget returns a *net.IP representing the local interface
-// that's best suited for talking to the passed target address
-func getOurIpForTarget(t net.IP) (net.IP, error) {
-	c, err := net.Dial("udp4", t.String()+":1")
-	if err != nil {
-		return nil, err
-	}
-	defer c.Close()
-
-	return c.LocalAddr().(*net.UDPAddr).IP, nil
-}
 
 func initialLatency() []time.Duration {
 	var l []time.Duration
