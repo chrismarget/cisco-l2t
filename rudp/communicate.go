@@ -65,6 +65,7 @@ func receive(cxn *net.UDPConn, source net.IP, result chan receiveResult) {
 			return
 		case source != nil && !source.Equal(respondent.IP):
 			// Alien reply. Ignore.
+			received = 0
 			continue
 		default:
 		}
@@ -129,6 +130,7 @@ func communicate(out sendThis) sendResult {
 
 	// retransmit backoff timer
 	bot := NewBackoffTicker(initialRTTGuess)
+	defer bot.Stop()
 
 	// keep sending until... something happens
 	for {
