@@ -48,7 +48,10 @@ func GetOutgoingIpForDestination(t net.IP) (net.IP, error) {
 	return c.LocalAddr().(*net.UDPAddr).IP, c.Close()
 }
 
-func receive(cxn *net.UDPConn, source net.IP, result chan receiveResult) {
+// receive loops until a "good" inbound message arrives on the socket.
+// It ignores alien replies (packets not from expectedSource) unless
+// expectedSource is <nil>.
+func receive(cxn *net.UDPConn, expectedSource net.IP, result chan receiveResult) {
 	buffIn := make([]byte, inBufferSize)
 	var err error
 	var received int
@@ -63,7 +66,7 @@ func receive(cxn *net.UDPConn, source net.IP, result chan receiveResult) {
 		case received >= len(buffIn): // Unexpectedly large read
 			result <- receiveResult{err: fmt.Errorf("got full buffer: %d bytes", len(buffIn))}
 			return
-		case source != nil && !source.Equal(respondent.IP):
+		case expectedSource != nil && !expectedSource.Equal(respondent.IP):
 			// Alien reply. Ignore.
 			received = 0
 			continue
@@ -119,7 +122,7 @@ func communicate(out sendThis) sendResult {
 	}
 
 	replyChan := make(chan receiveResult)
-	go receive(cxn, out.destination.IP, replyChan)
+	go receive(cxn, out.expectReplyFrom, replyChan)
 
 	// first send attempt
 	err = transmit(cxn, out.destination, out.payload)
