@@ -145,8 +145,14 @@ func communicate(out sendThis) sendResult {
 			}
 			attempts++
 			continue
-		case <-replyChan:
-			return sendResult{}
+		case result := <-replyChan:
+			return sendResult{
+				err: result.err,
+				rtt: time.Now().Sub(start),
+				sentTo: out.destination.IP,
+				replyFrom: result.replyFrom,
+				replyData: result.replyData,
+			}
 		}
 	}
 }
