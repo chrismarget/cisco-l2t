@@ -196,7 +196,7 @@ func communicate(out sendThis) sendResult {
 
 	// socket timeout stuff
 	start := time.Now()
-	end := start.Add(maxRTT).Add(5*time.Minute)
+	end := start.Add(maxRTT)
 	err = cxn.SetReadDeadline(end)
 	if err != nil {
 		return sendResult{err: err}
