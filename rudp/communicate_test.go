@@ -1,6 +1,9 @@
 package rudp
 
 import (
+	"bytes"
+	"github.com/chrismarget/cisco-l2t/attribute"
+	"github.com/chrismarget/cisco-l2t/message"
 	"log"
 	"math/rand"
 	"net"
@@ -35,10 +38,10 @@ func TestReplyTimeout(t *testing.T) {
 	expectedMin := 3100 * time.Millisecond
 	expectedMax := 3300 * time.Millisecond
 	if duration < expectedMin {
-		t.Fatalf("expected this to take about 2400ms, but it took %s", duration)
+		t.Fatalf("expected this to take about 3200ms, but it took %s", duration)
 	}
 	if duration > expectedMax {
-		t.Fatalf("expected this to take about 2400ms, but it took %s", duration)
+		t.Fatalf("expected this to take about 3200ms, but it took %s", duration)
 	}
 }
 
@@ -81,8 +84,6 @@ func TestReceive(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	sockStuff := strings.Split(listenSock.LocalAddr().String(), ":")
-	log.Print(sockStuff)
 	destPort, err := strconv.Atoi(strings.Split(listenSock.LocalAddr().String(), ":")[1])
 	if err != nil {
 		t.Fatal(err)
@@ -99,7 +100,7 @@ func TestReceive(t *testing.T) {
 	}
 
 	replyChan := make(chan receiveResult)
-	go receive(listenSock, ip, replyChan)
+	go receiveOneMsg(listenSock, ip, replyChan)
 
 	testData := make([]byte, 25)
 	_, err = rand.Read(testData)
@@ -107,20 +108,152 @@ func TestReceive(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	//	time.Sleep(time.Second)
-
-	log.Println("transmitting:", testData)
 	err = transmit(sendSock, &destination, testData)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	var result receiveResult
-	select {
-	case result = <-replyChan:
-	}
+	result := <-replyChan
 	if result.err != nil {
 		t.Fatal(result.err)
 	}
-	log.Println("received:", result.replyData)
+
+	if !bytes.Equal(testData, result.replyData) {
+		log.Fatalf("received data doesn't match sent data")
+	}
+
+	log.Println(testData)
+	log.Println(result.replyData)
+
+}
+
+func TestGoAwayBostonDial(t *testing.T) {
+	destination := net.UDPAddr{
+		IP:   net.ParseIP("10.201.12.66"),
+		Port: 2228,
+	}
+
+	ourIp, err := GetOutgoingIpForDestination(destination.IP)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ourIpAttr, err := attribute.NewAttrBuilder().
+		SetType(attribute.SrcIPv4Type).
+		SetString(ourIp.String()).
+		Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	payload := message.TestMsg().Marshal([]attribute.Attribute{ourIpAttr})
+
+	out := sendThis{
+		payload:         payload,
+		destination:     &destination,
+		expectReplyFrom: destination.IP,
+		rttGuess:        50 * time.Millisecond,
+	}
+
+	in := communicate(out)
+	if in.err != nil {
+		t.Fatal(in.err)
+	}
+}
+
+func TestGoAwayBoston(t *testing.T) {
+	destination := net.UDPAddr{
+		IP:   net.ParseIP("10.201.12.66"),
+		Port: 2228,
+	}
+
+	ourIp, err := GetOutgoingIpForDestination(destination.IP)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ourIpAttr, err := attribute.NewAttrBuilder().
+		SetType(attribute.SrcIPv4Type).
+		SetString(ourIp.String()).
+		Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	payload := message.TestMsg().Marshal([]attribute.Attribute{ourIpAttr})
+
+	out := sendThis{
+		payload:         payload,
+		destination:     &destination,
+		expectReplyFrom: nil,
+		rttGuess:        100 * time.Millisecond,
+	}
+
+	result := communicate(out)
+	if result.err != nil {
+		t.Fatal(result.err)
+	}
+}
+
+func TestCxnTypes(t *testing.T) {
+	var cxnl *net.UDPConn
+	var cxnd *net.UDPConn
+	var err error
+
+	local := net.UDPAddr{
+		IP: net.ParseIP("127.0.0.1"),
+	}
+
+	remote := net.UDPAddr{
+		IP:   net.ParseIP("127.0.0.1"),
+		Port: 2228,
+	}
+
+	cxnl, err = net.ListenUDP(UdpProtocol, &local)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cxnd, err = net.DialUDP(UdpProtocol, &local, &remote)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	log.Println(cxnd.RemoteAddr())
+	log.Println(cxnl.RemoteAddr())
+
+	time.Sleep(time.Second)
+	_ = cxnl
+	_ = cxnd
+}
+
+func TestWrongWrite(t *testing.T) {
+	var cxnd *net.UDPConn
+	var err error
+
+	local := net.UDPAddr{}
+
+	remote := net.UDPAddr{
+		IP:   net.ParseIP("1.1.1.1"),
+		Port: 2228,
+	}
+
+	cxnd, err = net.DialUDP(UdpProtocol, &local, &remote)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	n, err := cxnd.WriteToUDP([]byte{}, &remote)
+	if err != nil {
+		if result, ok := err.(net.Error); ok {
+			log.Println(result.Error())
+			log.Println(result.Timeout())
+			log.Println(result.Temporary())
+
+		}
+
+		t.Fatal(err)
+	}
+	log.Println("wrote ", n)
+
 }
