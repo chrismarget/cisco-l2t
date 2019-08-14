@@ -216,7 +216,7 @@ func Communicate(out SendThis, quit chan struct{}) SendResult {
 
 	// socket timeout stuff
 	start := time.Now()
-	end := start.Add(maxRTT).Add(time.Minute)
+	end := start.Add(maxRTT)
 	err = cxn.SetReadDeadline(end)
 	if err != nil {
 		return SendResult{Err: err}
