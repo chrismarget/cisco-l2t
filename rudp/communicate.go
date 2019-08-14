@@ -2,6 +2,7 @@ package rudp
 
 import (
 	"fmt"
+	"log"
 	"net"
 	"strconv"
 	"time"
@@ -15,17 +16,18 @@ const (
 )
 
 type SendResult struct {
-	err       error
-	rtt       time.Duration
-	sentTo    net.IP // the address we tried talking to
-	sentFrom  net.IP // our IP address
-	replyFrom net.IP // the address they replied from
-	replyData []byte
+	Err       error
+	Aborted   bool
+	Rtt       time.Duration
+	SentTo    net.IP // the address we tried talking to
+	SentFrom  net.IP // our IP address
+	ReplyFrom net.IP // the address they replied from
+	ReplyData []byte
 }
 
 type receiveResult struct {
 	err error
-	//	rtt       time.Duration
+	//	Rtt       time.Duration
 	replyFrom net.IP // the address they replied from
 	replyData []byte
 }
@@ -43,10 +45,10 @@ func (o receiveResult) timedOut() bool {
 }
 
 type SendThis struct {
-	payload         []byte
-	destination     *net.UDPAddr
-	expectReplyFrom net.IP
-	rttGuess        time.Duration
+	Payload         []byte
+	Destination     *net.UDPAddr
+	ExpectReplyFrom net.IP
+	RttGuess        time.Duration
 }
 
 // GetOutgoingIpForDestination returns a net.IP representing the local interface
@@ -75,7 +77,7 @@ func getRemote(in net.UDPConn) (*net.UDPAddr, error) {
 
 	IP := net.ParseIP(hostString)
 	if IP == nil {
-		return &net.UDPAddr{}, fmt.Errorf("Could not parse host: %s", hostString)
+		return &net.UDPAddr{}, fmt.Errorf("could not parse host: %s", hostString)
 	}
 
 	port, err := strconv.Atoi(portString)
@@ -150,7 +152,7 @@ func transmit(cxn *net.UDPConn, destination *net.UDPAddr, payload []byte) error 
 		n, err = cxn.Write(payload)
 	} else {
 		// non-connected socket created by net.ListenUDP()
-		// include the destination when calling WriteToUDP()
+		// include the Destination when calling WriteToUDP()
 		n, err = cxn.WriteToUDP(payload, destination)
 	}
 
@@ -167,93 +169,136 @@ func transmit(cxn *net.UDPConn, destination *net.UDPAddr, payload []byte) error 
 }
 
 // Communicate sends a message via UDP socket, collects a reply. It retransmits
-// the message as needed. The input structure's expectReplyFrom is optional.
-// Close the quit channel to abort the operation. Set it to <nil> if no need
-// to abort.
+// the message as needed. The input structure's SendThis.ExpectReplyFrom is
+// optional.
+//
+// If SendThis.ExpectReplyFrom is populated and matches
+// SendThis.Destination.IP, then a "connected" UDP socket (which can respond to
+// incoming ICMP unreachables) is used.
+//
+// If SendThis.ExpectReplyFrom is populated and doesn't match
+// SendThis.Destination.IP, then a "non-connected" (listener) UDP socket is
+// used, and replies are filtered so that only datagrams sourced by
+// SendThis.ExpectReplyFrom are considered.
+//
+// if SendThis.ExpectReplyFrom is nil, then a "non-connected" (listener) UDP
+// socket is used and incoming datagrams from any source are considered valid
+// replies.
+//
+// Close the quit channel to abort the operation. This channel can be nil if
+// no need to abort. The operation is aborted by setting the receive timeout
+// to "now". This has a side-effect of returning a timeout error on abort via
+// the quit channel.
 func Communicate(out SendThis, quit chan struct{}) SendResult {
 	// determine the local interface IP
-	ourIp, err := GetOutgoingIpForDestination(out.destination.IP)
+	ourIp, err := GetOutgoingIpForDestination(out.Destination.IP)
 	if err != nil {
-		return SendResult{err: err}
+		return SendResult{Err: err}
 	}
 
 	// create the socket
 	var cxn *net.UDPConn
-	switch out.destination.IP.Equal(out.expectReplyFrom) {
+	switch out.Destination.IP.Equal(out.ExpectReplyFrom) {
 	case true:
-		cxn, err = net.DialUDP(UdpProtocol, &net.UDPAddr{IP: ourIp}, out.destination)
+		cxn, err = net.DialUDP(UdpProtocol, &net.UDPAddr{IP: ourIp}, out.Destination)
 		if err != nil {
-			return SendResult{err: err}
+			return SendResult{Err: err}
 		}
 	case false:
 		cxn, err = net.ListenUDP(UdpProtocol, &net.UDPAddr{IP: ourIp})
 		if err != nil {
-			return SendResult{err: err}
+			return SendResult{Err: err}
 		}
 	}
 
 	replyChan := make(chan receiveResult)
-	go receiveOneMsg(cxn, out.expectReplyFrom, replyChan)
-
-	// todo: this close causes ICMP unreachables. some sort of delay where the socket
-	//  hangs around after we don't need it anymore would be good.
-	defer func() {
-		err := cxn.Close()
-		if err != nil {
-		}
-	}()
+	go receiveOneMsg(cxn, out.ExpectReplyFrom, replyChan)
 
 	// socket timeout stuff
 	start := time.Now()
 	end := start.Add(maxRTT).Add(time.Minute)
 	err = cxn.SetReadDeadline(end)
 	if err != nil {
-		return SendResult{err: err}
+		return SendResult{Err: err}
 	}
 
-	// first send attempt
-	err = transmit(cxn, out.destination, out.payload)
-	if err != nil {
-		return SendResult{err: err}
-	}
-	outstandingMessages := 1
+	var outstandingMsgs int
+	defer func() {
+		go closeListenerAfterNReplies(cxn, outstandingMsgs, end)
+	}()
 
 	// retransmit backoff timer tells us when to re-send
-	bot := NewBackoffTicker(out.rttGuess)
+	bot := NewBackoffTicker(out.RttGuess)
 	defer bot.Stop()
+
+	// keep track of whether the caller aborted us via the quit
+	// channel
+	var aborted bool
 
 	// keep sending until... something happens
 	for {
 		select {
 		case <-bot.C: // send again on RTO expiration
-			err := transmit(cxn, out.destination, out.payload)
+			err := transmit(cxn, out.Destination, out.Payload)
 			if err != nil {
-				return SendResult{err: err}
+				return SendResult{Err: err}
 			}
-			outstandingMessages++
+			outstandingMsgs++
 		case result := <-replyChan: // reply or timeout
-			if !result.timedOut() {
-				outstandingMessages--
+			if !result.timedOut() { // are we here because of a reply?
+				// decrement outstanding counter on inbound reply
+				outstandingMsgs--
 			}
 			return SendResult{
-				err:       result.err,
-				rtt:       time.Now().Sub(start),
-				sentTo:    out.destination.IP,
-				replyFrom: result.replyFrom,
-				replyData: result.replyData,
+				Aborted:   aborted,
+				Err:       result.err,
+				Rtt:       time.Now().Sub(start),
+				SentTo:    out.Destination.IP,
+				ReplyFrom: result.replyFrom,
+				ReplyData: result.replyData,
 			}
 		case <-quit: // abort
+			aborted = true
 			err := cxn.SetReadDeadline(time.Now())
 			if err != nil {
-				return SendResult{err: err}
+				// note that this return happens only if the call to
+				// SetReadDeadline errored (unlikely). The return on abort
+				// happens on the next loop iteration via timeout error on
+				// replyChan.
+				return SendResult{Err: err}
 			}
 		}
 	}
 }
 
-func closeListenerAfterNReplies(cxn *net.UDPConn, replies int) {
-	for i := 0; i < replies; i++ {
+// closeListenerAfterNReplies
+func closeListenerAfterNReplies(cxn *net.UDPConn, pendingReplies int, end time.Time) {
+	var err error
+	buffIn := make([]byte, inBufferSize)
 
+	// restore the socket deadline (may have been changed due to abort)
+	err = cxn.SetReadDeadline(end)
+	if err != nil {
+		log.Println(err)
 	}
 
+	// collect pending replies -- we really don't care what happens here.
+	for i := 0; i < pendingReplies; i++ {
+		// read from the socket using the appropriate call
+		switch cxn.RemoteAddr() != nil {
+		case true:
+			// Yes I am not handling the error.
+			// The only thing that matters is running out the loop.
+			cxn.Read(buffIn)
+		case false:
+			// Yes I am not handling the error.
+			// The only thing that matters is running out the loop.
+			cxn.ReadFromUDP(buffIn)
+		}
+	}
+
+	err = cxn.Close()
+	if err != nil {
+		log.Println(err)
+	}
 }

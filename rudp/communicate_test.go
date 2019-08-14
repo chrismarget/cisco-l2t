@@ -28,7 +28,7 @@ func TestReplyTimeout(t *testing.T) {
 	start := time.Now()
 	bot := NewBackoffTicker(100 * time.Millisecond)
 	ticks := 0
-	for ticks < 6 {
+	for ticks < 7 {
 		select {
 		case <-bot.C:
 		}
@@ -127,6 +127,65 @@ func TestReceive(t *testing.T) {
 
 }
 
+func TestCommunicateQuit(t *testing.T) {
+	start := time.Now()
+	destination := net.UDPAddr{
+		IP:   net.ParseIP("192.168.254.254"),
+		Port: 2228,
+	}
+
+	ourIp, err := GetOutgoingIpForDestination(destination.IP)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ourIpAttr, err := attribute.NewAttrBuilder().
+		SetType(attribute.SrcIPv4Type).
+		SetString(ourIp.String()).
+		Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	payload := message.TestMsg().Marshal([]attribute.Attribute{ourIpAttr})
+
+	out := SendThis{
+		Payload:         payload,
+		Destination:     &destination,
+		ExpectReplyFrom: destination.IP,
+		RttGuess:        initialRTTGuess,
+	}
+
+	quit := make(chan struct{})
+	limit := 100 * time.Millisecond
+
+	go func() {
+		time.Sleep((limit / 10) * 9)
+		close(quit)
+	}()
+
+	in := Communicate(out, quit)
+	duration := time.Now().Sub(start)
+	if !in.Aborted {
+		t.Fatalf("return doesn't indicate abort")
+	}
+
+	if in.Err != nil {
+		// timeout errors are the kind we want here.
+		if result, ok := in.Err.(net.Error); ok && result.Timeout(){
+			log.Println("We expected this timeout: ",in.Err)
+		} else {
+			t.Fatal(in.Err)
+		}
+	}
+
+	if duration < limit {
+		log.Println("overall execution time okay")
+	} else {
+		t.Fatalf("Read should have completed in about %s, took longer than %s.", ((limit / 10) * 9), limit)
+	}
+}
+
 func TestGoAwayBostonDial(t *testing.T) {
 	destination := net.UDPAddr{
 		IP:   net.ParseIP("10.201.12.66"),
@@ -149,146 +208,16 @@ func TestGoAwayBostonDial(t *testing.T) {
 	payload := message.TestMsg().Marshal([]attribute.Attribute{ourIpAttr})
 
 	out := SendThis{
-		payload:         payload,
-		destination:     &destination,
-		expectReplyFrom: destination.IP,
-		rttGuess:        initialRTTGuess,
+		Payload:         payload,
+		Destination:     &destination,
+		ExpectReplyFrom: destination.IP,
+		RttGuess:        initialRTTGuess,
 	}
 
 	in := Communicate(out, nil)
-	if in.err != nil {
-		t.Fatal(in.err)
-	}
-}
-
-func TestGoAwayBoston(t *testing.T) {
-	destination := net.UDPAddr{
-		IP:   net.ParseIP("10.201.12.66"),
-		Port: 2228,
-	}
-
-	ourIp, err := GetOutgoingIpForDestination(destination.IP)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	ourIpAttr, err := attribute.NewAttrBuilder().
-		SetType(attribute.SrcIPv4Type).
-		SetString(ourIp.String()).
-		Build()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	payload := message.TestMsg().Marshal([]attribute.Attribute{ourIpAttr})
-
-	out := SendThis{
-		payload:         payload,
-		destination:     &destination,
-		expectReplyFrom: nil,
-		rttGuess:        100 * time.Millisecond,
-	}
-
-	result := Communicate(out, nil)
-	if result.err != nil {
-		t.Fatal(result.err)
-	}
-}
-
-func TestCxnTypes(t *testing.T) {
-	var cxnl *net.UDPConn
-	var cxnd *net.UDPConn
-	var err error
-
-	local := net.UDPAddr{
-		IP: net.ParseIP("127.0.0.1"),
-	}
-
-	remote := net.UDPAddr{
-		IP:   net.ParseIP("127.0.0.1"),
-		Port: 2228,
-	}
-
-	cxnl, err = net.ListenUDP(UdpProtocol, &local)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	cxnd, err = net.DialUDP(UdpProtocol, &local, &remote)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	log.Println(cxnd.RemoteAddr())
-	log.Println(cxnl.RemoteAddr())
-
-	time.Sleep(time.Second)
-	_ = cxnl
-	_ = cxnd
-}
-
-func TestWrongWrite(t *testing.T) {
-	var cxnd *net.UDPConn
-	var err error
-
-	local := net.UDPAddr{}
-
-	remote := net.UDPAddr{
-		IP:   net.ParseIP("1.1.1.1"),
-		Port: 2228,
-	}
-
-	cxnd, err = net.DialUDP(UdpProtocol, &local, &remote)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	n, err := cxnd.WriteToUDP([]byte{}, &remote)
-	if err != nil {
-		if result, ok := err.(net.Error); ok {
-			log.Println(result.Error())
-			log.Println(result.Timeout())
-			log.Println(result.Temporary())
-
+	if in.Err != nil {
+		if !strings.Contains(in.Err.Error(), "connection refused") {
+			t.Fatal(in.Err)
 		}
-
-		t.Fatal(err)
 	}
-	log.Println("wrote ", n)
-
-}
-
-func TestReadAbort(t *testing.T) {
-	start := time.Now()
-	log.Println("start", start)
-	var cxn *net.UDPConn
-	var err error
-
-	local := net.UDPAddr{}
-
-	cxn, err = net.ListenUDP(UdpProtocol, &local)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = cxn.SetReadDeadline(time.Now().Add(time.Second))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	go func(cxn *net.UDPConn) {
-		time.Sleep(100 * time.Millisecond)
-		err = cxn.SetReadDeadline(start)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-	}(cxn)
-
-	buffIn := make([]byte, inBufferSize)
-	_, _, err = cxn.ReadFromUDP(buffIn)
-
-	log.Println("end", time.Now())
-
-
 }
