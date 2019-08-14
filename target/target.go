@@ -12,7 +12,6 @@ import (
 
 const (
 	nilIP             = "<nil>"
-	initialRTTGuess   = 250 * time.Millisecond
 	maxLatencySamples = 10
 )
 
@@ -126,7 +125,7 @@ func (o *defaultTarget) String() string {
 // using the contents of the objects latency slice.
 func (o *defaultTarget) estimateLatency() time.Duration {
 	if len(o.latency) == 0 {
-		return initialRTTGuess
+		return communicate.InitialRTTGuess
 	}
 	var result int64
 	for i, l := range o.latency {
