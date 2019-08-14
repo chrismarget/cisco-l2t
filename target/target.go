@@ -12,14 +12,9 @@ import (
 
 const (
 	udpPort           = 2228
-	UdpProtocol       = "udp4"
 	nilIP             = "<nil>"
-	inBufferSize      = 65535
 	initialRTTGuess   = 250 * time.Millisecond
 	maxLatencySamples = 10
-	maxRetries        = 10
-	maxRTT            = 2500 * time.Millisecond
-	retryMultiplier   = 2
 )
 
 type Target interface {
