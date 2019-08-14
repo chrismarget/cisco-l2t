@@ -1,6 +1,7 @@
 package target
 
 import (
+	"github.com/chrismarget/cisco-l2t/communicate"
 	"log"
 	"net"
 	"testing"
@@ -9,7 +10,7 @@ import (
 
 func TestNewTargetBuilder(t *testing.T) {
 	tb, err := TargetBuilder().
-		AddIp(net.IP{192,168,0,1}).
+		AddIp(net.ParseIP("192.168.8.254")).
 		Build()
 	if err != nil {
 		t.Fatal(err)
@@ -19,16 +20,20 @@ func TestNewTargetBuilder(t *testing.T) {
 }
 
 func TestCheckTargetIp(t *testing.T) {
-	testIp := net.IP{192,168,96,2}
-	result := checkTargetIp(testIp)
+	destination := &net.UDPAddr{
+		IP:   net.ParseIP("192.1568.96.2"),
+		Port: communicate.CiscoL2TPort,
+		Zone: "",
+	}
+	result := checkTarget(destination)
 	if result.err != nil {
 		t.Fatal(result.err)
 	}
 	if result.latency <= 0 {
 		t.Fatalf("observed latency %d units of duration", result.latency)
 	}
-	log.Println("testIp:",testIp)
-	log.Println("responseIp:",result.IP)
+	log.Println("testIp:",destination.IP.String())
+	log.Println("responseIp:",result.sourceIp)
 	log.Println("latency:",result.latency)
 }
 
