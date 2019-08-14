@@ -157,7 +157,7 @@ func TestCommunicateQuit(t *testing.T) {
 	}
 
 	quit := make(chan struct{})
-	limit := 100 * time.Millisecond
+	limit := 500 * time.Millisecond
 
 	go func() {
 		time.Sleep((limit / 10) * 9)
@@ -166,9 +166,6 @@ func TestCommunicateQuit(t *testing.T) {
 
 	in := Communicate(out, quit)
 	duration := time.Now().Sub(start)
-	if !in.Aborted {
-		t.Fatalf("return doesn't indicate abort")
-	}
 
 	if in.Err != nil {
 		// timeout errors are the kind we want here.
@@ -177,6 +174,10 @@ func TestCommunicateQuit(t *testing.T) {
 		} else {
 			t.Fatal(in.Err)
 		}
+	}
+
+	if !in.Aborted {
+		t.Fatalf("return doesn't indicate abort")
 	}
 
 	if duration < limit {
