@@ -7,7 +7,7 @@ import (
 )
 
 func TestCheckTargetIP(t *testing.T) {
-	ip := net.ParseIP("192.168.8.254")
+	ip := net.ParseIP("10.201.12.66")
 	result := checkTargetIp(ip)
 	if result.err != nil {
 		t.Fatal(result.err)

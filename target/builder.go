@@ -189,14 +189,14 @@ func checkTargetIp(target net.IP) testPacketResult {
 		Payload:         payload,
 		Destination:     destination,
 		ExpectReplyFrom: destination.IP,
-		RttGuess:        communicate.InitialRTTGuess,
+		RttGuess:        communicate.InitialRTTGuess * 2,
 	}
 	stopListenSocket := make(chan struct{}) // abort channel
 	outViaListen := communicate.SendThis{ // Communicate() output structure
 		Payload:         payload,
 		Destination:     destination,
 		ExpectReplyFrom: nil,
-		RttGuess:        communicate.InitialRTTGuess,
+		RttGuess:        communicate.InitialRTTGuess * 2,
 	}
 
 	dialResult := make(chan communicate.SendResult)
