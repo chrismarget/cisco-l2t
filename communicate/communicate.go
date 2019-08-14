@@ -1,4 +1,4 @@
-package rudp
+package communicate
 
 import (
 	"fmt"
@@ -13,6 +13,7 @@ const (
 	InitialRTTGuess = 100 * time.Millisecond
 	maxRTT          = 2500 * time.Millisecond
 	UdpProtocol     = "udp4"
+	CiscoL2TPort    = 2228
 )
 
 type SendResult struct {

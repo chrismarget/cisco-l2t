@@ -1,4 +1,4 @@
-package rudp
+package communicate
 
 import (
 	"math"
