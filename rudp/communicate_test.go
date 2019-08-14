@@ -152,10 +152,10 @@ func TestGoAwayBostonDial(t *testing.T) {
 		payload:         payload,
 		destination:     &destination,
 		expectReplyFrom: destination.IP,
-		rttGuess:        50 * time.Millisecond,
+		rttGuess:        initialRTTGuess,
 	}
 
-	in := communicate(out)
+	in := communicate(out, nil)
 	if in.err != nil {
 		t.Fatal(in.err)
 	}
@@ -189,7 +189,7 @@ func TestGoAwayBoston(t *testing.T) {
 		rttGuess:        100 * time.Millisecond,
 	}
 
-	result := communicate(out)
+	result := communicate(out, nil)
 	if result.err != nil {
 		t.Fatal(result.err)
 	}
@@ -255,5 +255,40 @@ func TestWrongWrite(t *testing.T) {
 		t.Fatal(err)
 	}
 	log.Println("wrote ", n)
+
+}
+
+func TestReadAbort(t *testing.T) {
+	start := time.Now()
+	log.Println("start", start)
+	var cxn *net.UDPConn
+	var err error
+
+	local := net.UDPAddr{}
+
+	cxn, err = net.ListenUDP(UdpProtocol, &local)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = cxn.SetReadDeadline(time.Now().Add(time.Second))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	go func(cxn *net.UDPConn) {
+		time.Sleep(100 * time.Millisecond)
+		err = cxn.SetReadDeadline(start)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+	}(cxn)
+
+	buffIn := make([]byte, inBufferSize)
+	_, _, err = cxn.ReadFromUDP(buffIn)
+
+	log.Println("end", time.Now())
+
 
 }

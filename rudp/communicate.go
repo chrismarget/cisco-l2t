@@ -60,7 +60,14 @@ func GetOutgoingIpForDestination(t net.IP) (net.IP, error) {
 	return c.LocalAddr().(*net.UDPAddr).IP, c.Close()
 }
 
+// getRemote returns the remote *net.UDPAddr associated with a
+// connected UDP socket.
 func getRemote(in net.UDPConn) (*net.UDPAddr, error) {
+	if in.RemoteAddr() == nil {
+		// not a connected socket - un-answerable question
+		return nil, fmt.Errorf("un-connected socket doesn't have a remote address")
+	}
+
 	hostString, portString, err := net.SplitHostPort(in.RemoteAddr().String())
 	if err != nil {
 		return &net.UDPAddr{}, err
@@ -161,7 +168,9 @@ func transmit(cxn *net.UDPConn, destination *net.UDPAddr, payload []byte) error 
 
 // communicate sends a message via UDP socket, collects a reply. It retransmits
 // the message as needed. The input structure's expectReplyFrom is optional.
-func communicate(out sendThis) sendResult {
+// Close the quit channel to abort the operation. Set it to <nil> if no need
+// to abort.
+func communicate(out sendThis, quit chan struct{}) sendResult {
 	// determine the local interface IP
 	ourIp, err := GetOutgoingIpForDestination(out.destination.IP)
 	if err != nil {
@@ -196,7 +205,7 @@ func communicate(out sendThis) sendResult {
 
 	// socket timeout stuff
 	start := time.Now()
-	end := start.Add(maxRTT)
+	end := start.Add(maxRTT).Add(time.Minute)
 	err = cxn.SetReadDeadline(end)
 	if err != nil {
 		return sendResult{err: err}
@@ -232,6 +241,11 @@ func communicate(out sendThis) sendResult {
 				sentTo:    out.destination.IP,
 				replyFrom: result.replyFrom,
 				replyData: result.replyData,
+			}
+		case <-quit: // abort
+			err := cxn.SetReadDeadline(time.Now())
+			if err != nil {
+				return sendResult{err: err}
 			}
 		}
 	}
