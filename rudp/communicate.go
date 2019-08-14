@@ -14,7 +14,7 @@ const (
 	UdpProtocol     = "udp4"
 )
 
-type sendResult struct {
+type SendResult struct {
 	err       error
 	rtt       time.Duration
 	sentTo    net.IP // the address we tried talking to
@@ -42,7 +42,7 @@ func (o receiveResult) timedOut() bool {
 	return false
 }
 
-type sendThis struct {
+type SendThis struct {
 	payload         []byte
 	destination     *net.UDPAddr
 	expectReplyFrom net.IP
@@ -166,15 +166,15 @@ func transmit(cxn *net.UDPConn, destination *net.UDPAddr, payload []byte) error 
 	return nil
 }
 
-// communicate sends a message via UDP socket, collects a reply. It retransmits
+// Communicate sends a message via UDP socket, collects a reply. It retransmits
 // the message as needed. The input structure's expectReplyFrom is optional.
 // Close the quit channel to abort the operation. Set it to <nil> if no need
 // to abort.
-func communicate(out sendThis, quit chan struct{}) sendResult {
+func Communicate(out SendThis, quit chan struct{}) SendResult {
 	// determine the local interface IP
 	ourIp, err := GetOutgoingIpForDestination(out.destination.IP)
 	if err != nil {
-		return sendResult{err: err}
+		return SendResult{err: err}
 	}
 
 	// create the socket
@@ -183,12 +183,12 @@ func communicate(out sendThis, quit chan struct{}) sendResult {
 	case true:
 		cxn, err = net.DialUDP(UdpProtocol, &net.UDPAddr{IP: ourIp}, out.destination)
 		if err != nil {
-			return sendResult{err: err}
+			return SendResult{err: err}
 		}
 	case false:
 		cxn, err = net.ListenUDP(UdpProtocol, &net.UDPAddr{IP: ourIp})
 		if err != nil {
-			return sendResult{err: err}
+			return SendResult{err: err}
 		}
 	}
 
@@ -208,13 +208,13 @@ func communicate(out sendThis, quit chan struct{}) sendResult {
 	end := start.Add(maxRTT).Add(time.Minute)
 	err = cxn.SetReadDeadline(end)
 	if err != nil {
-		return sendResult{err: err}
+		return SendResult{err: err}
 	}
 
 	// first send attempt
 	err = transmit(cxn, out.destination, out.payload)
 	if err != nil {
-		return sendResult{err: err}
+		return SendResult{err: err}
 	}
 	outstandingMessages := 1
 
@@ -228,14 +228,14 @@ func communicate(out sendThis, quit chan struct{}) sendResult {
 		case <-bot.C: // send again on RTO expiration
 			err := transmit(cxn, out.destination, out.payload)
 			if err != nil {
-				return sendResult{err: err}
+				return SendResult{err: err}
 			}
 			outstandingMessages++
 		case result := <-replyChan: // reply or timeout
 			if !result.timedOut() {
 				outstandingMessages--
 			}
-			return sendResult{
+			return SendResult{
 				err:       result.err,
 				rtt:       time.Now().Sub(start),
 				sentTo:    out.destination.IP,
@@ -245,7 +245,7 @@ func communicate(out sendThis, quit chan struct{}) sendResult {
 		case <-quit: // abort
 			err := cxn.SetReadDeadline(time.Now())
 			if err != nil {
-				return sendResult{err: err}
+				return SendResult{err: err}
 			}
 		}
 	}
