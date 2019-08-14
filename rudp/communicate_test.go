@@ -148,14 +148,14 @@ func TestGoAwayBostonDial(t *testing.T) {
 
 	payload := message.TestMsg().Marshal([]attribute.Attribute{ourIpAttr})
 
-	out := sendThis{
+	out := SendThis{
 		payload:         payload,
 		destination:     &destination,
 		expectReplyFrom: destination.IP,
 		rttGuess:        initialRTTGuess,
 	}
 
-	in := communicate(out, nil)
+	in := Communicate(out, nil)
 	if in.err != nil {
 		t.Fatal(in.err)
 	}
@@ -182,14 +182,14 @@ func TestGoAwayBoston(t *testing.T) {
 
 	payload := message.TestMsg().Marshal([]attribute.Attribute{ourIpAttr})
 
-	out := sendThis{
+	out := SendThis{
 		payload:         payload,
 		destination:     &destination,
 		expectReplyFrom: nil,
 		rttGuess:        100 * time.Millisecond,
 	}
 
-	result := communicate(out, nil)
+	result := Communicate(out, nil)
 	if result.err != nil {
 		t.Fatal(result.err)
 	}
