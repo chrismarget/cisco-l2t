@@ -192,7 +192,7 @@ func sendFromNewSocket(payload []byte, destination *net.UDPAddr, end time.Time) 
 	// create the socket
 	conn, err := net.ListenUDP(UdpProtocol, &net.UDPAddr{})
 	if err != nil {
-		return testPacketResult{err:err}
+		return testPacketResult{err: err}
 	}
 	defer conn.Close()
 
@@ -201,7 +201,7 @@ func sendFromNewSocket(payload []byte, destination *net.UDPAddr, end time.Time) 
 	start := time.Now()
 	switch {
 	case err != nil:
-		return testPacketResult{err:err}
+		return testPacketResult{err: err}
 	case n != len(payload):
 		return testPacketResult{
 			err: fmt.Errorf("attemtped send of %d bytes, only managed %d", len(payload), n),
@@ -211,7 +211,7 @@ func sendFromNewSocket(payload []byte, destination *net.UDPAddr, end time.Time) 
 	// set the read deadline
 	err = conn.SetReadDeadline(end)
 	if err != nil {
-		return testPacketResult{err:err}
+		return testPacketResult{err: err}
 	}
 
 	// read from the socket
@@ -230,7 +230,7 @@ func sendFromNewSocket(payload []byte, destination *net.UDPAddr, end time.Time) 
 			return testPacketResult{latency: 0}
 		}
 		// Mystery error
-		return testPacketResult{err:err}
+		return testPacketResult{err: err}
 	case n == len(buffIn):
 		// Unexpectedly large read
 		return testPacketResult{err: fmt.Errorf("got full buffer: %d bytes", n)}
@@ -239,12 +239,12 @@ func sendFromNewSocket(payload []byte, destination *net.UDPAddr, end time.Time) 
 	// Unpack and and validate the message
 	msg, err := message.UnmarshalMessage(buffIn)
 	if err != nil {
-		return testPacketResult{err:err}
+		return testPacketResult{err: err}
 	}
 
 	err = msg.Validate()
 	if err != nil {
-		return testPacketResult{err:err}
+		return testPacketResult{err: err}
 	}
 
 	var name string
@@ -293,37 +293,55 @@ func checkTargetIp(target net.IP) testPacketResult {
 
 	payload := message.TestMsg().Marshal([]attribute.Attribute{ourIpAttr})
 
-	// packetTimerFunc tells us when to send a packet on this channel.
-	sendNowChan := make(chan bool)
+	out := rudp.SendThis{
+		Payload:         payload,
+		Destination:     destination,
+		ExpectReplyFrom: nil,
+		RttGuess:        initialRTTGuess,
+	}
 
-	// sendFromNewSocket tells us what happened on this channel.
-	testResultChan := make(chan testPacketResult, 1)
-
-	// Start the timer that will tell us when to send packets
-	end := time.Now().Add(maxRTT)
-	go packetTimerFunc(sendNowChan, end)
-
-	// loop sending packets. return when we get a result (reply)
-	for {
-		select {
-		case sendNow := <-sendNowChan:
-			if sendNow {
-				go func() {
-					select {
-					case testResultChan <- sendFromNewSocket(payload, destination, end):
-					default:
-					}
-				}()
-			} else {
-				// timer expired. We never got a reply.
-				return testPacketResult{latency: 0}
-			}
-		case testResult := <-testResultChan:
-			return testResult
+	in := rudp.Communicate(out, nil)
+	if in.Err != nil {
+		return testPacketResult{
+			err: err,
 		}
 	}
-}
 
+	msg, err := message.UnmarshalMessage(in.ReplyData)
+	if err != nil {
+		return testPacketResult{
+			err: err,
+		}
+	}
+
+	err = msg.Validate()
+	if err != nil {
+		return testPacketResult{
+			err: err,
+		}
+	}
+
+	// Pull the name and platform strings from the message.
+	var name string
+	var platform string
+	for t, a := range msg.Attributes() {
+		if t == attribute.DevNameType {
+			name = a.String()
+		}
+		if t == attribute.DevTypeType{
+			platform = a.String()
+		}
+	}
+
+	return testPacketResult{
+		err:      in.Err,
+		latency:  in.Rtt,
+		IP:       in.ReplyFrom,
+		platform: platform,
+		name:     name,
+	}
+
+}
 
 func initialLatency() []time.Duration {
 	var l []time.Duration
