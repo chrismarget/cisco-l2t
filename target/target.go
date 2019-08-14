@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/chrismarget/cisco-l2t/attribute"
 	"github.com/chrismarget/cisco-l2t/message"
+	"github.com/chrismarget/cisco-l2t/rudp"
 	"net"
 	"strconv"
 	"time"
@@ -54,21 +55,23 @@ func (o *defaultTarget) Send(msg message.Msg) (message.Msg, error) {
 		payload = msg.Marshal([]attribute.Attribute{})
 	}
 
-	switch o.useDial {
-	case true:
-		reply, err := o.communicateViaDialSocket(payload)
-		if err != nil {
-			return nil, err
-		}
-		return message.UnmarshalMessage(reply)
-	case false:
-		reply, err := o.communicateViaConventionalSocket(payload)
-		if err != nil {
-			return nil, err
-		}
-		return message.UnmarshalMessage(reply)
+	out := rudp.SendThis{
+		Payload:         payload,
+		Destination:     &net.UDPAddr{
+			IP:   o.theirIp[o.talkToThemIdx],
+			Port: udpPort,
+		},
+		ExpectReplyFrom: o.theirIp[o.listenToThemIdx],
+		RttGuess:        initialRTTGuess,
 	}
-	return nil, nil
+
+	in := rudp.Communicate(out, nil)
+
+	if in.Err != nil {
+		return nil, in.Err
+	}
+
+	return message.UnmarshalMessage(in.ReplyData)
 }
 
 func (o *defaultTarget) String() string {
