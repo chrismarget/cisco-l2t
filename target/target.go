@@ -4,14 +4,13 @@ import (
 	"bytes"
 	"github.com/chrismarget/cisco-l2t/attribute"
 	"github.com/chrismarget/cisco-l2t/message"
-	"github.com/chrismarget/cisco-l2t/rudp"
+	"github.com/chrismarget/cisco-l2t/communicate"
 	"net"
 	"strconv"
 	"time"
 )
 
 const (
-	udpPort           = 2228
 	nilIP             = "<nil>"
 	initialRTTGuess   = 250 * time.Millisecond
 	maxLatencySamples = 10
@@ -49,17 +48,17 @@ func (o *defaultTarget) Send(msg message.Msg) (message.Msg, error) {
 		payload = msg.Marshal([]attribute.Attribute{})
 	}
 
-	out := rudp.SendThis{
+	out := communicate.SendThis{
 		Payload:         payload,
 		Destination:     &net.UDPAddr{
 			IP:   o.theirIp[o.talkToThemIdx],
-			Port: udpPort,
+			Port: communicate.CiscoL2TPort,
 		},
 		ExpectReplyFrom: o.theirIp[o.listenToThemIdx],
-		RttGuess:        initialRTTGuess,
+		RttGuess:        communicate.InitialRTTGuess,
 	}
 
-	in := rudp.Communicate(out, nil)
+	in := communicate.Communicate(out, nil)
 
 	if in.Err != nil {
 		return nil, in.Err

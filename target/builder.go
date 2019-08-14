@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/chrismarget/cisco-l2t/attribute"
 	"github.com/chrismarget/cisco-l2t/message"
-	"github.com/chrismarget/cisco-l2t/rudp"
+	"github.com/chrismarget/cisco-l2t/communicate"
 	"net"
 	"time"
 )
@@ -76,7 +76,7 @@ func (o defaultTargetBuilder) Build() (Target, error) {
 	for i, ip := range o.addresses {
 		if ip.Equal(observedIps[i]) {
 			// Get the local system address that faces that target.
-			ourIp, err := rudp.GetOutgoingIpForDestination(ip)
+			ourIp, err := communicate.GetOutgoingIpForDestination(ip)
 			if err != nil {
 				return nil, err
 			}
@@ -103,7 +103,7 @@ func (o defaultTargetBuilder) Build() (Target, error) {
 		if replyAddr != nil {
 			// We found one. The target replies from "replyAddr".
 			// Get the local system address that faces that target.
-			ourIp, err := rudp.GetOutgoingIpForDestination(replyAddr)
+			ourIp, err := communicate.GetOutgoingIpForDestination(replyAddr)
 			if err != nil {
 				return nil, err
 			}
@@ -158,14 +158,14 @@ type testPacketResult struct {
 func checkTargetIp(target net.IP) testPacketResult {
 	destination := &net.UDPAddr{
 		IP:   target,
-		Port: udpPort,
+		Port: communicate.CiscoL2TPort,
 	}
 
 	// Build up the test message. Doing so requires that we know our IP address
 	// which, on a multihomed system requires that we look up the route to the
 	// target. So, we need to know about the target before we can form the
 	// message.
-	ourIp, err := rudp.GetOutgoingIpForDestination(destination.IP)
+	ourIp, err := communicate.GetOutgoingIpForDestination(destination.IP)
 	if err != nil {
 		return testPacketResult{err: err}
 	}
@@ -185,35 +185,35 @@ func checkTargetIp(target net.IP) testPacketResult {
 	// can detect 3rd party replies (necessary because of course the Cisco L2T
 	// service generates replies from an alien (NAT unfriendly!) address.
 	stopDialSocket := make(chan struct{}) // abort channel
-	outViaDial := rudp.SendThis{          // Communicate() output structure
+	outViaDial := communicate.SendThis{ // Communicate() output structure
 		Payload:         payload,
 		Destination:     destination,
 		ExpectReplyFrom: destination.IP,
-		RttGuess:        rudp.InitialRTTGuess,
+		RttGuess:        communicate.InitialRTTGuess,
 	}
 	stopListenSocket := make(chan struct{}) // abort channel
-	outViaListen := rudp.SendThis{          // Communicate() output structure
+	outViaListen := communicate.SendThis{ // Communicate() output structure
 		Payload:         payload,
 		Destination:     destination,
 		ExpectReplyFrom: nil,
-		RttGuess:        rudp.InitialRTTGuess,
+		RttGuess:        communicate.InitialRTTGuess,
 	}
 
-	dialResult := make(chan rudp.SendResult)
+	dialResult := make(chan communicate.SendResult)
 	go func() {
-		dialResult <- rudp.Communicate(outViaDial, stopDialSocket)
+		dialResult <- communicate.Communicate(outViaDial, stopDialSocket)
 	}()
 
-	listenResult := make(chan rudp.SendResult)
+	listenResult := make(chan communicate.SendResult)
 	go func() {
 		// This guy can't hear ICMP unreachables, so keep the noise down
 		// by starting him a bit after the "dial" based listener.
 		time.Sleep(initialRTTGuess)
-		listenResult <- rudp.Communicate(outViaListen, stopListenSocket)
+		listenResult <- communicate.Communicate(outViaListen, stopListenSocket)
 	}()
 
 	// grab a SendResult from either channel (socket)
-	var in rudp.SendResult
+	var in communicate.SendResult
 	select {
 	case in = <-dialResult:
 	case in = <-listenResult:
