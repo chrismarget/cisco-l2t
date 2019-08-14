@@ -3,8 +3,8 @@ package target
 import (
 	"bytes"
 	"github.com/chrismarget/cisco-l2t/attribute"
-	"github.com/chrismarget/cisco-l2t/message"
 	"github.com/chrismarget/cisco-l2t/communicate"
+	"github.com/chrismarget/cisco-l2t/message"
 	"net"
 	"strconv"
 	"time"
@@ -20,7 +20,14 @@ type Target interface {
 	String() string
 }
 
+type targetInfo struct{
+	destination *net.UDPAddr
+	theirSource net.IP
+	rtt []time.Duration
+}
+
 type defaultTarget struct {
+	destination     *net.UDPAddr
 	theirIp         []net.IP
 	talkToThemIdx   int
 	listenToThemIdx int
@@ -48,8 +55,8 @@ func (o *defaultTarget) Send(msg message.Msg) (message.Msg, error) {
 	}
 
 	out := communicate.SendThis{
-		Payload:         payload,
-		Destination:     &net.UDPAddr{
+		Payload: payload,
+		Destination: &net.UDPAddr{
 			IP:   o.theirIp[o.talkToThemIdx],
 			Port: communicate.CiscoL2TPort,
 		},

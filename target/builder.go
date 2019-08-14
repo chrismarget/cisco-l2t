@@ -3,9 +3,10 @@ package target
 import (
 	"fmt"
 	"github.com/chrismarget/cisco-l2t/attribute"
-	"github.com/chrismarget/cisco-l2t/message"
 	"github.com/chrismarget/cisco-l2t/communicate"
+	"github.com/chrismarget/cisco-l2t/message"
 	"net"
+	"strings"
 	"time"
 )
 
@@ -38,14 +39,41 @@ func (o defaultTargetBuilder) Build() (Target, error) {
 	var result testPacketResult
 	var name string
 	var platform string
+	var info []targetInfo
+
+	// Loop until every element in o.addresses has a corresponding targetInfo
+	// structure in the info slice. Note that the loop condition is a length
+	// comparison rather than a range() because o.addresses might be growing as
+	// the loop progresses.
+	for len(o.addresses) > len(info) {
+		testIp := o.addresses[len(info)]
+		destination := &net.UDPAddr{
+			IP:   testIp,
+			Port: communicate.CiscoL2TPort,
+		}
+		result := checkTarget(destination)
+		info = append(info, targetInfo{
+			destination: result.destination,
+			theirSource: result.sourceIp,
+			rtt:         []time.Duration{result.latency},
+		})
+		if result.sourceIp != nil && addressIsNew(result.sourceIp, o.addresses) {
+			o.addresses = append(o.addresses, result.sourceIp)
+		}
+	}
+	// todo: i've built up a slice of targetInfo structures, need to replace the loops below.
+	//  also think about deeper (more samples) rtt testing.
 
 	// Loop until every element in o.addresses has a corresponding
 	// observedIps element (these will be <nil> if no reply)
 	for len(o.addresses) > len(observedIps) {
-		testIp := o.addresses[len(observedIps)]
-		result = checkTargetIp(testIp)
+		destination := &net.UDPAddr{
+			IP:   o.addresses[len(observedIps)],
+			Port: communicate.CiscoL2TPort,
+		}
+		result = checkTarget(destination)
 		if result.err != nil {
-			return nil, fmt.Errorf("error checking %s - %s", result.IP, result.err.Error())
+			return nil, fmt.Errorf("error checking %s - %s", result.sourceIp, result.err.Error())
 		}
 
 		// save "name" and "result" so they're not crushed by a future failed query
@@ -57,14 +85,14 @@ func (o defaultTargetBuilder) Build() (Target, error) {
 		}
 
 		// add the result (maybe <nil>) to the list of observed addresses
-		observedIps = append(observedIps, result.IP)
+		observedIps = append(observedIps, result.sourceIp)
 
 		// Did we hear back from the target?
-		if result.IP != nil {
+		if result.sourceIp != nil {
 			latency = append(latency, result.latency)
 			// if the observed address is previously unseen, add it to o.addresses
-			if addressIsNew(result.IP, o.addresses) {
-				o.addresses = append(o.addresses, result.IP)
+			if addressIsNew(result.sourceIp, o.addresses) {
+				o.addresses = append(o.addresses, result.sourceIp)
 			}
 		}
 	}
@@ -146,35 +174,47 @@ func addressIsNew(a net.IP, known []net.IP) bool {
 }
 
 type testPacketResult struct {
-	err      error
-	latency  time.Duration
-	IP       net.IP
-	platform string
-	name     string
+	destination *net.UDPAddr
+	err         error
+	latency     time.Duration
+	sourceIp    net.IP
+	platform    string
+	name        string
 }
 
-// checkTargetIp sends test L2T messages to the specified IP address. It
-// returns a testPacketResult that represents the result of the check.
-func checkTargetIp(target net.IP) testPacketResult {
-	destination := &net.UDPAddr{
-		IP:   target,
-		Port: communicate.CiscoL2TPort,
-	}
+func (r *testPacketResult) String() string {
+	var s strings.Builder
+	s.WriteString("result:\n  ")
+	s.WriteString(r.destination.String())
+	s.WriteString("\n  ")
+	s.WriteString(r.sourceIp.String())
+	s.WriteString("\n")
+	return s.String()
+}
 
+// checkTarget sends test L2T messages to the specified IP address. It
+// returns a testPacketResult that represents the result of the check.
+func checkTarget(destination *net.UDPAddr) testPacketResult {
 	// Build up the test message. Doing so requires that we know our IP address
 	// which, on a multihomed system requires that we look up the route to the
 	// target. So, we need to know about the target before we can form the
 	// message.
 	ourIp, err := communicate.GetOutgoingIpForDestination(destination.IP)
 	if err != nil {
-		return testPacketResult{err: err}
+		return testPacketResult{
+			destination: destination,
+			err:         err,
+		}
 	}
 	ourIpAttr, err := attribute.NewAttrBuilder().
 		SetType(attribute.SrcIPv4Type).
 		SetString(ourIp.String()).
 		Build()
 	if err != nil {
-		return testPacketResult{err: err}
+		return testPacketResult{
+			destination: destination,
+			err:         err,
+		}
 	}
 
 	payload := message.TestMsg().Marshal([]attribute.Attribute{ourIpAttr})
@@ -185,14 +225,14 @@ func checkTargetIp(target net.IP) testPacketResult {
 	// can detect 3rd party replies (necessary because of course the Cisco L2T
 	// service generates replies from an alien (NAT unfriendly!) address.
 	stopDialSocket := make(chan struct{}) // abort channel
-	outViaDial := communicate.SendThis{ // Communicate() output structure
+	outViaDial := communicate.SendThis{   // Communicate() output structure
 		Payload:         payload,
 		Destination:     destination,
 		ExpectReplyFrom: destination.IP,
 		RttGuess:        communicate.InitialRTTGuess * 2,
 	}
 	stopListenSocket := make(chan struct{}) // abort channel
-	outViaListen := communicate.SendThis{ // Communicate() output structure
+	outViaListen := communicate.SendThis{   // Communicate() output structure
 		Payload:         payload,
 		Destination:     destination,
 		ExpectReplyFrom: nil,
@@ -225,24 +265,31 @@ func checkTargetIp(target net.IP) testPacketResult {
 	if in.Err != nil {
 		if result, ok := in.Err.(net.Error); ok && result.Timeout() {
 			// we timed out. Return an empty testPacketResult
-			return testPacketResult{}
+			return testPacketResult{
+				destination: destination,
+			}
 		} else {
 			// some other type of error
-			return testPacketResult{err: in.Err}
+			return testPacketResult{
+				destination: destination,
+				err:         in.Err,
+			}
 		}
 	}
 
 	msg, err := message.UnmarshalMessage(in.ReplyData)
 	if err != nil {
 		return testPacketResult{
-			err: err,
+			destination: destination,
+			err:         err,
 		}
 	}
 
 	err = msg.Validate()
 	if err != nil {
 		return testPacketResult{
-			err: err,
+			destination: destination,
+			err:         err,
 		}
 	}
 
@@ -259,11 +306,12 @@ func checkTargetIp(target net.IP) testPacketResult {
 	}
 
 	return testPacketResult{
-		err:      in.Err,
-		latency:  in.Rtt,
-		IP:       in.ReplyFrom,
-		platform: platform,
-		name:     name,
+		destination: destination,
+		err:         in.Err,
+		latency:     in.Rtt,
+		sourceIp:    in.ReplyFrom,
+		platform:    platform,
+		name:        name,
 	}
 }
 
