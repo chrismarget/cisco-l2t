@@ -145,41 +145,6 @@ func addressIsNew(a net.IP, known []net.IP) bool {
 	return true
 }
 
-// packetTimerFunc is used to coordinate (re)transmission of unreliable UDP
-// packets. It writes to a boolean channel whenever it's time to send a packet
-// (true) or give up (false).
-//
-// With an initialRTTGuess of 100ms, a retryMultiplier of 2, and an end at
-// 2500ms from start, the progression of writes to the channel would look like:
-//  time    attempt channel
-//  @t=0    0       true     (first packet is instant)
-//  @t=100  1       true     (retransmit after 100ms)
-//  @t=300  2       true     (retransmit after 200ms)
-//  @t=700  3       true     (retransmit after 400ms)
-//  @t=1500 4       true     (retransmit after 800ms)
-//  @t=2500 -       -        (nothing happens at 'end')
-//  @t=3100 -       false    (we're past 'end' and the retransmit timer expired)
-func packetTimerFunc(doSend chan<- bool, end time.Time) {
-	// initialize timers
-	duration := initialRTTGuess
-
-	// first packet should be sent immediately
-	doSend <- true
-
-	// loop until end time, progressively increasing the interval
-	for time.Now().Before(end) {
-		time.Sleep(duration)
-		if time.Now().Before(end) {
-			// there's still time left...
-			doSend <- true
-		} else {
-			// timer expired while we were sleeping
-			doSend <- false
-		}
-		duration = duration * retryMultiplier
-	}
-}
-
 type testPacketResult struct {
 	err      error
 	latency  time.Duration
