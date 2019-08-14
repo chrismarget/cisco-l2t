@@ -9,14 +9,6 @@ import (
 	"time"
 )
 
-// todo: consider using message.TestMsg instead?
-var (
-	testMsg = []byte{
-		1, 1, 0, 31, 4, 2, 8, 255, 255, 255, 255, 255, 255,
-		1, 8, 255, 255, 255, 255, 255, 255, 3, 4, 0, 1, 14, 6,
-	}
-)
-
 type Builder interface {
 	AddIp(net.IP) Builder
 	Build() (Target, error)
