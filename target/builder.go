@@ -4,16 +4,9 @@ import (
 	"fmt"
 	"github.com/chrismarget/cisco-l2t/attribute"
 	"github.com/chrismarget/cisco-l2t/message"
+	"github.com/chrismarget/cisco-l2t/communicate"
 	"net"
 	"time"
-)
-
-// todo: consider using message.TestMsg instead?
-var (
-	testMsg = []byte{
-		1, 1, 0, 31, 4, 2, 8, 255, 255, 255, 255, 255, 255,
-		1, 8, 255, 255, 255, 255, 255, 255, 3, 4, 0, 1, 14, 6,
-	}
 )
 
 type Builder interface {
@@ -52,7 +45,7 @@ func (o defaultTargetBuilder) Build() (Target, error) {
 		testIp := o.addresses[len(observedIps)]
 		result = checkTargetIp(testIp)
 		if result.err != nil {
-			return nil, fmt.Errorf("no response from address %s - %s", result.IP, result.err.Error())
+			return nil, fmt.Errorf("error checking %s - %s", result.IP, result.err.Error())
 		}
 
 		// save "name" and "result" so they're not crushed by a future failed query
@@ -83,7 +76,7 @@ func (o defaultTargetBuilder) Build() (Target, error) {
 	for i, ip := range o.addresses {
 		if ip.Equal(observedIps[i]) {
 			// Get the local system address that faces that target.
-			ourIp, err := getOurIpForTarget(ip)
+			ourIp, err := communicate.GetOutgoingIpForDestination(ip)
 			if err != nil {
 				return nil, err
 			}
@@ -110,7 +103,7 @@ func (o defaultTargetBuilder) Build() (Target, error) {
 		if replyAddr != nil {
 			// We found one. The target replies from "replyAddr".
 			// Get the local system address that faces that target.
-			ourIp, err := getOurIpForTarget(replyAddr)
+			ourIp, err := communicate.GetOutgoingIpForDestination(replyAddr)
 			if err != nil {
 				return nil, err
 			}
@@ -152,41 +145,6 @@ func addressIsNew(a net.IP, known []net.IP) bool {
 	return true
 }
 
-// packetTimerFunc is used to coordinate (re)transmission of unreliable UDP
-// packets. It writes to a boolean channel whenever it's time to send a packet
-// (true) or give up (false).
-//
-// With an initialRTTGuess of 100ms, a retryMultiplier of 2, and an end at
-// 2500ms from start, the progression of writes to the channel would look like:
-//  time    attempt channel
-//  @t=0    0       true     (first packet is instant)
-//  @t=100  1       true     (retransmit after 100ms)
-//  @t=300  2       true     (retransmit after 200ms)
-//  @t=700  3       true     (retransmit after 400ms)
-//  @t=1500 4       true     (retransmit after 800ms)
-//  @t=2500 -       -        (nothing happens at 'end')
-//  @t=3100 -       false    (we're past 'end' and the retransmit timer expired)
-func packetTimerFunc(doSend chan<- bool, end time.Time) {
-	// initialize timers
-	duration := initialRTTGuess
-
-	// first packet should be sent immediately
-	doSend <- true
-
-	// loop until end time, progressively increasing the interval
-	for time.Now().Before(end) {
-		time.Sleep(duration)
-		if time.Now().Before(end) {
-			// there's still time left...
-			doSend <- true
-		} else {
-			// timer expired while we were sleeping
-			doSend <- false
-		}
-		duration = duration * retryMultiplier
-	}
-}
-
 type testPacketResult struct {
 	err      error
 	latency  time.Duration
@@ -195,98 +153,19 @@ type testPacketResult struct {
 	name     string
 }
 
-func sendFromNewSocket(payload []byte, destination *net.UDPAddr, end time.Time) testPacketResult {
-	// create the socket
-	conn, err := net.ListenUDP(UdpProtocol, &net.UDPAddr{})
-	if err != nil {
-		return testPacketResult{err:err}
-	}
-	defer conn.Close()
-
-	// send on the socket
-	n, err := conn.WriteToUDP(payload, destination)
-	start := time.Now()
-	switch {
-	case err != nil:
-		return testPacketResult{err:err}
-	case n != len(payload):
-		return testPacketResult{
-			err: fmt.Errorf("attemtped send of %d bytes, only managed %d", len(payload), n),
-		}
-	}
-
-	// set the read deadline
-	err = conn.SetReadDeadline(end)
-	if err != nil {
-		return testPacketResult{err:err}
-	}
-
-	// read from the socket
-	buffIn := make([]byte, inBufferSize)
-	var respondent *net.UDPAddr
-	n, respondent, err = conn.ReadFromUDP(buffIn)
-
-	// Note the elapsed time
-	rtt := time.Since(start)
-
-	// How might things have gone wrong?
-	switch {
-	case err != nil:
-		if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
-			// Socket timeout
-			return testPacketResult{latency: 0}
-		}
-		// Mystery error
-		return testPacketResult{err:err}
-	case n == len(buffIn):
-		// Unexpectedly large read
-		return testPacketResult{err: fmt.Errorf("got full buffer: %d bytes", n)}
-	}
-
-	// Unpack and and validate the message
-	msg, err := message.UnmarshalMessage(buffIn)
-	if err != nil {
-		return testPacketResult{err:err}
-	}
-
-	err = msg.Validate()
-	if err != nil {
-		return testPacketResult{err:err}
-	}
-
-	var name string
-	var platform string
-	for _, att := range msg.Attributes() {
-		if att.Type() == attribute.DevNameType {
-			name = att.String()
-		}
-		if att.Type() == attribute.DevTypeType {
-			platform = att.String()
-		}
-	}
-
-	// If we got all the way here, it looks like we've got a legit reply.
-	return testPacketResult{
-		latency:  rtt,
-		IP:       respondent.IP,
-		name:     name,
-		platform: platform,
-	}
-}
-
 // checkTargetIp sends test L2T messages to the specified IP address. It
 // returns a testPacketResult that represents the result of the check.
 func checkTargetIp(target net.IP) testPacketResult {
 	destination := &net.UDPAddr{
 		IP:   target,
-		Port: udpPort,
+		Port: communicate.CiscoL2TPort,
 	}
 
 	// Build up the test message. Doing so requires that we know our IP address
 	// which, on a multihomed system requires that we look up the route to the
 	// target. So, we need to know about the target before we can form the
 	// message.
-	ourIp, err := getOurIpForTarget(destination.IP)
+	ourIp, err := communicate.GetOutgoingIpForDestination(destination.IP)
 	if err != nil {
 		return testPacketResult{err: err}
 	}
@@ -300,53 +179,98 @@ func checkTargetIp(target net.IP) testPacketResult {
 
 	payload := message.TestMsg().Marshal([]attribute.Attribute{ourIpAttr})
 
-	// packetTimerFunc tells us when to send a packet on this channel.
-	sendNowChan := make(chan bool)
+	// We're going to send the message via two different sockets: A "connected"
+	// (dial) socket and a "non-connected" (listen) socket. The former can
+	// telegraph ICMP unreachable (go away!) messages to us, while the latter
+	// can detect 3rd party replies (necessary because of course the Cisco L2T
+	// service generates replies from an alien (NAT unfriendly!) address.
+	stopDialSocket := make(chan struct{}) // abort channel
+	outViaDial := communicate.SendThis{ // Communicate() output structure
+		Payload:         payload,
+		Destination:     destination,
+		ExpectReplyFrom: destination.IP,
+		RttGuess:        communicate.InitialRTTGuess * 2,
+	}
+	stopListenSocket := make(chan struct{}) // abort channel
+	outViaListen := communicate.SendThis{ // Communicate() output structure
+		Payload:         payload,
+		Destination:     destination,
+		ExpectReplyFrom: nil,
+		RttGuess:        communicate.InitialRTTGuess * 2,
+	}
 
-	// sendFromNewSocket tells us what happened on this channel.
-	testResultChan := make(chan testPacketResult, 1)
+	dialResult := make(chan communicate.SendResult)
+	go func() {
+		dialResult <- communicate.Communicate(outViaDial, stopDialSocket)
+	}()
 
-	// Start the timer that will tell us when to send packets
-	end := time.Now().Add(maxRTT)
-	go packetTimerFunc(sendNowChan, end)
+	listenResult := make(chan communicate.SendResult)
+	go func() {
+		// This guy can't hear ICMP unreachables, so keep the noise down
+		// by starting him a bit after the "dial" based listener.
+		time.Sleep(communicate.InitialRTTGuess)
+		listenResult <- communicate.Communicate(outViaListen, stopListenSocket)
+	}()
 
-	// loop sending packets. return when we get a result (reply)
-	for {
-		select {
-		case sendNow := <-sendNowChan:
-			if sendNow {
-				go func() {
-					select {
-					case testResultChan <- sendFromNewSocket(payload, destination, end):
-					default:
-					}
-				}()
-			} else {
-				// timer expired. We never got a reply.
-				return testPacketResult{latency: 0}
-			}
-		case testResult := <-testResultChan:
-			return testResult
+	// grab a SendResult from either channel (socket)
+	var in communicate.SendResult
+	select {
+	case in = <-dialResult:
+	case in = <-listenResult:
+	}
+	close(stopDialSocket)
+	close(stopListenSocket)
+
+	// return an error (maybe)
+	if in.Err != nil {
+		if result, ok := in.Err.(net.Error); ok && result.Timeout() {
+			// we timed out. Return an empty testPacketResult
+			return testPacketResult{}
+		} else {
+			// some other type of error
+			return testPacketResult{err: in.Err}
 		}
 	}
-}
 
-// getOurIpForTarget returns a *net.IP representing the local interface
-// that's best suited for talking to the passed target address
-func getOurIpForTarget(t net.IP) (net.IP, error) {
-	c, err := net.Dial("udp4", t.String()+":1")
+	msg, err := message.UnmarshalMessage(in.ReplyData)
 	if err != nil {
-		return nil, err
+		return testPacketResult{
+			err: err,
+		}
 	}
-	defer c.Close()
 
-	return c.LocalAddr().(*net.UDPAddr).IP, nil
+	err = msg.Validate()
+	if err != nil {
+		return testPacketResult{
+			err: err,
+		}
+	}
+
+	// Pull the name and platform strings from the message.
+	var name string
+	var platform string
+	for t, a := range msg.Attributes() {
+		if t == attribute.DevNameType {
+			name = a.String()
+		}
+		if t == attribute.DevTypeType {
+			platform = a.String()
+		}
+	}
+
+	return testPacketResult{
+		err:      in.Err,
+		latency:  in.Rtt,
+		IP:       in.ReplyFrom,
+		platform: platform,
+		name:     name,
+	}
 }
 
 func initialLatency() []time.Duration {
 	var l []time.Duration
 	for len(l) < 5 {
-		l = append(l, initialRTTGuess)
+		l = append(l, communicate.InitialRTTGuess)
 	}
 	return l
 }
