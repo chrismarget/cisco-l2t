@@ -208,7 +208,7 @@ func checkTargetIp(target net.IP) testPacketResult {
 	go func() {
 		// This guy can't hear ICMP unreachables, so keep the noise down
 		// by starting him a bit after the "dial" based listener.
-		time.Sleep(initialRTTGuess)
+		time.Sleep(communicate.InitialRTTGuess)
 		listenResult <- communicate.Communicate(outViaListen, stopListenSocket)
 	}()
 
@@ -270,7 +270,7 @@ func checkTargetIp(target net.IP) testPacketResult {
 func initialLatency() []time.Duration {
 	var l []time.Duration
 	for len(l) < 5 {
-		l = append(l, initialRTTGuess)
+		l = append(l, communicate.InitialRTTGuess)
 	}
 	return l
 }
