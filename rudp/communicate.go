@@ -10,7 +10,7 @@ import (
 
 const (
 	inBufferSize    = 65536
-	initialRTTGuess = 100 * time.Millisecond
+	InitialRTTGuess = 100 * time.Millisecond
 	maxRTT          = 2500 * time.Millisecond
 	UdpProtocol     = "udp4"
 )

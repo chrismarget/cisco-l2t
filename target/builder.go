@@ -45,7 +45,7 @@ func (o defaultTargetBuilder) Build() (Target, error) {
 		testIp := o.addresses[len(observedIps)]
 		result = checkTargetIp(testIp)
 		if result.err != nil {
-			return nil, fmt.Errorf("no response from address %s - %s", result.IP, result.err.Error())
+			return nil, fmt.Errorf("error checking %s - %s", result.IP, result.err.Error())
 		}
 
 		// save "name" and "result" so they're not crushed by a future failed query
@@ -179,17 +179,56 @@ func checkTargetIp(target net.IP) testPacketResult {
 
 	payload := message.TestMsg().Marshal([]attribute.Attribute{ourIpAttr})
 
-	out := rudp.SendThis{
+	// We're going to send the message via two different sockets: A "connected"
+	// (dial) socket and a "non-connected" (listen) socket. The former can
+	// telegraph ICMP unreachable (go away!) messages to us, while the latter
+	// can detect 3rd party replies (necessary because of course the Cisco L2T
+	// service generates replies from an alien (NAT unfriendly!) address.
+	stopDialSocket := make(chan struct{}) // abort channel
+	outViaDial := rudp.SendThis{          // Communicate() output structure
+		Payload:         payload,
+		Destination:     destination,
+		ExpectReplyFrom: destination.IP,
+		RttGuess:        rudp.InitialRTTGuess,
+	}
+	stopListenSocket := make(chan struct{}) // abort channel
+	outViaListen := rudp.SendThis{          // Communicate() output structure
 		Payload:         payload,
 		Destination:     destination,
 		ExpectReplyFrom: nil,
-		RttGuess:        initialRTTGuess,
+		RttGuess:        rudp.InitialRTTGuess,
 	}
 
-	in := rudp.Communicate(out, nil)
+	dialResult := make(chan rudp.SendResult)
+	go func() {
+		dialResult <- rudp.Communicate(outViaDial, stopDialSocket)
+	}()
+
+	listenResult := make(chan rudp.SendResult)
+	go func() {
+		// This guy can't hear ICMP unreachables, so keep the noise down
+		// by starting him a bit after the "dial" based listener.
+		time.Sleep(initialRTTGuess)
+		listenResult <- rudp.Communicate(outViaListen, stopListenSocket)
+	}()
+
+	// grab a SendResult from either channel (socket)
+	var in rudp.SendResult
+	select {
+	case in = <-dialResult:
+	case in = <-listenResult:
+	}
+	close(stopDialSocket)
+	close(stopListenSocket)
+
+	// return an error (maybe)
 	if in.Err != nil {
-		return testPacketResult{
-			err: err,
+		if result, ok := in.Err.(net.Error); ok && result.Timeout() {
+			// we timed out. Return an empty testPacketResult
+			return testPacketResult{}
+		} else {
+			// some other type of error
+			return testPacketResult{err: in.Err}
 		}
 	}
 
@@ -214,7 +253,7 @@ func checkTargetIp(target net.IP) testPacketResult {
 		if t == attribute.DevNameType {
 			name = a.String()
 		}
-		if t == attribute.DevTypeType{
+		if t == attribute.DevTypeType {
 			platform = a.String()
 		}
 	}
@@ -226,7 +265,6 @@ func checkTargetIp(target net.IP) testPacketResult {
 		platform: platform,
 		name:     name,
 	}
-
 }
 
 func initialLatency() []time.Duration {
