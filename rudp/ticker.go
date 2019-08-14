@@ -1,8 +1,8 @@
 package rudp
 
 import (
-	"log"
 	"math"
+	"sync"
 	"time"
 )
 
@@ -18,26 +18,22 @@ func (o *BackoffTicker) Stop() {
 
 func NewBackoffTicker(d time.Duration) *BackoffTicker {
 	tockChan := make(chan time.Time, 1)
-	ticker := time.NewTicker(d)
+	tockChan <- time.Now()
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
 	stopChan := make(chan struct{})
-	//wg := &sync.WaitGroup{}
-	//wg.Add(1)
 
-	//go func(c chan time.Time, t *time.Ticker, s chan struct{}, wg *sync.WaitGroup) {
-	go func(c chan time.Time, t *time.Ticker, s chan struct{}) {
+	go func() {
+		wg.Done()
+		ticker := time.NewTicker(d)
 		var ticks float64 // these come at regular intervals
 		var tocks float64 // these come at interval 0, 1,
 
-		//c <- time.Now()
-		//wg.Done()
-
-		for mark := range t.C {
+		for mark := range ticker.C {
 			select {
 			case _, isOpen := <-stopChan:
 				if !isOpen {
-					log.Println("stopping")
 					ticker.Stop()
-					log.Println("stopped")
 					return
 				}
 			default:
@@ -45,16 +41,15 @@ func NewBackoffTicker(d time.Duration) *BackoffTicker {
 			ticks++
 			if math.Pow(2, tocks) == ticks {
 				select {
-				case c <- mark:
+				case tockChan <- mark:
 				default:
 				}
 				tocks++
 			}
 		}
-		//	}(tockChan, ticker, stopChan, wg)
-	}(tockChan, ticker, stopChan)
+	}()
 
-	//wg.Wait()
+	wg.Wait()
 
 	return &BackoffTicker{
 		C:        tockChan,
