@@ -2,24 +2,17 @@ package target
 
 import (
 	"bytes"
-	"fmt"
 	"github.com/chrismarget/cisco-l2t/attribute"
 	"github.com/chrismarget/cisco-l2t/message"
+	"github.com/chrismarget/cisco-l2t/communicate"
 	"net"
 	"strconv"
 	"time"
 )
 
 const (
-	udpPort           = 2228
-	UdpProtocol       = "udp4"
 	nilIP             = "<nil>"
-	inBufferSize      = 65535
-	initialRTTGuess   = 250 * time.Millisecond
 	maxLatencySamples = 10
-	maxRetries        = 10
-	maxRTT            = 2500 * time.Millisecond
-	retryMultiplier   = 2
 )
 
 type Target interface {
@@ -54,21 +47,23 @@ func (o *defaultTarget) Send(msg message.Msg) (message.Msg, error) {
 		payload = msg.Marshal([]attribute.Attribute{})
 	}
 
-	switch o.useDial {
-	case true:
-		reply, err := o.communicateViaDialSocket(payload)
-		if err != nil {
-			return nil, err
-		}
-		return message.UnmarshalMessage(reply)
-	case false:
-		reply, err := o.communicateViaConventionalSocket(payload)
-		if err != nil {
-			return nil, err
-		}
-		return message.UnmarshalMessage(reply)
+	out := communicate.SendThis{
+		Payload:         payload,
+		Destination:     &net.UDPAddr{
+			IP:   o.theirIp[o.talkToThemIdx],
+			Port: communicate.CiscoL2TPort,
+		},
+		ExpectReplyFrom: o.theirIp[o.listenToThemIdx],
+		RttGuess:        communicate.InitialRTTGuess,
 	}
-	return nil, nil
+
+	in := communicate.Communicate(out, nil)
+
+	if in.Err != nil {
+		return nil, in.Err
+	}
+
+	return message.UnmarshalMessage(in.ReplyData)
 }
 
 func (o *defaultTarget) String() string {
@@ -126,184 +121,11 @@ func (o *defaultTarget) String() string {
 	return out.String()
 }
 
-// communicateViaConventionalSocket sends a byte slice to the target using a UDP
-// socket. It includes retry logic for handling packet loss. On success it
-// returns a byte slice containing the reply payload.
-//
-// This function is useful for targets that reply from an address other
-// than the one we talk to. In an ideal world only the communicateViaDialSocket
-// method would be required, but some firewall/NAT situations may force the use
-// of this method.
-func (o *defaultTarget) communicateViaConventionalSocket(b []byte) ([]byte, error) {
-	destination := &net.UDPAddr{
-		IP:   o.theirIp[o.talkToThemIdx],
-		Port: udpPort,
-	}
-
-	cxn, err := net.ListenUDP(UdpProtocol, &net.UDPAddr{IP: o.ourIp})
-	if err != nil {
-		return nil, err
-	}
-
-	// todo: this close causes ICMP unreachables. some sort of delay where the socket
-	//  hangs around after we don't need it anymore would be good.
-	defer cxn.Close()
-
-	buffIn := make([]byte, inBufferSize)
-
-	// Collect start time for later RTT calculation. Note that we're only
-	// collecting the start time *once* even though we may send several
-	// packets. In the case of no jitter/loss, the numbers will be correct.
-	// In case we send the packet twice, which measurement is correct?
-	// Elapsed time since packet zero or since packet one? We're
-	// deliberately opting to accept the more pessimistic measurement.
-	start := time.Now()
-	var rtt time.Duration
-	received := 0
-	attempts := 0
-	for received == 0 {
-		if attempts >= maxRetries {
-			return nil, fmt.Errorf("lost connection with switch %s after %d attempts", destination.IP.String(), attempts)
-		}
-		wait := o.estimateLatency()
-
-		// Send the packet.
-		n, err := cxn.WriteToUDP(b, destination)
-
-		switch {
-		case err != nil:
-			return nil, err
-		case n != len(b):
-			return nil, fmt.Errorf("attemtped send of %d bytes, only managed %d", len(b), n)
-		}
-
-		// set deadline based on start time
-		err = cxn.SetReadDeadline(start.Add(wait))
-		if err != nil {
-			return nil, err
-		}
-
-		// read until packet or deadline
-		var respondent *net.UDPAddr
-		received, respondent, err = cxn.ReadFromUDP(buffIn)
-
-		// Note the elapsed time
-		rtt = time.Since(start)
-
-		// How might things have gone wrong?
-		switch {
-		case err != nil:
-			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
-				// Socket timeout; Double the timeout interval, stick it in the latency history.
-				attempts += 1
-				o.updateLatency(2 * rtt)
-				continue
-			} else {
-				// Mystery error
-				return nil, fmt.Errorf("error waiting for reply via conventional socket - %s", err.Error())
-			}
-		case n == len(buffIn):
-			// Unexpectedly large read
-			return nil, fmt.Errorf("got full buffer: %d bytes", n)
-		case !respondent.IP.Equal(o.theirIp[o.listenToThemIdx]):
-			// Alien reply. Nudge the latency budget, try again.
-			o.updateLatency(wait)
-			continue
-		}
-	}
-	o.updateLatency(rtt)
-	return buffIn, nil
-}
-
-// communicateViaDialSocket sends a byte slice to the target using a UDP
-// socket. It includes retry logic for handling packet loss. On success it
-// returns a byte slice containing the reply payload.
-//
-// Because this function uses the net.DialUDP method it is only useful for
-// targets that reply from the address to which we sent the query. That is the
-// natural behavior of most UDP services, but not the Cisco L2T server. This is
-// the preferred method because it's friendly to stateful middleboxes like NAT.
-func (o *defaultTarget) communicateViaDialSocket(b []byte) ([]byte, error) {
-	destination := &net.UDPAddr{
-		IP:   o.theirIp[o.talkToThemIdx],
-		Port: udpPort,
-	}
-
-	cxn, err := net.DialUDP(UdpProtocol, &net.UDPAddr{}, destination)
-	if err != nil {
-		return nil, err
-	}
-	// todo: this close causes ICMP unreachables. some sort of delay where the socket
-	//  hangs around after we don't need it anymore would be good.
-	defer cxn.Close()
-
-	buffIn := make([]byte, inBufferSize)
-
-	// Collect start time for later RTT calculation. Note that we're only
-	// collecting the start time *once* even though we may send several
-	// packets. In the case of no jitter/loss, the numbers will be correct.
-	// In case we send the packet twice, which measurement is correct?
-	// Elapsed time since packet zero or since packet one? We're
-	// deliberately opting to accept the more pessimistic measurement.
-	start := time.Now()
-	var rtt time.Duration
-	received := 0
-	attempts := 0
-	for received == 0 {
-		if attempts >= maxRetries {
-			return nil, fmt.Errorf("lost connection with switch %s after %d attempts", destination.IP.String(), attempts)
-		}
-		wait := o.estimateLatency()
-
-		// Send the packet.
-		n, err := cxn.Write(b)
-
-		switch {
-		case err != nil:
-			return nil, err
-		case n != len(b):
-			return nil, fmt.Errorf("attemtped send of %d bytes, only managed %d", len(b), n)
-		}
-
-		// set deadline based on start time
-		err = cxn.SetReadDeadline(start.Add(wait))
-		if err != nil {
-			return nil, err
-		}
-
-		// read until packet or deadline
-		received, err = cxn.Read(buffIn)
-
-		// Note the elapsed time
-		rtt = time.Since(start)
-
-		// How might things have gone wrong?
-		switch {
-		case err != nil:
-			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
-				// Socket timeout; Double the timeout interval, stick it in the latency history.
-				attempts += 1
-				o.updateLatency(2 * rtt)
-				continue
-			} else {
-				// Mystery error
-				return nil, fmt.Errorf("error waiting for reply via conventional socket - %s", err.Error())
-			}
-		case n == len(buffIn):
-			// Unexpectedly large read
-			return nil, fmt.Errorf("got full buffer: %d bytes", n)
-		}
-	}
-
-	o.updateLatency(rtt)
-	return buffIn, nil
-}
-
 // estimateLatency tries to estimate the response time for this target
 // using the contents of the objects latency slice.
 func (o *defaultTarget) estimateLatency() time.Duration {
 	if len(o.latency) == 0 {
-		return initialRTTGuess
+		return communicate.InitialRTTGuess
 	}
 	var result int64
 	for i, l := range o.latency {

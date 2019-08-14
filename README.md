@@ -1,6 +1,6 @@
 # cisco-l2t
 
-This some tooling for working with the Cisco layer 2 traceroute service on Catalyst switches.
+This is some tooling for working with the Cisco layer 2 traceroute service on Catalyst switches.
 
 It can create, send, receive and parse L2T messages. L2T messages allow you to enumerate configured VLANs, interrogate the L2 forwarding table, inquire about neighbors, interface names, speeds and duplex settings. All this without any credentials.
 
