@@ -46,17 +46,17 @@ func (o defaultTargetBuilder) Build() (Target, error) {
 	// comparison rather than a range() because o.addresses might be growing as
 	// the loop progresses.
 	for len(o.addresses) > len(info) {
-		testIp := o.addresses[len(info)]
 		destination := &net.UDPAddr{
-			IP:   testIp,
+			IP:   o.addresses[len(info)],
 			Port: communicate.CiscoL2TPort,
 		}
 		result := checkTarget(destination)
 		info = append(info, targetInfo{
-			destination: result.destination,
 			theirSource: result.sourceIp,
 			rtt:         []time.Duration{result.latency},
 		})
+
+		// append newly discovered addresses to the list
 		if result.sourceIp != nil && addressIsNew(result.sourceIp, o.addresses) {
 			o.addresses = append(o.addresses, result.sourceIp)
 		}
@@ -212,8 +212,7 @@ func checkTarget(destination *net.UDPAddr) testPacketResult {
 		Build()
 	if err != nil {
 		return testPacketResult{
-			destination: destination,
-			err:         err,
+			err: err,
 		}
 	}
 
@@ -265,32 +264,21 @@ func checkTarget(destination *net.UDPAddr) testPacketResult {
 	if in.Err != nil {
 		if result, ok := in.Err.(net.Error); ok && result.Timeout() {
 			// we timed out. Return an empty testPacketResult
-			return testPacketResult{
-				destination: destination,
-			}
+			return testPacketResult{}
 		} else {
 			// some other type of error
-			return testPacketResult{
-				destination: destination,
-				err:         in.Err,
-			}
+			return testPacketResult{err: in.Err}
 		}
 	}
 
 	msg, err := message.UnmarshalMessage(in.ReplyData)
 	if err != nil {
-		return testPacketResult{
-			destination: destination,
-			err:         err,
-		}
+		return testPacketResult{err: err}
 	}
 
 	err = msg.Validate()
 	if err != nil {
-		return testPacketResult{
-			destination: destination,
-			err:         err,
-		}
+		return testPacketResult{err: err}
 	}
 
 	// Pull the name and platform strings from the message.
@@ -306,7 +294,6 @@ func checkTarget(destination *net.UDPAddr) testPacketResult {
 	}
 
 	return testPacketResult{
-		destination: destination,
 		err:         in.Err,
 		latency:     in.Rtt,
 		sourceIp:    in.ReplyFrom,

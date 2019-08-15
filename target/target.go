@@ -21,7 +21,6 @@ type Target interface {
 }
 
 type targetInfo struct{
-	destination *net.UDPAddr
 	theirSource net.IP
 	rtt []time.Duration
 }
