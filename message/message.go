@@ -9,7 +9,7 @@ import (
 )
 
 type (
-	msgType   uint8
+	MsgType   uint8
 	msgVer    uint8
 	msgLen    uint16
 	attrCount uint8
@@ -20,10 +20,10 @@ const (
 	defaultMsgType = RequestSrc
 	defaultMsgVer  = version1
 
-	RequestDst = msgType(1)
-	RequestSrc = msgType(2)
-	ReplyDst   = msgType(3)
-	ReplySrc   = msgType(4)
+	RequestDst = MsgType(1)
+	RequestSrc = MsgType(2)
+	ReplyDst   = MsgType(3)
+	ReplySrc   = MsgType(4)
 
 	testMacString = "ffff.ffff.ffff"
 	testVlan      = 1
@@ -34,14 +34,14 @@ var (
 		version1: 5,
 	}
 
-	MsgTypeToString = map[msgType]string{
+	MsgTypeToString = map[MsgType]string{
 		RequestDst: "L2T_REQUEST_DST",
 		RequestSrc: "L2T_REQUEST_SRC",
 		ReplyDst:   "L2T_REPLY_DST",
 		ReplySrc:   "L2T_REPLY_SRC",
 	}
 
-	msgTypeAttributeOrder = map[msgType][]attribute.AttrType{
+	msgTypeAttributeOrder = map[MsgType][]attribute.AttrType{
 		RequestDst: {
 			attribute.DstMacType,
 			attribute.SrcMacType,
@@ -72,7 +72,7 @@ var (
 		},
 	}
 
-	msgTypeRequiredAttrs = map[msgType][]attribute.AttrType{
+	msgTypeRequiredAttrs = map[MsgType][]attribute.AttrType{
 		RequestDst: {
 			attribute.DstMacType,
 			attribute.SrcMacType,
@@ -91,7 +91,7 @@ var (
 // Msg represents an L2T message
 type Msg interface {
 	// Type returns the message type. This is the first byte on the wire.
-	Type() msgType
+	Type() MsgType
 
 	// Ver returns the message protocol version. This is the
 	// second byte on the wire.
@@ -138,14 +138,14 @@ type Msg interface {
 }
 
 type defaultMsg struct {
-	msgType       msgType
+	msgType       MsgType
 	msgVer        msgVer
 	attrs         map[attribute.AttrType]attribute.Attribute
 	srcIpIncluded bool
 	//srcIpFunc func(*net.IP) (*net.IP, error)
 }
 
-func (o *defaultMsg) Type() msgType {
+func (o *defaultMsg) Type() MsgType {
 	return o.msgType
 }
 
@@ -262,7 +262,7 @@ type MsgBuilder interface {
 	// because I don't think we'll be sending replies...
 	//
 	// Default value is 1 (L2T_REQUEST_DST)
-	SetType(msgType) MsgBuilder
+	SetType(MsgType) MsgBuilder
 
 	// SetVer sets the message version. Only one version is known to
 	// exist, so version1 is the default.
@@ -283,7 +283,7 @@ type MsgBuilder interface {
 }
 
 type defaultMsgBuilder struct {
-	msgType msgType
+	msgType MsgType
 	msgVer  msgVer
 	attrs   map[attribute.AttrType]attribute.Attribute
 	//	srcIpFunc func(*net.IP) (*net.IP, error)
@@ -308,7 +308,7 @@ func NewMsgBuilder() MsgBuilder {
 	}
 }
 
-func (o *defaultMsgBuilder) SetType(t msgType) MsgBuilder {
+func (o *defaultMsgBuilder) SetType(t MsgType) MsgBuilder {
 	o.msgType = t
 	return o
 }
@@ -356,7 +356,7 @@ func attrTypeLocationInSlice(s []attribute.AttrType, a attribute.AttrType) int {
 
 // orderAttributes sorts the supplied []Attribute according to
 // the order prescribed by msgTypeAttributeOrder.
-func orderAttributes(msgAttributes []attribute.Attribute, msgType msgType) []attribute.Attribute {
+func orderAttributes(msgAttributes []attribute.Attribute, msgType MsgType) []attribute.Attribute {
 
 	// make a []AttrType that represents the input []Attribute
 	var inTypes []attribute.AttrType
@@ -422,7 +422,7 @@ func UnmarshalMessageUnsafe(b []byte) (Msg, error) {
 		return nil, fmt.Errorf("cannot unmarshal message got only %d bytes", len(b))
 	}
 
-	t := msgType(b[0])
+	t := MsgType(b[0])
 	v := msgVer(b[1])
 	l := msgLen(binary.BigEndian.Uint16(b[2:4]))
 	c := attrCount(b[4])
@@ -464,7 +464,7 @@ func UnmarshalMessageUnsafe(b []byte) (Msg, error) {
 // ListMissingAttributes takes a L2T message type and a map of attributes.
 // It returns a list of attribute types that are required for this sort of
 // message, but are missing from the supplied map.
-func ListMissingAttributes(t msgType, a map[attribute.AttrType]attribute.Attribute) []attribute.AttrType {
+func ListMissingAttributes(t MsgType, a map[attribute.AttrType]attribute.Attribute) []attribute.AttrType {
 	var missing []attribute.AttrType
 	if required, ok := msgTypeRequiredAttrs[t]; ok {
 		for _, r := range required {
@@ -494,7 +494,7 @@ func TestMsg() (Msg, error) {
 	}
 	builder.SetAttr(a)
 
-	a, err = attribute.NewAttrBuilder().SetType(attribute.VlanType).SetInt(uint32(attribute.DefaultVlan)).Build()
+	a, err = attribute.NewAttrBuilder().SetType(attribute.VlanType).SetInt(uint32(testVlan)).Build()
 	if err != nil {
 		return nil, err
 	}
