@@ -3,12 +3,18 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/cheggaaa/pb/v3"
 	"github.com/chrismarget/cisco-l2t/attribute"
 	"github.com/chrismarget/cisco-l2t/message"
 	"github.com/chrismarget/cisco-l2t/target"
 	"log"
 	"net"
 	"os"
+)
+
+const (
+	vlanMin = 1
+	vlanMax = 4094
 )
 
 type vlan int
@@ -18,8 +24,11 @@ func enumerate_vlans(t target.Target) ([]vlan, error) {
 	var found []vlan
 	var err error
 
+	bar := pb.StartNew(vlanMax)
+
 	// loop over all VLANs
-	for i := 1; i <= 4094; i++ {
+	for i := vlanMin; i <= vlanMax; i++ {
+		bar.Increment()
 
 		builder := message.NewMsgBuilder()
 		builder.SetType(message.RequestSrc)
@@ -67,7 +76,7 @@ func enumerate_vlans(t target.Target) ([]vlan, error) {
 }
 
 func printResults(found []vlan) {
-	fmt.Printf("%d VLANs found:", len(found))
+	fmt.Printf("\n%d VLANs found:", len(found))
 	var somefound bool
 	if len(found) > 0 {
 		somefound = true
@@ -98,13 +107,15 @@ func printResults(found []vlan) {
 			}
 		}
 	}
-	if len(a) == 1 {
+	switch{
+	case len(a) == 1:
 		// Just one number? Print it.
 		fmt.Printf(" %d", a[0])
-	} else {
+	case len(a) > 1:
 		// More than one numbers? Print as a range.
 		fmt.Printf(" %d-%d", a[0], a[len(a)-1])
 	}
+
 	if somefound {
 		fmt.Printf("\n")
 	} else {
