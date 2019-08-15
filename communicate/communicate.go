@@ -11,7 +11,7 @@ import (
 const (
 	inBufferSize    = 65536
 	InitialRTTGuess = 100 * time.Millisecond
-	maxRTT          = 2500 * time.Millisecond
+	MaxRTT          = 2500 * time.Millisecond
 	UdpProtocol     = "udp4"
 	CiscoL2TPort    = 2228
 )
@@ -217,7 +217,7 @@ func Communicate(out SendThis, quit chan struct{}) SendResult {
 
 	// socket timeout stuff
 	start := time.Now()
-	end := start.Add(maxRTT)
+	end := start.Add(MaxRTT)
 	err = cxn.SetReadDeadline(end)
 	if err != nil {
 		return SendResult{Err: err}

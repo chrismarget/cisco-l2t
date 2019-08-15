@@ -2,11 +2,11 @@ package target
 
 import (
 	"bytes"
+	"fmt"
 	"github.com/chrismarget/cisco-l2t/attribute"
 	"github.com/chrismarget/cisco-l2t/communicate"
 	"github.com/chrismarget/cisco-l2t/message"
 	"net"
-	"strconv"
 	"time"
 )
 
@@ -16,25 +16,16 @@ const (
 )
 
 type Target interface {
+	HasIp(*net.IP) bool
 	Send(message.Msg) (message.Msg, error)
 	String() string
 }
 
-type targetInfo struct{
-	theirSource net.IP
-	rtt []time.Duration
-}
-
 type defaultTarget struct {
-	destination     *net.UDPAddr
-	theirIp         []net.IP
-	talkToThemIdx   int
-	listenToThemIdx int
-	ourIp           net.IP
-	useDial         bool
-	latency         []time.Duration
-	name            string
-	platform        string
+	info        []targetInfo
+	best        int
+	name        string
+	platform    string
 }
 
 func (o *defaultTarget) Send(msg message.Msg) (message.Msg, error) {
@@ -43,7 +34,7 @@ func (o *defaultTarget) Send(msg message.Msg) (message.Msg, error) {
 	case true:
 		srcIpAttr, err := attribute.NewAttrBuilder().
 			SetType(attribute.SrcIPv4Type).
-			SetString(o.ourIp.String()).
+			SetString(o.info[o.best].localAddr.String()).
 			Build()
 		if err != nil {
 			return nil, err
@@ -54,12 +45,9 @@ func (o *defaultTarget) Send(msg message.Msg) (message.Msg, error) {
 	}
 
 	out := communicate.SendThis{
-		Payload: payload,
-		Destination: &net.UDPAddr{
-			IP:   o.theirIp[o.talkToThemIdx],
-			Port: communicate.CiscoL2TPort,
-		},
-		ExpectReplyFrom: o.theirIp[o.listenToThemIdx],
+		Payload:         payload,
+		Destination:     o.info[o.best].destination,
+		ExpectReplyFrom: o.info[o.best].theirSource,
 		RttGuess:        communicate.InitialRTTGuess,
 	}
 
@@ -72,10 +60,17 @@ func (o *defaultTarget) Send(msg message.Msg) (message.Msg, error) {
 	return message.UnmarshalMessage(in.ReplyData)
 }
 
+//info            []targetInfo		String()	Send()	HasIp() estimateLatency()
+//best            int				String()	Send() 			estimateLatency()
+//destination     *net.UDPAddr
+//theirIPs        []net.IP
+//ourIp           net.IP
+//name            string			String()
+//platform        string			String()
 func (o *defaultTarget) String() string {
 	var out bytes.Buffer
 
-	out.WriteString("\nTarget Hostname:    ")
+	out.WriteString("\nTarget Hostname:     ")
 	switch o.name {
 	case "":
 		out.WriteString("<unknown>")
@@ -83,7 +78,7 @@ func (o *defaultTarget) String() string {
 		out.WriteString(o.name)
 	}
 
-	out.WriteString("\nTarget Platform:    ")
+	out.WriteString("\nTarget Platform:     ")
 	switch o.platform {
 	case "":
 		out.WriteString("<unknown>")
@@ -92,49 +87,51 @@ func (o *defaultTarget) String() string {
 	}
 
 	out.WriteString("\nKnown IP Addresses:")
-	for _, ip := range o.theirIp {
-		out.WriteString(" ")
-		out.WriteString(ip.String())
+	for _, i := range o.info {
+		out.WriteString(fmt.Sprintf("\n  %15s responds from %-15s %s",
+			i.destination.IP.String(),
+			i.theirSource,
+			i.rtt))
 	}
 
-	out.WriteString("\nTarget address:     ")
-	switch {
-	case o.talkToThemIdx >= 0:
-		out.WriteString(o.theirIp[o.talkToThemIdx].String())
-	default:
-		out.WriteString("none")
-	}
+	out.WriteString("\nTarget address:      ")
+	out.WriteString(o.info[o.best].destination.IP.String())
 
-	out.WriteString("\nListen address:     ")
-	switch {
-	case o.listenToThemIdx >= 0:
-		out.WriteString(o.theirIp[o.listenToThemIdx].String())
-	default:
-		out.WriteString("none")
-	}
+	out.WriteString("\nListen address:      ")
+	out.WriteString(o.info[o.best].theirSource.String())
 
-	out.WriteString("\nLocal address:      ")
-	switch o.ourIp.String() {
-	case nilIP:
-		out.WriteString("none")
-	default:
-		out.WriteString(o.ourIp.String())
-	}
-
-	out.WriteString("\nUse Dial:           ")
-	out.WriteString(strconv.FormatBool(o.useDial))
+	out.WriteString("\nLocal address:       ")
+	out.WriteString(o.info[o.best].localAddr.String())
 
 	return out.String()
+}
+
+// HasIp returns a boolean indicating whether the target is known
+// to have the given IP address.
+func (o defaultTarget) HasIp(in *net.IP) bool {
+	for _, i := range o.info {
+		if in.Equal(i.destination.IP) {
+			return true
+		}
+	}
+	return false
 }
 
 // estimateLatency tries to estimate the response time for this target
 // using the contents of the objects latency slice.
 func (o *defaultTarget) estimateLatency() time.Duration {
-	if len(o.latency) == 0 {
+	observed := o.info[o.best].rtt
+	if len(observed) == 0 {
 		return communicate.InitialRTTGuess
 	}
+
+	// trim the latency samples
+	if len(observed) > maxLatencySamples {
+		o.info[o.best].rtt = observed[:10]
+	}
+
 	var result int64
-	for i, l := range o.latency {
+	for i, l := range observed {
 		switch i {
 		case 0:
 			result = int64(l)
@@ -142,19 +139,17 @@ func (o *defaultTarget) estimateLatency() time.Duration {
 			result = (result + int64(l)) / 2
 		}
 	}
-	return time.Duration(float32(result) * float32(1.15))
+	return time.Duration(float32(result) * float32(1.25))
 }
 
 // updateLatency adds the passed time.Duration as the most recent
-// latency sample, trims the latency slice to size.
-func (o *defaultTarget) updateLatency(t time.Duration) {
-	o.latency = append(o.latency, t)
-	// delete old elements of latency slice because we care more about
-	// recent data (and certainly want to purge early bad assumptions)
-	if len(o.latency) > maxLatencySamples {
-		o.latency = o.latency[len(o.latency)-maxLatencySamples : len(o.latency)]
+// latency sample to the specified targetInfo index.
+func (o *defaultTarget) updateLatency(index int, t time.Duration) {
+	var samples int
+	if len(o.info[index].rtt) < maxLatencySamples-1 {
+		samples = len(o.info[index].rtt) + 1
 	}
-
+	o.info[index].rtt = append(o.info[index].rtt, t)[:samples]
 }
 
 type SendMessageConfig struct {
