@@ -11,7 +11,6 @@ import (
 )
 
 const (
-	nilIP             = "<nil>"
 	maxLatencySamples = 10
 )
 
@@ -60,13 +59,6 @@ func (o *defaultTarget) Send(msg message.Msg) (message.Msg, error) {
 	return message.UnmarshalMessage(in.ReplyData)
 }
 
-//info            []targetInfo		String()	Send()	HasIp() estimateLatency()
-//best            int				String()	Send() 			estimateLatency()
-//destination     *net.UDPAddr
-//theirIPs        []net.IP
-//ourIp           net.IP
-//name            string			String()
-//platform        string			String()
 func (o *defaultTarget) String() string {
 	var out bytes.Buffer
 
@@ -127,9 +119,10 @@ func (o *defaultTarget) estimateLatency() time.Duration {
 
 	// trim the latency samples
 	if len(observed) > maxLatencySamples {
-		o.info[o.best].rtt = observed[:10]
+		o.info[o.best].rtt = observed[:maxLatencySamples]
 	}
 
+	// half-assed latency estimator does a rolling average then pads 25%
 	var result int64
 	for i, l := range observed {
 		switch i {
@@ -145,11 +138,13 @@ func (o *defaultTarget) estimateLatency() time.Duration {
 // updateLatency adds the passed time.Duration as the most recent
 // latency sample to the specified targetInfo index.
 func (o *defaultTarget) updateLatency(index int, t time.Duration) {
-	var samples int
+	upperBound := maxLatencySamples
 	if len(o.info[index].rtt) < maxLatencySamples-1 {
-		samples = len(o.info[index].rtt) + 1
+		// not many samples here. set the upper bound (used below)
+		// to match the sample count after the append()
+		upperBound = len(o.info[index].rtt) + 1
 	}
-	o.info[index].rtt = append(o.info[index].rtt, t)[:samples]
+	o.info[index].rtt = append(o.info[index].rtt, t)[:upperBound]
 }
 
 type SendMessageConfig struct {
