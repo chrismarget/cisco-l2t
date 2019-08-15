@@ -159,7 +159,17 @@ func checkTarget(destination *net.UDPAddr) testPacketResult {
 		}
 	}
 
-	payload := message.TestMsg().Marshal([]attribute.Attribute{ourIpAttr})
+	testMsg, err := message.TestMsg()
+	if err != nil {
+		return testPacketResult{err: err}
+	}
+
+	err = testMsg.Validate()
+	if err != nil {
+		return testPacketResult{err: err}
+	}
+
+	payload := testMsg.Marshal([]attribute.Attribute{ourIpAttr})
 
 	// We're going to send the message via two different sockets: A "connected"
 	// (dial) socket and a "non-connected" (listen) socket. The former can
@@ -214,12 +224,12 @@ func checkTarget(destination *net.UDPAddr) testPacketResult {
 		}
 	}
 
-	msg, err := message.UnmarshalMessage(in.ReplyData)
+	replyMsg, err := message.UnmarshalMessage(in.ReplyData)
 	if err != nil {
 		return testPacketResult{err: err}
 	}
 
-	err = msg.Validate()
+	err = replyMsg.Validate()
 	if err != nil {
 		return testPacketResult{err: err}
 	}
@@ -227,7 +237,7 @@ func checkTarget(destination *net.UDPAddr) testPacketResult {
 	// Pull the name and platform strings from the message.
 	var name string
 	var platform string
-	for t, a := range msg.Attributes() {
+	for t, a := range replyMsg.Attributes() {
 		if t == attribute.DevNameType {
 			name = a.String()
 		}
