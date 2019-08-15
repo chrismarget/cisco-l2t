@@ -263,7 +263,9 @@ func (o *defaultMsg) Marshal(extraAttrs []attribute.Attribute) []byte {
 func (o *defaultMsg) String() string {
 	sb := strings.Builder{}
 	sb.WriteString(MsgTypeToString[o.Type()])
-	sb.WriteString(" with ")
+	sb.WriteString(" (")
+	sb.WriteString(strconv.Itoa(int(o.Type())))
+	sb.WriteString(") with ")
 	sb.WriteString(strconv.Itoa(int(o.AttrCount())))
 	sb.WriteString(" attributes (")
 	sb.WriteString(strconv.Itoa(int(o.Len())))
