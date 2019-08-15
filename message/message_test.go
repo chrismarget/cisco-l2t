@@ -670,3 +670,32 @@ func TestUnmarshalMessage(t *testing.T) {
 	_ = msg
 	// TODO inspect the message
 }
+
+func TestString(t *testing.T) {
+	data := []byte{
+		3, 1, 0, 86, 12,
+		4, 10, 67, 97, 116, 50, 57, 54, 48, 0,
+		5, 19, 87, 83, 45, 67, 50, 57, 54, 48, 71, 45, 50, 52, 84, 67, 45, 76, 0,
+		6, 6, 192, 168, 1, 254,
+		15, 3, 1,
+		13, 6, 0, 0, 0, 0,
+		16, 3, 0,
+		7, 8, 71, 105, 48, 47, 52, 0,
+		11, 3, 0,
+		9, 6, 0, 0, 0, 0,
+		8, 8, 71, 105, 48, 47, 52, 0,
+		12, 3, 0,
+		10, 6, 0, 0, 0, 0,
+	}
+
+	msg, err := UnmarshalMessage(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected := "L2T_REPLY_DST with 12 attributes (86 bytes)"
+	result := msg.String()
+	if expected != result {
+		t.Fatalf("expected '%s', got '%s'", expected, result)
+	}
+}

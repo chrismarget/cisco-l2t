@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"github.com/chrismarget/cisco-l2t/attribute"
 	"math"
+	"strconv"
+	"strings"
 )
 
 type (
@@ -135,6 +137,9 @@ type Msg interface {
 	// source traffic from different local IP interfaces, so this lets us tack
 	// the source attribute on at the last moment.
 	Marshal([]attribute.Attribute) []byte
+
+	// String returns the message header as a multiline string.
+	String() string
 }
 
 type defaultMsg struct {
@@ -253,6 +258,17 @@ func (o *defaultMsg) Marshal(extraAttrs []attribute.Attribute) []byte {
 	}
 
 	return outBytes.Bytes()
+}
+
+func (o *defaultMsg) String() string {
+	sb := strings.Builder{}
+	sb.WriteString(MsgTypeToString[o.Type()])
+	sb.WriteString(" with ")
+	sb.WriteString(strconv.Itoa(int(o.AttrCount())))
+	sb.WriteString(" attributes (")
+	sb.WriteString(strconv.Itoa(int(o.Len())))
+	sb.WriteString(" bytes)")
+	return sb.String()
 }
 
 // MsgBuilder represents an L2T message builder
