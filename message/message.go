@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"github.com/chrismarget/cisco-l2t/attribute"
 	"math"
-	"os"
 )
 
 type (
@@ -25,6 +24,9 @@ const (
 	RequestSrc = msgType(2)
 	ReplyDst   = msgType(3)
 	ReplySrc   = msgType(4)
+
+	testMacString = "ffff.ffff.ffff"
+	testVlan = 1
 )
 
 var (
@@ -451,31 +453,28 @@ func ListMissingAttributes(t msgType, a map[attribute.AttrType]attribute.Attribu
 }
 
 // TestMsg returns a pre-built message useful for probing for a switch
-func TestMsg() Msg {
+func TestMsg() (Msg, error) {
 	var a attribute.Attribute
 	var err error
+
 	builder := NewMsgBuilder()
-	a, err = attribute.NewAttrBuilder().SetType(attribute.SrcMacType).SetString("ffff.ffff.ffff").Build()
+	a, err = attribute.NewAttrBuilder().SetType(attribute.SrcMacType).SetString(testMacString).Build()
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		return nil, err
 	}
 	builder.SetAttr(a)
 
-	a, err = attribute.NewAttrBuilder().SetType(attribute.DstMacType).SetString("ffff.ffff.ffff").Build()
+	a, err = attribute.NewAttrBuilder().SetType(attribute.DstMacType).SetString(testMacString).Build()
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(2)
+		return nil, err
 	}
 	builder.SetAttr(a)
 
-	a, err = attribute.NewAttrBuilder().SetType(attribute.VlanType).SetInt(uint32(1)).Build()
+	a, err = attribute.NewAttrBuilder().SetType(attribute.VlanType).SetInt(uint32(testVlan)).Build()
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(3)
+		return nil, err
 	}
 	builder.SetAttr(a)
 
-	return builder.Build()
-
+	return builder.Build(), nil
 }

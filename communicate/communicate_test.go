@@ -147,13 +147,22 @@ func TestCommunicateQuit(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	payload := message.TestMsg().Marshal([]attribute.Attribute{ourIpAttr})
+	testMsg, err := message.TestMsg()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = testMsg.Validate()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	payload := testMsg.Marshal([]attribute.Attribute{ourIpAttr})
 
 	out := SendThis{
 		Payload:         payload,
 		Destination:     &destination,
 		ExpectReplyFrom: destination.IP,
-		RttGuess:        initialRTTGuess,
 	}
 
 	quit := make(chan struct{})
@@ -206,13 +215,22 @@ func TestGoAwayBostonDial(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	payload := message.TestMsg().Marshal([]attribute.Attribute{ourIpAttr})
+	testMsg, err := message.TestMsg()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = testMsg.Validate()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	payload :=testMsg.Marshal([]attribute.Attribute{ourIpAttr})
 
 	out := SendThis{
 		Payload:         payload,
 		Destination:     &destination,
 		ExpectReplyFrom: destination.IP,
-		RttGuess:        initialRTTGuess,
 	}
 
 	in := Communicate(out, nil)

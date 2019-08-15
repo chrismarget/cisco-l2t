@@ -228,8 +228,14 @@ func Communicate(out SendThis, quit chan struct{}) SendResult {
 		go closeListenerAfterNReplies(cxn, outstandingMsgs, end)
 	}()
 
-	// retransmit backoff timer tells us when to re-send
-	bot := NewBackoffTicker(out.RttGuess)
+	// retransmit backoff timer tells us when to re-send. Use the supplied
+	// estimate only if it appears to be grounded in reality.
+	var bot *BackoffTicker
+	if out.RttGuess > time.Millisecond {
+		bot = NewBackoffTicker(out.RttGuess)
+	} else {
+		bot = NewBackoffTicker(InitialRTTGuess)
+	}
 	defer bot.Stop()
 
 	// keep track of whether the caller aborted us via the quit
