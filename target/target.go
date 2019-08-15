@@ -77,7 +77,7 @@ func (o *defaultTarget) SendUnsafe(msg message.Msg) (message.Msg, error) {
 func (o *defaultTarget) String() string {
 	var out bytes.Buffer
 
-	out.WriteString("Target Hostname:     ")
+	out.WriteString("Target info:\n  Hostname:     ")
 	switch o.name {
 	case "":
 		out.WriteString("<unknown>")
@@ -85,7 +85,7 @@ func (o *defaultTarget) String() string {
 		out.WriteString(o.name)
 	}
 
-	out.WriteString("\nTarget Platform:     ")
+	out.WriteString("\n  Platform:     ")
 	switch o.platform {
 	case "":
 		out.WriteString("<unknown>")
@@ -93,21 +93,21 @@ func (o *defaultTarget) String() string {
 		out.WriteString(o.platform)
 	}
 
-	out.WriteString("\nKnown IP Addresses:")
+	out.WriteString("\n  Known IP Addresses:")
 	for _, i := range o.info {
-		out.WriteString(fmt.Sprintf("\n  %15s responds from %-15s %s",
+		out.WriteString(fmt.Sprintf("\n    %15s responds from %-15s %s",
 			i.destination.IP.String(),
 			i.theirSource,
 			i.rtt))
 	}
 
-	out.WriteString("\nTarget address:      ")
+	out.WriteString("\n  Target address:      ")
 	out.WriteString(o.info[o.best].destination.IP.String())
 
-	out.WriteString("\nListen address:      ")
+	out.WriteString("\n  Listen address:      ")
 	out.WriteString(o.info[o.best].theirSource.String())
 
-	out.WriteString("\nLocal address:       ")
+	out.WriteString("\n  Local address:       ")
 	out.WriteString(o.info[o.best].localAddr.String())
 
 	return out.String()
