@@ -364,10 +364,9 @@ func AttrStringToType(in string) (AttrType, error) {
 // SortAttributes sorts a map (what you'd get from message.Attributes())
 // into a slice with the attributes in numerical order.
 func SortAttributes(in map[AttrType]Attribute) []Attribute {
-	var i AttrType
 	var out []Attribute
-	for i = 0; int(i) <= math.MaxUint8; i++ {
-		if a, ok := in[i]; ok {
+	for i := 0; i <= math.MaxUint8; i++ {
+		if a, ok := in[AttrType(i)]; ok {
 			out = append(out, a)
 		}
 	}
