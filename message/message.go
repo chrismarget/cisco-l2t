@@ -339,11 +339,6 @@ func (o *defaultMsgBuilder) SetAttr(a attribute.Attribute) MsgBuilder {
 	return o
 }
 
-//func (o *defaultMsgBuilder) SetSrcIpFunc(f func(*net.IP) (*net.IP, error)) MsgBuilder {
-//	o.srcIpFunc = f
-//	return o
-//}
-
 func (o *defaultMsgBuilder) Build() Msg {
 	srcIpIncluded := false
 	if _, exists := o.attrs[attribute.SrcIPv4Type]; exists {
