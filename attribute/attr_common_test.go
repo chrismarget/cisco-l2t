@@ -3,6 +3,7 @@ package attribute
 import (
 	"math"
 	"reflect"
+	"strconv"
 	"testing"
 )
 
@@ -123,6 +124,46 @@ func TestUnmarshalAttribute(t *testing.T) {
 
 		if !reflect.DeepEqual(expected, result) {
 			t.Fatalf("structures don't match")
+		}
+	}
+}
+
+func TestAttrStringToType(t *testing.T) {
+	badInDigits := []string{"-1", "256"}
+	for _, bad := range badInDigits {
+		_, err := AttrStringToType(bad)
+		if err == nil {
+			t.Fatalf("%s should have produced an error", bad)
+		}
+	}
+
+	badInStrings := []string{"foo", "whatever"}
+	for _, bad := range badInStrings {
+		_, err := AttrStringToType(bad)
+		if err == nil {
+			t.Fatalf("%s should have produced an error", bad)
+		}
+	}
+
+	var goodInDigits []string
+	for i := 0; i <= math.MaxUint8; i++ {
+		goodInDigits = append(goodInDigits, strconv.Itoa(i))
+	}
+	for _, good := range goodInDigits {
+		_, err := AttrStringToType(good)
+		if err != nil {
+			t.Fatalf("%s should not have caused an error", good)
+		}
+	}
+
+	var goodInStrings []string
+	for _, s := range AttrTypeString {
+		goodInStrings = append(goodInStrings, s)
+	}
+	for _, good := range goodInStrings {
+		_, err := AttrStringToType(good)
+		if err != nil {
+			t.Fatalf("%s should not have caused an error", good)
 		}
 	}
 }
