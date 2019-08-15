@@ -1,7 +1,6 @@
 package target
 
 import (
-	"fmt"
 	"github.com/chrismarget/cisco-l2t/attribute"
 	"github.com/chrismarget/cisco-l2t/communicate"
 	"github.com/chrismarget/cisco-l2t/message"
@@ -19,9 +18,16 @@ func TargetBuilder() Builder {
 	return &defaultTargetBuilder{}
 }
 
+type targetInfo struct {
+	destination *net.UDPAddr
+	theirSource net.IP
+	localAddr   net.IP
+	rtt         []time.Duration
+	bestRtt     time.Duration
+}
+
 type defaultTargetBuilder struct {
-	addresses           []net.IP
-	preferredAddressIdx int
+	addresses []net.IP
 }
 
 func (o *defaultTargetBuilder) AddIp(ip net.IP) Builder {
@@ -31,52 +37,22 @@ func (o *defaultTargetBuilder) AddIp(ip net.IP) Builder {
 	return o
 }
 
-func (o defaultTargetBuilder) Build() (Target, error) {
-	// We keep track of every address the target replies from, ordered for
-	// correlation with the slice of addresses we spoke to (o.addresses)
-	var observedIps []net.IP
-	var latency []time.Duration
-	var result testPacketResult
+func (o *defaultTargetBuilder) Build() (Target, error) {
 	var name string
 	var platform string
 	var info []targetInfo
 
-	// Loop until every element in o.addresses has a corresponding targetInfo
-	// structure in the info slice. Note that the loop condition is a length
-	// comparison rather than a range() because o.addresses might be growing as
-	// the loop progresses.
-	for len(o.addresses) > len(info) {
+	// Loop over o.addresses, noting that it may grow as the loop progresses
+	var i int
+	for i < len(o.addresses) {
 		destination := &net.UDPAddr{
 			IP:   o.addresses[len(info)],
 			Port: communicate.CiscoL2TPort,
 		}
 		result := checkTarget(destination)
-		info = append(info, targetInfo{
-			theirSource: result.sourceIp,
-			rtt:         []time.Duration{result.latency},
-		})
 
-		// append newly discovered addresses to the list
-		if result.sourceIp != nil && addressIsNew(result.sourceIp, o.addresses) {
-			o.addresses = append(o.addresses, result.sourceIp)
-		}
-	}
-	// todo: i've built up a slice of targetInfo structures, need to replace the loops below.
-	//  also think about deeper (more samples) rtt testing.
-
-	// Loop until every element in o.addresses has a corresponding
-	// observedIps element (these will be <nil> if no reply)
-	for len(o.addresses) > len(observedIps) {
-		destination := &net.UDPAddr{
-			IP:   o.addresses[len(observedIps)],
-			Port: communicate.CiscoL2TPort,
-		}
-		result = checkTarget(destination)
-		if result.err != nil {
-			return nil, fmt.Errorf("error checking %s - %s", result.sourceIp, result.err.Error())
-		}
-
-		// save "name" and "result" so they're not crushed by a future failed query
+		// Save "name" and "result" so they're not
+		// overwritten by a future failed query.
 		if result.name != "" {
 			name = result.name
 		}
@@ -84,82 +60,43 @@ func (o defaultTargetBuilder) Build() (Target, error) {
 			platform = result.platform
 		}
 
-		// add the result (maybe <nil>) to the list of observed addresses
-		observedIps = append(observedIps, result.sourceIp)
+		// Add a targetInfo structure to the slice for every address we probe.
+		info = append(info, targetInfo{
+			localAddr:   result.localIp,
+			destination: destination,
+			theirSource: result.sourceIp,
+			rtt:         []time.Duration{result.latency},
+			bestRtt:     result.latency, // only sample is best sample
+		})
 
-		// Did we hear back from the target?
-		if result.sourceIp != nil {
-			latency = append(latency, result.latency)
-			// if the observed address is previously unseen, add it to o.addresses
-			if addressIsNew(result.sourceIp, o.addresses) {
-				o.addresses = append(o.addresses, result.sourceIp)
-			}
+		// Append newly discovered addresses to the list so we probe them too.
+		if result.sourceIp != nil && addressIsNew(result.sourceIp, o.addresses) {
+			o.addresses = append(o.addresses, result.sourceIp)
+		}
+		i++
+	}
+
+	// look through the targetInfo structures we've collected
+	var fastestTarget int
+	for i, ti := range info {
+		// ignore targetInfo if the target didn't talk to us
+		if ti.theirSource == nil {
+			continue
+		}
+
+		// point the fastestTarget index at the first targetInfo
+		// (first iteration), then point it at the fastest one.
+		if i == 0 || ti.bestRtt < info[fastestTarget].bestRtt {
+			fastestTarget = i
 		}
 	}
 
-	// Now that we've probed every address, check to see whether we had
-	// symmetric comms with any of those addresses. These will be index
-	// locations where o.addresses and observedIps have the same value.
-	// todo: we could be inspecting RTT latency here to make an even better choice
-	for i, ip := range o.addresses {
-		if ip.Equal(observedIps[i]) {
-			// Get the local system address that faces that target.
-			ourIp, err := communicate.GetOutgoingIpForDestination(ip)
-			if err != nil {
-				return nil, err
-			}
-
-			return &defaultTarget{
-				theirIp:         o.addresses,
-				talkToThemIdx:   i,
-				listenToThemIdx: i,
-				ourIp:           ourIp,
-				useDial:         true,
-				latency:         initialLatency(),
-				name:            name,
-				platform:        platform,
-			}, nil
-		}
-	}
-
-	// If we got here, then no symmetric comms are possible.
-	// Did we get ANY reply?
-
-	// Loop over observed (reply source) address list. Ignore any that are <nil>
-	// todo: we could be inspecting RTT latency here to make an even better choice
-	for i, replyAddr := range observedIps {
-		if replyAddr != nil {
-			// We found one. The target replies from "replyAddr".
-			// Get the local system address that faces that target.
-			ourIp, err := communicate.GetOutgoingIpForDestination(replyAddr)
-			if err != nil {
-				return nil, err
-			}
-
-			// Find the responding address in the target's address list.
-			var listenIdx int
-			for k, v := range o.addresses {
-				if v.String() == replyAddr.String() {
-					listenIdx = k
-				}
-			}
-
-			return &defaultTarget{
-				theirIp:         o.addresses,
-				talkToThemIdx:   i,
-				listenToThemIdx: listenIdx,
-				ourIp:           ourIp,
-				useDial:         false,
-				latency:         initialLatency(),
-				name:            name,
-				platform:        platform,
-			}, nil
-		}
-	}
-
-	return nil, &UnreachableTargetError{
-		AddressesTried: o.addresses,
-	}
+	return &defaultTarget{
+		info:     info,
+		best:     fastestTarget,
+		name:     name,
+		platform: platform,
+	}, nil
 }
 
 // addressIsNew returns a boolean indicating whether
@@ -180,6 +117,7 @@ type testPacketResult struct {
 	sourceIp    net.IP
 	platform    string
 	name        string
+	localIp     net.IP
 }
 
 func (r *testPacketResult) String() string {
@@ -294,11 +232,12 @@ func checkTarget(destination *net.UDPAddr) testPacketResult {
 	}
 
 	return testPacketResult{
-		err:         in.Err,
-		latency:     in.Rtt,
-		sourceIp:    in.ReplyFrom,
-		platform:    platform,
-		name:        name,
+		localIp:  ourIp,
+		err:      in.Err,
+		latency:  in.Rtt,
+		sourceIp: in.ReplyFrom,
+		platform: platform,
+		name:     name,
 	}
 }
 
