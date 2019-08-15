@@ -19,6 +19,17 @@ const (
 	// todo: It's not completely clear that these first two types
 	//  are really SRC and DST... The different query types seem to
 	//  change the meaning of these attributes. So, that's fun.
+	//  Even the switch doesn't seem to know. From some debugs:
+	//  Aug 15 22:39:46.529: L2_ATTR_SRC_MAC
+	//	 attr->type : 1 attr->len  : 8 attr->val  : ffff.ffff.ffff
+	//  Aug 15 22:39:46.529: L2_ATTR_DST_MAC
+	//	 attr->type : 2 attr->len  : 8 attr->val  : b8f6.b115.3a57
+	//        ...then later (but in the same millisecond)...
+	//  Aug 15 22:39:46.529: trace_request->type : l2t_request_src
+	//  Aug 15 22:39:46.529: trace_request->src_mac     : b8f6.b115.3a57
+	//                       trace_request->dst_mac     : ffff.ffff.ffff
+	//  Best guess: src and dst are types 1 and 2, but the trace_request
+	//  module treats ignores the type field, relies on order.
 	SrcMacType        = AttrType(1)
 	DstMacType        = AttrType(2)
 	VlanType          = AttrType(3)
