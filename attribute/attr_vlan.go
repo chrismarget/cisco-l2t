@@ -9,6 +9,7 @@ import (
 const (
 	minVLAN = 1
 	maxVLAN = 4094
+	DefaultVlan = 1
 )
 
 type vlanAttribute struct {

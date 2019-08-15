@@ -494,7 +494,7 @@ func TestMsg() (Msg, error) {
 	}
 	builder.SetAttr(a)
 
-	a, err = attribute.NewAttrBuilder().SetType(attribute.VlanType).SetInt(uint32(testVlan)).Build()
+	a, err = attribute.NewAttrBuilder().SetType(attribute.VlanType).SetInt(uint32(attribute.DefaultVlan)).Build()
 	if err != nil {
 		return nil, err
 	}
