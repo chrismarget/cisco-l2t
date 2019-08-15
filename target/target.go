@@ -17,17 +17,32 @@ const (
 type Target interface {
 	HasIp(*net.IP) bool
 	Send(message.Msg) (message.Msg, error)
+	SendUnsafe(message.Msg) (message.Msg, error)
 	String() string
 }
 
 type defaultTarget struct {
-	info        []targetInfo
-	best        int
-	name        string
-	platform    string
+	info     []targetInfo
+	best     int
+	name     string
+	platform string
 }
 
-func (o *defaultTarget) Send(msg message.Msg) (message.Msg, error) {
+func (o *defaultTarget) Send(out message.Msg) (message.Msg, error) {
+	in, err := o.SendUnsafe(out)
+	if err != nil {
+		return nil, err
+	}
+
+	err = in.Validate()
+	if err != nil {
+		return in, err
+	}
+
+	return in, nil
+}
+
+func (o *defaultTarget) SendUnsafe(msg message.Msg) (message.Msg, error) {
 	var payload []byte
 	switch msg.NeedsSrcIp() {
 	case true:
@@ -56,7 +71,7 @@ func (o *defaultTarget) Send(msg message.Msg) (message.Msg, error) {
 		return nil, in.Err
 	}
 
-	return message.UnmarshalMessage(in.ReplyData)
+	return message.UnmarshalMessageUnsafe(in.ReplyData)
 }
 
 func (o *defaultTarget) String() string {

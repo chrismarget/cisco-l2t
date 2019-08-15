@@ -26,7 +26,7 @@ const (
 	ReplySrc   = msgType(4)
 
 	testMacString = "ffff.ffff.ffff"
-	testVlan = 1
+	testVlan      = 1
 )
 
 var (
@@ -334,9 +334,9 @@ func (o *defaultMsgBuilder) Build() Msg {
 		srcIpIncluded = true
 	}
 	m := &defaultMsg{
-		msgType: o.msgType,
-		msgVer:  o.msgVer,
-		attrs:   o.attrs,
+		msgType:       o.msgType,
+		msgVer:        o.msgVer,
+		attrs:         o.attrs,
 		srcIpIncluded: srcIpIncluded,
 		//srcIpFunc: o.srcIpFunc,
 	}
@@ -393,7 +393,31 @@ func orderAttributes(msgAttributes []attribute.Attribute, msgType msgType) []att
 	return msgAttributes
 }
 
+// UnmarshalMessage takes a byte slice, returns a message after having
 func UnmarshalMessage(b []byte) (Msg, error) {
+	msg, err := UnmarshalMessageUnsafe(b)
+	if err != nil {
+		return nil, err
+	}
+
+	// validate the message header
+	err = msg.Validate()
+	if err != nil {
+		return nil, err
+	}
+
+	// validate each attribute
+	for _, att := range msg.Attributes() {
+		err := att.Validate()
+		if err != nil {
+			return msg, err
+		}
+	}
+
+	return msg, nil
+}
+
+func UnmarshalMessageUnsafe(b []byte) (Msg, error) {
 	if len(b) < int(headerLenByVersion[version1]) {
 		return nil, fmt.Errorf("cannot unmarshal message got only %d bytes", len(b))
 	}
