@@ -1,6 +1,7 @@
 package target
 
 import (
+	"fmt"
 	"github.com/chrismarget/cisco-l2t/attribute"
 	"github.com/chrismarget/cisco-l2t/communicate"
 	"github.com/chrismarget/cisco-l2t/message"
@@ -77,7 +78,7 @@ func (o *defaultTargetBuilder) Build() (Target, error) {
 	}
 
 	// look through the targetInfo structures we've collected
-	var fastestTarget int
+	fastestTarget := -1
 	for i, ti := range info {
 		// ignore targetInfo if the target didn't talk to us
 		if ti.theirSource == nil {
@@ -89,6 +90,10 @@ func (o *defaultTargetBuilder) Build() (Target, error) {
 		if i == 0 || ti.bestRtt < info[fastestTarget].bestRtt {
 			fastestTarget = i
 		}
+	}
+
+	if fastestTarget < 0 {
+		return nil, fmt.Errorf("target not available")
 	}
 
 	return &defaultTarget{
