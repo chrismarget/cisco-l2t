@@ -61,12 +61,16 @@ func (o *defaultTargetBuilder) Build() (Target, error) {
 			platform = result.platform
 		}
 
+		var rttSamples []time.Duration
+		if result.sourceIp != nil {
+			rttSamples = append(rttSamples, result.latency)
+		}
 		// Add a targetInfo structure to the slice for every address we probe.
 		info = append(info, targetInfo{
 			localAddr:   result.localIp,
 			destination: destination,
 			theirSource: result.sourceIp,
-			rtt:         []time.Duration{result.latency},
+			rtt:         rttSamples,
 			bestRtt:     result.latency, // only sample is best sample
 		})
 
