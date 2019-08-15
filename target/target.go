@@ -77,7 +77,7 @@ func (o *defaultTarget) SendUnsafe(msg message.Msg) (message.Msg, error) {
 func (o *defaultTarget) String() string {
 	var out bytes.Buffer
 
-	out.WriteString("\nTarget Hostname:     ")
+	out.WriteString("Target Hostname:     ")
 	switch o.name {
 	case "":
 		out.WriteString("<unknown>")
