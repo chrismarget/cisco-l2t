@@ -16,6 +16,9 @@ const (
 	TLsize     = 2
 	MinAttrLen = 3
 
+	// todo: It's not completely clear that these first two types
+	//  are really SRC and DST... The different query types seem to
+	//  change the meaning of these attributes. So, that's fun.
 	SrcMacType        = AttrType(1)
 	DstMacType        = AttrType(2)
 	VlanType          = AttrType(3)
