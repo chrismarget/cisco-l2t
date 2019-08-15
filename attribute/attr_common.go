@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"strconv"
 )
 
 type (
@@ -337,3 +338,26 @@ func LocationOfAttributeByType(s []Attribute, aType AttrType) int {
 	}
 	return -1
 }
+
+// AttrStringToType attempts to convert a string to an AttrType.
+// You can give it a string-y number ("2") or a known AttrType
+// label ("L2T_REQUEST_SRC").
+// Unknown labels and out-of-range string-y numbers produce an error.
+func AttrStringToType(in string) (AttrType, error) {
+	inAsInt, err := strconv.Atoi(in)
+	if err == nil {
+		if inAsInt >= 0 && inAsInt <= math.MaxUint8 {
+			return AttrType(inAsInt), nil
+		} else {
+			return 0, fmt.Errorf("value %d out of range", inAsInt)
+		}
+	} else {
+		for t, s := range AttrTypeString {
+			if s == in {
+				return t, nil
+			}
+		}
+	}
+	return 0, fmt.Errorf("unknown attribute type %s", in)
+}
+
