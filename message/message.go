@@ -261,8 +261,12 @@ func (o *defaultMsg) Marshal(extraAttrs []attribute.Attribute) []byte {
 }
 
 func (o *defaultMsg) String() string {
+	msgTypeName := MsgTypeToString[o.Type()]
+	if msgTypeName == "" {
+		msgTypeName = "unknown"
+	}
 	sb := strings.Builder{}
-	sb.WriteString(MsgTypeToString[o.Type()])
+	sb.WriteString(msgTypeName)
 	sb.WriteString(" (")
 	sb.WriteString(strconv.Itoa(int(o.Type())))
 	sb.WriteString(") with ")
