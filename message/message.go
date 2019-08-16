@@ -311,16 +311,6 @@ type defaultMsgBuilder struct {
 	//	srcIpFunc func(*net.IP) (*net.IP, error)
 }
 
-//func defaultSrcIpFunc(target *net.IP) (*net.IP, error) {
-//	c, err := net.Dial("udp4", target.String()+":1")
-//	if err != nil {
-//		return nil, err
-//	}
-//	defer c.Close()
-//
-//	return &c.LocalAddr().(*net.UDPAddr).IP, nil
-//}
-
 func NewMsgBuilder() MsgBuilder {
 	return &defaultMsgBuilder{
 		msgType: defaultMsgType,
