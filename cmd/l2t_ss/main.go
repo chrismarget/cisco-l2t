@@ -7,11 +7,13 @@ import (
 	"flag"
 	"fmt"
 	"github.com/chrismarget/cisco-l2t/attribute"
+	"github.com/chrismarget/cisco-l2t/communicate"
 	"github.com/chrismarget/cisco-l2t/message"
 	"log"
 	"net"
 	"os"
 	"strings"
+	"time"
 )
 
 const (
@@ -22,7 +24,7 @@ const (
 	attrCountFlag  = "c"
 	attrFlag       = "a"
 	defaultVersion = 1
-	unsafeFlag     = "u"
+	printFlag      = "p"
 )
 
 type attrStringFlags []string
@@ -97,11 +99,11 @@ func flagProvided(name string) bool {
 	return found
 }
 
-func buildMsg(t uint8, v uint8, l uint16, c uint8, asf attrStringFlags) (message.Msg, error) {
+func buildMsgBytes(t uint8, v uint8, l uint16, c uint8, asf attrStringFlags) ([]byte, error) {
 	payload, err := getAttsBytesFromStrings(asf)
 	if err != nil {
 		log.Println(err)
-		os.Exit(2)
+		os.Exit(11)
 	}
 
 	bb := bytes.Buffer{}
@@ -113,7 +115,7 @@ func buildMsg(t uint8, v uint8, l uint16, c uint8, asf attrStringFlags) (message
 	}
 	if err != nil {
 		log.Println(err)
-		os.Exit(3)
+		os.Exit(12)
 	}
 
 	if flagProvided(verFlag) {
@@ -123,19 +125,19 @@ func buildMsg(t uint8, v uint8, l uint16, c uint8, asf attrStringFlags) (message
 	}
 	if err != nil {
 		log.Println(err)
-		os.Exit(4)
+		os.Exit(13)
 	}
 
+	b := make([]byte, 2)
 	if flagProvided(lenFlag) {
-		_, err = bb.Write([]byte{uint8(l)})
+		binary.BigEndian.PutUint16(b, l)
 	} else {
-		b := make([]byte, 2)
 		binary.BigEndian.PutUint16(b, uint16(len(payload)+5))
-		_, err = bb.Write(b)
 	}
+	_, err = bb.Write(b)
 	if err != nil {
 		log.Println(err)
-		os.Exit(5)
+		os.Exit(14)
 	}
 
 	if flagProvided(attrCountFlag) {
@@ -145,37 +147,36 @@ func buildMsg(t uint8, v uint8, l uint16, c uint8, asf attrStringFlags) (message
 	}
 	if err != nil {
 		log.Println(err)
-		os.Exit(6)
+		os.Exit(15)
 	}
 
 	_, err = bb.Write(payload)
 	if err != nil {
 		log.Println(err)
-		os.Exit(7)
+		os.Exit(16)
 	}
 
-	out, err := message.UnmarshalMessageUnsafe(bb.Bytes())
-	if err != nil {
-		log.Println(err)
-		os.Exit(8)
-	}
-
-	return out, nil
+	return bb.Bytes(), nil
 }
 
 func main() {
 	var attrStringFlags attrStringFlags
-	flag.Var(&attrStringFlags, attrFlag, "attribute string form 'type:value'")
+	flag.Var(&attrStringFlags, attrFlag, "attribute string form 'type:value' or raw TLV hex string")
 
 	msgType := flag.Int(typeFlag, int(message.RequestSrc), "message type 0 - 255")
 	msgVer := flag.Int(verFlag, int(message.Version1), "message version 0 - 255")
 	msgLen := flag.Int(lenFlag, 0, "message length 0 - 65535")
 	msgAC := flag.Int(attrCountFlag, 0, "message attribute count 0 255")
-	unsafe := flag.Bool(unsafeFlag, false, "unsafe - don't attempt to parse outbound message")
+	doPrint := flag.Bool(printFlag, false, "attempt to parse/print outbound message")
 
 	flag.Parse()
 
-	outMsg, err := buildMsg(
+	if flag.NArg() != 1 {
+		flag.Usage()
+		os.Exit(1)
+	}
+
+	payload, err := buildMsgBytes(
 		uint8(*msgType),
 		uint8(*msgVer),
 		uint16(*msgLen),
@@ -184,22 +185,64 @@ func main() {
 	)
 	if err != nil {
 		log.Println(err)
-		os.Exit(1)
+		os.Exit(2)
 	}
 
-	if !*unsafe {
+	if *doPrint {
+		log.Println("do print")
+		outMsg,err := message.UnmarshalMessageUnsafe(payload)
+		if err != nil {
+			log.Println(err)
+			os.Exit(3)
+		}
+
 		fmt.Println(outMsg.String())
 		for _, a := range outMsg.Attributes() {
 			fmt.Println(a.String())
 		}
 	}
 
-	destination := net.UDPAddr{
-		IP:   nil,
-		Port: 0,
-		Zone: "",
+	//laddr := &net.UDPAddr{}
+	raddr := &net.UDPAddr{
+		IP:   net.ParseIP(flag.Arg(0)),
+		Port: communicate.CiscoL2TPort,
 	}
-	cxn := net.DialUDP()
+
+	//cxn, err := net.DialUDP(communicate.UdpProtocol, laddr, raddr )
+	//if err != nil {
+	//	log.Println(err)
+	//	os.Exit(3)
+	//}
+	//
+	//_, err = cxn.Write(payload)
+	//if err != nil {
+	//	log.Println(err)
+	//	os.Exit(4)
+	//}
+
+	sendThis := communicate.SendThis{
+		Payload:         payload,
+		Destination:     raddr,
+		ExpectReplyFrom: raddr.IP,
+		RttGuess:        50 * time.Millisecond,
+	}
+
+	result := communicate.Communicate(sendThis, nil)
+	if result.Err != nil {
+		log.Println(result.Err)
+		os.Exit(3)
+	}
+
+	inMsg, err := message.UnmarshalMessage(result.ReplyData)
+	if err != nil {
+		log.Println(result.Err)
+		os.Exit(3)
+	}
+
+	log.Println(inMsg.String())
+	for _, a := range inMsg.Attributes() {
+		log.Println(a.String())
+	}
 
 	os.Exit(0)
 }
