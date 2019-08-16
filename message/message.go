@@ -18,9 +18,9 @@ type (
 )
 
 const (
-	version1       = msgVer(1)
+	Version1       = msgVer(1)
 	defaultMsgType = RequestSrc
-	defaultMsgVer  = version1
+	defaultMsgVer  = Version1
 
 	RequestDst = MsgType(1)
 	RequestSrc = MsgType(2)
@@ -33,7 +33,7 @@ const (
 
 var (
 	headerLenByVersion = map[msgVer]msgLen{
-		version1: 5,
+		Version1: 5,
 	}
 
 	MsgTypeToString = map[MsgType]string{
@@ -176,8 +176,8 @@ func (o *defaultMsg) Attributes() map[attribute.AttrType]attribute.Attribute {
 
 func (o *defaultMsg) Validate() error {
 	// undersize check
-	if o.Len() < headerLenByVersion[version1] {
-		return fmt.Errorf("undersize message has %d bytes (min %d)", o.Len(), headerLenByVersion[version1])
+	if o.Len() < headerLenByVersion[Version1] {
+		return fmt.Errorf("undersize message has %d bytes (min %d)", o.Len(), headerLenByVersion[Version1])
 	}
 
 	// oversize check
@@ -238,7 +238,7 @@ func (o *defaultMsg) Marshal(extraAttrs []attribute.Attribute) []byte {
 	}
 
 	// build up the 5 byte header
-	marshaledLen := uint16(headerLenByVersion[version1])
+	marshaledLen := uint16(headerLenByVersion[Version1])
 	marshaledLen += uint16(attributeLen)
 	lenBytes := make([]byte, 2)
 	binary.BigEndian.PutUint16(lenBytes, marshaledLen)
@@ -283,7 +283,7 @@ type MsgBuilder interface {
 	SetType(MsgType) MsgBuilder
 
 	// SetVer sets the message version. Only one version is known to
-	// exist, so version1 is the default.
+	// exist, so Version1 is the default.
 	SetVer(msgVer) MsgBuilder
 
 	// SetAttr adds attributes to the message's []attribute.Attribute.
@@ -431,7 +431,7 @@ func UnmarshalMessage(b []byte) (Msg, error) {
 }
 
 func UnmarshalMessageUnsafe(b []byte) (Msg, error) {
-	if len(b) < int(headerLenByVersion[version1]) {
+	if len(b) < int(headerLenByVersion[Version1]) {
 		return nil, fmt.Errorf("cannot unmarshal message got only %d bytes", len(b))
 	}
 
@@ -442,7 +442,7 @@ func UnmarshalMessageUnsafe(b []byte) (Msg, error) {
 
 	attrs := make(map[attribute.AttrType]attribute.Attribute)
 
-	p := int(headerLenByVersion[version1])
+	p := int(headerLenByVersion[Version1])
 	for p < int(l) {
 		remaining := int(l) - p
 		if remaining < attribute.MinAttrLen {
