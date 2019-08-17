@@ -18,6 +18,7 @@ type Target interface {
 	GetVlans() ([]int, error)
 	HasIp(*net.IP) bool
 	HasVlan(int) (bool, error)
+	MacInVlan(net.HardwareAddr, int) (bool, error)
 	Send(message.Msg) (message.Msg, error)
 	SendUnsafe(message.Msg) (message.Msg, error)
 	String() string
