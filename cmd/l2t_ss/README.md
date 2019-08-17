@@ -1,6 +1,6 @@
-# l2t_ss
+## l2t_ss
 
-Layer 2 Traceroute Simple Sender
+#Layer 2 Traceroute Simple Sender
 
 This program sends L2T messages, listens for responses, prints the responses.
 
@@ -45,7 +45,7 @@ The `-p` option causes the program to attempt to print the outgoing message. Thi
 
 ##Some complete examples:
 
-Determine whether VLAN 100 exists on a switch:
+#Determine whether VLAN 100 exists on a switch:
 
     $ ./l2t_ss -p -t 2 -a 1:ffff.ffff.ffff -a 2:ffff.ffff.ffff -a 3:100 -a 14:<local-ip-address> <target-switch-ip-address>
     Sending:  L2T_REQUEST_SRC (2) with 4 attributes (31 bytes)
@@ -59,7 +59,7 @@ Determine whether VLAN 100 exists on a switch:
        6 L2_ATTR_DEV_IP       <switch-ip-address>               <- this might be a new IP address we didn't know about
       15 L2_ATTR_REPLY_STATUS Source Mac address not found      <- VLAN 100 exists (would be 'Status unknown (3)' otherwise)
 
-Determine whether MAC address 0011.2233.4455 exists within VLAN 100:
+#Determine whether MAC address 0011.2233.4455 exists within VLAN 100:
 
     $ ./l2t_ss chris$ ./l2t_ss -t 2 -a 1:ffff.ffff.ffff -a 2:0011.2233.4455 -a 3:100 -a <local-ip-address> <target-switch-ip-address>
     Received: L2T_REPLY_SRC (4) with 6 attributes (62 bytes)
@@ -70,7 +70,7 @@ Determine whether MAC address 0011.2233.4455 exists within VLAN 100:
       15 L2_ATTR_REPLY_STATUS Status unknown (2)                <- MAC exists (would be 'Source Mac address not found' otherwise)
       16 L2_ATTR_NBR_DEV_ID   <neighbor-switch-name>            <- switch reveals host/domain name of neighbor switch
 
-Queries of type 1 reveal even more:
+#Queries of type 1 reveal even more:
 
 	$ ./l2t_ss chris$ ./l2t_ss -t 1 -a 1:<mac-string> -a 2:<mac-string-again> -a 3:100 -a 14:0.0.0.0 <target-switch-ip-address>
 	Received: L2T_REPLY_DST (3) with 12 attributes (96 bytes)
