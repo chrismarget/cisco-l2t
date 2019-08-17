@@ -4,9 +4,7 @@ Layer 2 Traceroute Simple Sender
 
 This program sends L2T messages, listens for responses, prints the responses.
 
-It doesn't use many of the attribute and builder methods available in this library because they're... Safe.
-
-This thing is deliberately not safe, can generate bogus messages, might be useful for fuzzing the L2T service on a switch.
+It doesn't use many of the attribute and builder methods available in this library because they're validated and this sender is deliberately unsafe. It can generate bogus messages, might be useful for fuzzing the L2T service on a switch.
 
 The minimal valid CLI arguments sends a correctly formatted (but invalid) message to the target switch:
 
