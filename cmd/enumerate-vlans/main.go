@@ -16,9 +16,7 @@ const (
 )
 
 func enumerate_vlans(t target.Target) ([]int, error) {
-//	var att attribute.Attribute
 	var found []int
-//	var err error
 
 	bar := pb.StartNew(vlanMax)
 
