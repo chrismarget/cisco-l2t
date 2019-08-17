@@ -47,10 +47,10 @@ import (
 // 7 - source mac not found (with
 
 const (
-	replyStatusSuccess = "Success"
-	//	replyStatusDstNotFound = "Destination Mac address not found"
-	//	replyStatusSrcNotFound = "Source Mac address not found"
-	replyStatusUnknown = "Status unknown"
+	ReplyStatusSuccess = "Success"
+	//	ReplyStatusDstNotFound = "Destination Mac address not found"
+	//	ReplyStatusSrcNotFound = "Source Mac address not found"
+	ReplyStatusUnknown = "Status unknown"
 
 	// The following strings were found together by strings-ing an IOS image.
 	// Leap of faith makes me think they're reply status attribute messages.
@@ -58,11 +58,11 @@ const (
 	replyStatusInvalidIP            = "Invalid ip address"
 	replyStausMultipleVlan          = "Mac found on multiple vlans"
 	replyStatusDifferentVlan        = "Source and destination macs are on different vlans"
-	replyStatusMultipleNeighbors    = "Device has multiple CDP neighbours"
+	ReplyStatusMultipleNeighbors    = "Device has multiple CDP neighbours"
 	replyStatusNoNeighborIP         = "CDP neighbour has no ip"
-	replyStatusNoNeighbor           = "No CDP neighbour"
-	replyStatusSrcNotFound          = "Source Mac address not found"      // l2t attr type 0x0f data 0x07
-	replyStatusDstNotFound          = "Destination Mac address not found" // l2t attr type 0x0f data 0x08
+	ReplyStatusNoNeighbor           = "No CDP neighbour"
+	ReplyStatusSrcNotFound          = "Source Mac address not found"      // l2t attr type 0x0f data 0x07
+	ReplyStatusDstNotFound          = "Destination Mac address not found" // l2t attr type 0x0f data 0x08
 	replyStatusWrongSrcInterface    = "Incorrect source interface specified"
 	replyStatusWrongDstInterface    = "Incorrect destination interface specified"
 	replyStatusSrcMultipleNeighbors = "Device has Multiple CDP neighbours on source port"
@@ -75,11 +75,11 @@ type (
 
 var (
 	replyStatusToString = map[replyStatus]string{
-		1: replyStatusSuccess,
-		5: replyStatusMultipleNeighbors,
-		7: replyStatusSrcNotFound,
-		8: replyStatusDstNotFound,
-		9: replyStatusNoNeighbor,
+		1: ReplyStatusSuccess,
+		5: ReplyStatusMultipleNeighbors,
+		7: ReplyStatusSrcNotFound,
+		8: ReplyStatusDstNotFound,
+		9: ReplyStatusNoNeighbor,
 	}
 )
 
@@ -100,7 +100,7 @@ func (o replyStatusAttribute) String() string {
 	if status, ok := replyStatusToString[replyStatus(o.attrData[0])]; ok {
 		return status
 	}
-	return fmt.Sprintf("%s (%d)", replyStatusUnknown, o.attrData[0])
+	return fmt.Sprintf("%s (%d)", ReplyStatusUnknown, o.attrData[0])
 }
 
 func (o replyStatusAttribute) Validate() error {
