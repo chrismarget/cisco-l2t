@@ -12,15 +12,15 @@ The minimal valid CLI arguments sends a correctly formatted (but invalid) messag
 
 This message consists of a header only and looks like: 
 
-    0x 02 01 0005 00
-       -- -- ---- --
-       |  |  |    +---> Attribute Count: 0
+    0x 02 01 00 05 00
+       -- -- ----- --
+       |  |  |     +---> Attribute Count: 0
        |  |  |
-       |  |  +--------> Total Message Length: 5 bytes
+       |  |  +---------> Total Message Length: 5 bytes
        |  |
-       |  +-----------> Message Version: 1
+       |  +------------> Message Version: 1
        |
-       +--------------> Message Type: 2 (L2T_REQUEST_SRC)
+       +---------------> Message Type: 2 (L2T_REQUEST_SRC)
 
 The header values are automatically calculated, but can be overwritten with the `-t`, `-l`, `-v` and `-c` options.
 
