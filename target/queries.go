@@ -6,6 +6,11 @@ import (
 	"net"
 )
 
+const (
+	vlanMin = 1
+	vlanMax = 4094
+)
+
 // HasIp returns a boolean indicating whether the target is known
 // to have the given IP address.
 func (o defaultTarget) HasIp(in *net.IP) bool {
@@ -61,4 +66,18 @@ func (o *defaultTarget) HasVlan(vlan int) (bool, error) {
 		}
 	}
 	return false, nil
+}
+
+func (o *defaultTarget) GetVlans() ([]int, error) {
+	var found []int
+	for v := vlanMin; v <= vlanMax; v++ {
+		vlanFound, err := o.HasVlan(v)
+		if err != nil {
+			return found, err
+		}
+		if vlanFound {
+			found = append(found, v)
+		}
+	}
+	return found, nil
 }

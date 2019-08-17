@@ -15,6 +15,7 @@ const (
 )
 
 type Target interface {
+	GetVlans() ([]int, error)
 	HasIp(*net.IP) bool
 	HasVlan(int) (bool, error)
 	Send(message.Msg) (message.Msg, error)
