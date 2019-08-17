@@ -14,7 +14,7 @@ There's an example program for enumerating VLANs on a switch:
     86 VLANs found: 1-37 40-45 50-51 53-55 71-77 81-87 91-93 98-105 132 308-309 530 960-961 1100-1102 2000-2002 2222.
     $
 
-Lots more examples (and a detailed readme) in the cmd/lt2_ss directory.
+Lots more examples (and a detailed readme) in the [cmd/lt2_ss directory](cmd/l2t_ss).
 
 Truly mapping a Catalyst-based L2 topology will require some creativity because you can't interrogate the MAC population directly. Guessing well-known MAC addresses, swapping the src/dst query order (to elicit different error responses), noting STP root bridge address (and incrementing it on a per-vlan basis), etc... are all probably the kinds of things that a clever application using this library would be interested in doing.
 
