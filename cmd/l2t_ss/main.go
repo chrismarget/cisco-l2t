@@ -13,18 +13,27 @@ import (
 	"net"
 	"os"
 	"strings"
-	"time"
 )
 
 const (
-	attrSep        = ":"
-	typeFlag       = "t"
-	verFlag        = "v"
-	lenFlag        = "l"
-	attrCountFlag  = "c"
-	attrFlag       = "a"
-	defaultVersion = 1
-	printFlag      = "p"
+	attrSep           = ":"
+	defaultVersion    = 1
+	typeFlag          = "t"
+	typeFlagHelp      = "message type override: 0 - 255"
+	verFlag           = "v"
+	verFlagHelp       = "message version override: 0 - 255"
+	lenFlag           = "l"
+	lenFlagHelp       = "message length override: 0 - 65535 (default <calculated>)"
+	attrCountFlag     = "c"
+	attrCountFlagHelp = "message attribute count override: 0 255 (default <calculated>)"
+	attrFlag          = "a"
+	attrFlagHelp      = "attribute string form 'type:value' or raw TLV hex string"
+	printFlag         = "p"
+	printFlagHelp     = "attempt to parse/print outbound message (unsafe if sending broken messages)"
+	usageTextCmd      = "[options] <catalyst-ip-address>"
+	usageTextExplain  = "The following examples both create the same message:\n" +
+		"  -a 2:0004.f284.dbbf -a 1:00:50:56:98:e2:12 -a 3:18 -a 14:192.168.1.2 <catalyst-ip-address>\n" +
+		"  -t 2 -v 1 -l 31 -c 4 -a 02080004f284dbbf -a 010800505698e212 -a 03040012 -a 0e06c0a80102 <catalyst-ip-address>\n"
 )
 
 type attrStringFlags []string
@@ -161,16 +170,24 @@ func buildMsgBytes(t uint8, v uint8, l uint16, c uint8, asf attrStringFlags) ([]
 
 func main() {
 	var attrStringFlags attrStringFlags
-	flag.Var(&attrStringFlags, attrFlag, "attribute string form 'type:value' or raw TLV hex string")
+	flag.Var(&attrStringFlags, attrFlag, attrFlagHelp)
+	msgType := flag.Int(typeFlag, int(message.RequestSrc), typeFlagHelp)
+	msgVer := flag.Int(verFlag, int(message.Version1), verFlagHelp)
+	msgLen := flag.Int(lenFlag, 0, lenFlagHelp)
+	msgAC := flag.Int(attrCountFlag, 0, attrCountFlagHelp)
+	doPrint := flag.Bool(printFlag, false, printFlagHelp)
 
-	msgType := flag.Int(typeFlag, int(message.RequestSrc), "message type 0 - 255")
-	msgVer := flag.Int(verFlag, int(message.Version1), "message version 0 - 255")
-	msgLen := flag.Int(lenFlag, 0, "message length 0 - 65535")
-	msgAC := flag.Int(attrCountFlag, 0, "message attribute count 0 255")
-	doPrint := flag.Bool(printFlag, false, "attempt to parse/print outbound message")
+	flag.Usage = func() {
+		_, _ = fmt.Fprintf(flag.CommandLine.Output(),
+			"Usage :\n  %s %s\n%s\n\n",
+			os.Args[0],
+			usageTextCmd,
+			usageTextExplain,
+		)
+		flag.PrintDefaults()
+	}
 
 	flag.Parse()
-
 	if flag.NArg() != 1 {
 		flag.Usage()
 		os.Exit(1)
@@ -189,30 +206,24 @@ func main() {
 	}
 
 	if *doPrint {
-		log.Println("do print")
-		outMsg,err := message.UnmarshalMessageUnsafe(payload)
+		outMsg, err := message.UnmarshalMessageUnsafe(payload)
 		if err != nil {
 			log.Println(err)
 			os.Exit(3)
 		}
 
-		fmt.Println(outMsg.String())
+		fmt.Printf("Sending:  %s\n",outMsg.String())
 		for _, a := range outMsg.Attributes() {
-			fmt.Println(a.String())
+			fmt.Printf("  %2d %-20s %s\n",a.Type(),attribute.AttrTypeString[a.Type()],a.String())
 		}
 	}
 
-	//laddr := &net.UDPAddr{}
-	raddr := &net.UDPAddr{
-		IP:   net.ParseIP(flag.Arg(0)),
-		Port: communicate.CiscoL2TPort,
-	}
-
 	sendThis := communicate.SendThis{
-		Payload:         payload,
-		Destination:     raddr,
-		ExpectReplyFrom: raddr.IP,
-		RttGuess:        50 * time.Millisecond,
+		Payload: payload,
+		Destination: &net.UDPAddr{
+			IP:   net.ParseIP(flag.Arg(0)),
+			Port: communicate.CiscoL2TPort,
+		},
 	}
 
 	result := communicate.Communicate(sendThis, nil)
@@ -227,9 +238,9 @@ func main() {
 		os.Exit(3)
 	}
 
-	log.Println(inMsg.String())
+	fmt.Printf("Received: %s\n",inMsg.String())
 	for _, a := range inMsg.Attributes() {
-		log.Println(a.String())
+		fmt.Printf("  %2d %-20s %s\n",a.Type(),attribute.AttrTypeString[a.Type()],a.String())
 	}
 
 	os.Exit(0)
