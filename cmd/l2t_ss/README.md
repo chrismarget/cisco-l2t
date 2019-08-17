@@ -54,10 +54,10 @@ Determine whether VLAN 100 exists on a switch:
        3 L2_ATTR_VLAN         100
       14 L2_ATTR_SRC_IP       <local-ip-address>
     Received: L2T_REPLY_SRC (4) with 4 attributes (34 bytes)
-       4 L2_ATTR_DEV_NAME     <switch-hostname-string>		<- switch reveals its hostname
-       5 L2_ATTR_DEV_TYPE     <switch-platform-string>		<- switch reveals its platform type
-       6 L2_ATTR_DEV_IP       <switch-ip-address>		<- this might be a new IP address we didn't know about
-      15 L2_ATTR_REPLY_STATUS Source Mac address not found	<- VLAN 100 exists (would be 'Status unknown (3)' otherwise)
+       4 L2_ATTR_DEV_NAME     <switch-hostname-string>          <- switch reveals its hostname
+       5 L2_ATTR_DEV_TYPE     <switch-platform-string>          <- switch reveals its platform type
+       6 L2_ATTR_DEV_IP       <switch-ip-address>               <- this might be a new IP address we didn't know about
+      15 L2_ATTR_REPLY_STATUS Source Mac address not found      <- VLAN 100 exists (would be 'Status unknown (3)' otherwise)
 
 Determine whether MAC address 0011.2233.4455 exists within VLAN 100:
 
