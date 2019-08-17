@@ -1,6 +1,7 @@
 package target
 
 import (
+	"fmt"
 	"github.com/chrismarget/cisco-l2t/attribute"
 	"github.com/chrismarget/cisco-l2t/message"
 	"net"
@@ -80,4 +81,68 @@ func (o *defaultTarget) GetVlans() ([]int, error) {
 		}
 	}
 	return found, nil
+}
+
+func (o *defaultTarget) MacInVlan(mac net.HardwareAddr, vlan int) (bool, error) {
+	if vlan < 1 || vlan > 4094 {
+		return false, fmt.Errorf("vlan %d out of range", vlan)
+	}
+
+	var att attribute.Attribute
+	var err error
+
+	builder := message.NewMsgBuilder()
+	builder.SetType(message.RequestSrc)
+	att, err = attribute.NewAttrBuilder().
+		SetType(attribute.SrcMacType).
+		SetString("ffff.ffff.ffff").
+		Build()
+	if err != nil {
+		return false, err
+	}
+	builder.SetAttr(att)
+
+	att, err = attribute.NewAttrBuilder().
+		SetType(attribute.DstMacType).
+		SetString(mac.String()).
+		Build()
+	if err != nil {
+		return false, err
+	}
+	builder.SetAttr(att)
+
+	att, err = attribute.NewAttrBuilder().
+		SetType(attribute.VlanType).
+		SetInt(uint32(vlan)).
+		Build()
+	if err != nil {
+		return false, err
+	}
+	builder.SetAttr(att)
+
+	att, err = attribute.NewAttrBuilder().
+		SetType(attribute.SrcIPv4Type).
+		SetString(o.info[o.best].localAddr.String()).
+		Build()
+	if err != nil {
+		return false, err
+	}
+	builder.SetAttr(att)
+
+	msg := builder.Build()
+	err = msg.Validate()
+	if err != nil {
+		return false, err
+	}
+
+	response, err := o.Send(msg)
+	if err != nil {
+		return false, err
+	}
+
+	if response.Attributes()[attribute.ReplyStatusType].Type() == 2 {
+		return true, nil
+	}
+
+	return false, nil
 }
