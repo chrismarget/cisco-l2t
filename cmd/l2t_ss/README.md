@@ -1,13 +1,44 @@
-# cisco-l2t
+# l2t_ss
 
-This is some tooling for working with the Cisco layer 2 traceroute service on Catalyst switches.
+Layer 2 Traceroute Simple Sender
 
-It can create, send, receive and parse L2T messages. L2T messages allow you to enumerate configured VLANs, interrogate the L2 forwarding table, inquire about neighbors, interface names, speeds and duplex settings. All this without any credentials.
+This program sends L2T messages, listens for responses, prints the responses.
 
-There's an example program for enumerating VLANs on a switch:
+It doesn't use many of the attribute and builder methods available in this library because they're... Safe.
 
-    poetaster:enumerate-vlans chris$ ./enumerate-vlans 192.168.96.150
-    86 VLANs found: 1-37 40-45 50-51 53-55 71-77 81-87 91-93 98-105 132 308-309 530 960-961 1100-1102 2000-2002 2222.
-    poetaster:enumerate-vlans chris$
+This thing is deliberately not safe, can generate bogus messages, might be useful for fuzzing the L2T service on a switch.
 
-Truly mapping a Catalyst-based L2 topology will require some creativity because you can't interrogate the MAC population directly. Guessing well-known MAC addresses, swapping the src/dst query order (to elicit different error responses), noting STP root bridge address (and incrementing it on a per-vlan basis), etc... are all probably the kinds of things that a clever application using this library would be interested in doing.
+The minimal valid CLI arguments sends a correctly formatted (but invalid) message to the target switch:
+
+    l2t_ss <target-ip>
+
+This message consists of a header only and looks like: 
+
+    0x 02 01 0005 00
+       -- -- ---- --
+       |  |  |    +---> Attribute Count: 0
+       |  |  |
+       |  |  +--------> Total Message Length: 5 bytes
+       |  |
+       |  +-----------> Message Version: 1
+       |
+       +--------------> Message Type: 2 (L2T_REQUEST_SRC)
+
+The header values are automatically calculated, but can be overwritten with the `-t`, `-l`, `-v` and `-c` options.
+
+Attributes are added with the `-a` option, which takes one of two forms:
+
+    -a <type>:<string-payload>
+    -a hexstring
+
+The `-a type:<string-payload>` form can be articulated with a type number (uint8), or a type name (see attribute/attr_common.go). String payloads are automatically formatted according to the requested type, and attribute lengths are calculated.
+
+The `-a hexstring` form is correctly formatted when it includes type, length and payload.o
+
+A `SrcMacType` payload containing MAC address FF:FF:FF:FF:FF:FF can be articulated as:
+
+    -a 1:ffff.ffff.ffff
+    -a SrcMacType:ff:ff:ff:ff:ff:ff
+    -a 0108ffffffffffff
+
+The `-p` option causes the program to attempt to print the outgoing message. This may or may not be possible, depending on whether the message is valid.
