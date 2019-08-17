@@ -10,7 +10,7 @@ This library can create, send, receive and parse L2T messages. L2T messages allo
 
 There's an example program for enumerating VLANs on a switch:
 
-    $ ./enumerate-vlans chris$ ./enumerate-vlans 192.168.96.150
+    $ ./enumerate-vlans chris$ ./enumerate-vlans 192.168.150.96
     86 VLANs found: 1-37 40-45 50-51 53-55 71-77 81-87 91-93 98-105 132 308-309 530 960-961 1100-1102 2000-2002 2222.
     $
 
