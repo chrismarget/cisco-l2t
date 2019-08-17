@@ -3,8 +3,21 @@ package target
 import (
 	"github.com/chrismarget/cisco-l2t/attribute"
 	"github.com/chrismarget/cisco-l2t/message"
+	"net"
 )
 
+// HasIp returns a boolean indicating whether the target is known
+// to have the given IP address.
+func (o defaultTarget) HasIp(in *net.IP) bool {
+	for _, i := range o.info {
+		if in.Equal(i.destination.IP) {
+			return true
+		}
+	}
+	return false
+}
+
+// HasVlan queries the target about a VLAN is configured.
 func (o *defaultTarget) HasVlan(vlan int) (bool, error) {
 	var att attribute.Attribute
 	var err error
@@ -23,7 +36,7 @@ func (o *defaultTarget) HasVlan(vlan int) (bool, error) {
 	}
 	builder.SetAttr(att)
 
-	att, err = attribute.NewAttrBuilder().SetType(attribute.VlanType).SetInt(uint32(i)).Build()
+	att, err = attribute.NewAttrBuilder().SetType(attribute.VlanType).SetInt(uint32(vlan)).Build()
 	if err != nil {
 		return false, err
 	}

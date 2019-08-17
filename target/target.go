@@ -16,6 +16,7 @@ const (
 
 type Target interface {
 	HasIp(*net.IP) bool
+	HasVlan(int) (bool, error)
 	Send(message.Msg) (message.Msg, error)
 	SendUnsafe(message.Msg) (message.Msg, error)
 	String() string
@@ -111,17 +112,6 @@ func (o *defaultTarget) String() string {
 	out.WriteString(o.info[o.best].localAddr.String())
 
 	return out.String()
-}
-
-// HasIp returns a boolean indicating whether the target is known
-// to have the given IP address.
-func (o defaultTarget) HasIp(in *net.IP) bool {
-	for _, i := range o.info {
-		if in.Equal(i.destination.IP) {
-			return true
-		}
-	}
-	return false
 }
 
 // estimateLatency tries to estimate the response time for this target
