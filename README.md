@@ -8,7 +8,7 @@ There is no requirement for L2 adjacency. The service is available via routed pa
 
 This library can create, send, receive and parse L2T messages. L2T messages allow you to enumerate configured VLANs, interrogate the L2 forwarding table, inquire about neighbors, interface names, speeds and duplex settings. All this without any credentials.
 
-There's an example program for enumerating VLANs on a switch:
+There's an example program for enumerating VLANs on a far away (no L2 adjacency required) switch:
 
     $ ./enumerate-vlans 192.168.150.96
     86 VLANs found: 1-37 40-45 50-51 53-55 71-77 81-87 91-93 98-105 132 308-309 530 960-961 1100-1102 2000-2002 2222.
