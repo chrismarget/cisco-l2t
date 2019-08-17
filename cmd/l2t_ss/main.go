@@ -208,18 +208,6 @@ func main() {
 		Port: communicate.CiscoL2TPort,
 	}
 
-	//cxn, err := net.DialUDP(communicate.UdpProtocol, laddr, raddr )
-	//if err != nil {
-	//	log.Println(err)
-	//	os.Exit(3)
-	//}
-	//
-	//_, err = cxn.Write(payload)
-	//if err != nil {
-	//	log.Println(err)
-	//	os.Exit(4)
-	//}
-
 	sendThis := communicate.SendThis{
 		Payload:         payload,
 		Destination:     raddr,
