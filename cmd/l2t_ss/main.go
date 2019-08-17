@@ -30,10 +30,10 @@ const (
 	attrFlagHelp      = "attribute string form 'type:value' or raw TLV hex string"
 	printFlag         = "p"
 	printFlagHelp     = "attempt to parse/print outbound message (unsafe if sending broken messages)"
-	usageTextCmd      = "[options] <catalyst-ip-address>"
+	usageTextCmd      = "[options] <catalyst-ip-address>\n"
 	usageTextExplain  = "The following examples both create the same message:\n" +
 		"  -a 2:0004.f284.dbbf -a 1:00:50:56:98:e2:12 -a 3:18 -a 14:192.168.1.2 <catalyst-ip-address>\n" +
-		"  -t 2 -v 1 -l 31 -c 4 -a 02080004f284dbbf -a 010800505698e212 -a 03040012 -a 0e06c0a80102 <catalyst-ip-address>\n"
+		"  -t 2 -v 1 -l 31 -c 4 -a 02080004f284dbbf -a 010800505698e212 -a 03040012 -a 0e06c0a80102 <catalyst-ip-address>"
 )
 
 type attrStringFlags []string
@@ -179,7 +179,7 @@ func main() {
 
 	flag.Usage = func() {
 		_, _ = fmt.Fprintf(flag.CommandLine.Output(),
-			"Usage :\n  %s %s\n%s\n\n",
+			"\nUsage:\n  %s %s\n%s\n\nOptions:\n",
 			os.Args[0],
 			usageTextCmd,
 			usageTextExplain,
