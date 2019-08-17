@@ -120,7 +120,7 @@ func buildMsgBytes(t uint8, v uint8, l uint16, c uint8, asf attrStringFlags) ([]
 	if flagProvided(typeFlag) {
 		_, err = bb.Write([]byte{t})
 	} else {
-		_, err = bb.Write([]byte{uint8(message.RequestSrc)})
+		_, err = bb.Write([]byte{uint8(message.RequestDst)})
 	}
 	if err != nil {
 		log.Println(err)
@@ -213,7 +213,7 @@ func main() {
 		}
 
 		fmt.Printf("Sending:  %s\n",outMsg.String())
-		for _, a := range outMsg.Attributes() {
+		for _, a := range attribute.SortAttributes(outMsg.Attributes()) {
 			fmt.Printf("  %2d %-20s %s\n",a.Type(),attribute.AttrTypeString[a.Type()],a.String())
 		}
 	}
@@ -239,7 +239,7 @@ func main() {
 	}
 
 	fmt.Printf("Received: %s\n",inMsg.String())
-	for _, a := range inMsg.Attributes() {
+	for _, a := range attribute.SortAttributes(inMsg.Attributes()) {
 		fmt.Printf("  %2d %-20s %s\n",a.Type(),attribute.AttrTypeString[a.Type()],a.String())
 	}
 
