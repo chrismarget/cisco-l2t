@@ -69,6 +69,21 @@ func (o *defaultTarget) HasVlan(vlan int) (bool, error) {
 	return false, nil
 }
 
+func (o *defaultTarget) GetIps() []net.IP {
+	var out []net.IP
+	INFO:
+	for _, info := range o.info {
+		ip := info.destination.IP
+		for _, found := range out {
+			if found.Equal(ip) {
+				continue INFO
+			}
+		}
+		out = append(out, ip)
+	}
+	return out
+}
+
 func (o *defaultTarget) GetVlans() ([]int, error) {
 	var found []int
 	for v := vlanMin; v <= vlanMax; v++ {
