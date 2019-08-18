@@ -15,6 +15,7 @@ const (
 )
 
 type Target interface {
+	GetIps() ([]net.IP)
 	GetVlans() ([]int, error)
 	HasIp(*net.IP) bool
 	HasVlan(int) (bool, error)
