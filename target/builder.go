@@ -81,23 +81,19 @@ func (o *defaultTargetBuilder) Build() (Target, error) {
 	}
 
 	// look through the targetInfo structures we've collected
-	fastestTarget := -1
+	var fastestTarget int
+	var reachable bool
 	for i, ti := range info {
 		// ignore targetInfo if the target didn't talk to us
 		if ti.theirSource == nil {
 			continue
+		} else {
+			reachable = true
 		}
 
-		// point the fastestTarget index at the first targetInfo
-		// (first iteration), then point it at the fastest one.
-		if i == 0 || ti.bestRtt < info[fastestTarget].bestRtt {
+		if ti.bestRtt < info[fastestTarget].bestRtt {
 			fastestTarget = i
 		}
-	}
-
-	var reachable bool
-	if fastestTarget >= 0 {
-		reachable = true
 	}
 
 	return &defaultTarget{
