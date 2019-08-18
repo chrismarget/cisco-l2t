@@ -1,7 +1,6 @@
 package target
 
 import (
-	"fmt"
 	"github.com/chrismarget/cisco-l2t/attribute"
 	"github.com/chrismarget/cisco-l2t/communicate"
 	"github.com/chrismarget/cisco-l2t/message"
@@ -96,15 +95,17 @@ func (o *defaultTargetBuilder) Build() (Target, error) {
 		}
 	}
 
-	if fastestTarget < 0 {
-		return nil, fmt.Errorf("target not available")
+	var reachable bool
+	if fastestTarget >= 0 {
+		reachable = true
 	}
 
 	return &defaultTarget{
-		info:     info,
-		best:     fastestTarget,
-		name:     name,
-		platform: platform,
+		reachable: reachable,
+		info:      info,
+		best:      fastestTarget,
+		name:      name,
+		platform:  platform,
 	}, nil
 }
 

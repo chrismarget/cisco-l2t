@@ -25,10 +25,11 @@ type Target interface {
 }
 
 type defaultTarget struct {
-	info     []targetInfo
-	best     int
-	name     string
-	platform string
+	reachable bool
+	info      []targetInfo
+	best      int
+	name      string
+	platform  string
 }
 
 func (o *defaultTarget) Send(out message.Msg) (message.Msg, error) {
