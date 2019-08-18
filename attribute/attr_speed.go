@@ -37,7 +37,7 @@ func (o speedAttribute) String() string {
 		return autoSpeedString
 	}
 
-	return speedBytesToString(o.attrData)
+	return SpeedBytesToString(o.attrData)
 }
 
 func (o speedAttribute) Validate() error {
@@ -68,14 +68,14 @@ func (o *defaultAttrBuilder) newSpeedAttribute() (Attribute, error) {
 	var speedBytes []byte
 	switch {
 	case o.stringHasBeenSet:
-		speedBytes, err = stringToSpeedBytes(o.stringPayload)
+		speedBytes, err = SpeedStringToBytes(o.stringPayload)
 		if err != nil {
 			return nil, err
 		}
 	case o.bytesHasBeenSet:
 		speedBytes = o.bytesPayload
 	case o.intHasBeenSet:
-		speedBytes, err = stringToSpeedBytes(strconv.Itoa(int(o.intPayload)) + megaBitPerSecondSuffix)
+		speedBytes, err = SpeedStringToBytes(strconv.Itoa(int(o.intPayload)) + megaBitPerSecondSuffix)
 		if err != nil {
 			return nil, err
 		}
@@ -96,7 +96,7 @@ func (o *defaultAttrBuilder) newSpeedAttribute() (Attribute, error) {
 	return a, nil
 }
 
-// speedBytesToString takes an input speed in wire format,
+// SpeedBytesToString takes an input speed in wire format,
 // returns a string.
 //
 // {0,0,0,0} -> "Auto"
@@ -104,7 +104,7 @@ func (o *defaultAttrBuilder) newSpeedAttribute() (Attribute, error) {
 // {0,0,0,1} -> 10Mb/s
 //
 // {0,0,0,4} -> 10Gb/s
-func speedBytesToString(b []byte) string {
+func SpeedBytesToString(b []byte) string {
 	// Default speed units is "Mb/s". Value of speedVal is logarithmic.
 	// With large values we switch units and decrement the value accordingly.
 	speedVal := binary.BigEndian.Uint32(b)
@@ -123,7 +123,7 @@ func speedBytesToString(b []byte) string {
 	return strconv.Itoa(int(math.Pow(10, float64(speedVal)))) + speedUnits
 }
 
-// stringToSpeedBytes takes an input string, returns
+// SpeedStringToBytes takes an input string, returns
 // speed as an Uint32 expressed in Mb/s
 //
 // Auto -> 0
@@ -131,7 +131,7 @@ func speedBytesToString(b []byte) string {
 // 10Mb/s -> 10
 //
 // 10Gb/s -> 10000
-func stringToSpeedBytes(s string) ([]byte, error) {
+func SpeedStringToBytes(s string) ([]byte, error) {
 	// Did we get valid characters?
 	for _, v := range s {
 		if v > unicode.MaxASCII || !unicode.IsPrint(rune(v)) {
