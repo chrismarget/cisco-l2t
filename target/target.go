@@ -19,6 +19,7 @@ type Target interface {
 	HasIp(*net.IP) bool
 	HasVlan(int) (bool, error)
 	MacInVlan(net.HardwareAddr, int) (bool, error)
+	Reachable() bool
 	Send(message.Msg) (message.Msg, error)
 	SendUnsafe(message.Msg) (message.Msg, error)
 	String() string
@@ -30,6 +31,10 @@ type defaultTarget struct {
 	best      int
 	name      string
 	platform  string
+}
+
+func (o *defaultTarget) Reachable() bool {
+	return o.reachable
 }
 
 func (o *defaultTarget) Send(out message.Msg) (message.Msg, error) {
