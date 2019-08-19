@@ -77,6 +77,8 @@ func (o *defaultTarget) SendUnsafe(msg message.Msg) (message.Msg, error) {
 
 	in := communicate.Communicate(out, nil)
 
+	o.updateLatency(o.best, in.Rtt )
+
 	if in.Err != nil {
 		return nil, in.Err
 	}
