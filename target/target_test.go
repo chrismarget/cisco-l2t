@@ -95,3 +95,16 @@ func TestUpdateLatency(t *testing.T) {
 	}
 	log.Println("samples: ", len(target.info[0].rtt))
 }
+
+func TestGetVlans(t *testing.T) {
+	target, err := TargetBuilder().
+		AddIp(net.ParseIP("192.168.96.150")).
+		Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	vlans, err := target.GetVlans()
+	log.Println(vlans)
+
+}
