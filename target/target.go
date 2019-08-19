@@ -14,6 +14,56 @@ const (
 	maxLatencySamples = 10
 )
 
+// crazy:
+//
+//type target struct {
+//
+//}
+//
+//func (o *target) vlans(start int, end int) []scanResult {
+//	results := make(chan scanResult)
+//	final := make(chan []scanResult)
+//
+//	go func() {
+//		var vlans []scanResult
+//		for r := range results {
+//			vlans = append(vlans, r)
+//		}
+//		final <- vlans
+//	}()
+//
+//	pool := make(chan struct{}, 10)
+//	wg := &sync.WaitGroup{}
+//	wg.Add(end-start)
+//
+//	for i := start; i < end; i++ {
+//		pool <- struct{}{}
+//		go func() {
+//			results <- scanResult{
+//				id:     i,
+//				exists: o.hasVlan(i),
+//			}
+//			<-pool
+//			wg.Done()
+//		}()
+//	}
+//
+//	wg.Wait()
+//	close(results)
+//
+//	return <-final
+//}
+//
+//func (o *target) hasVlan(i int) bool {
+//	time.Sleep(time.Duration(rand.Intn(200)) * time.Millisecond)
+//
+//	return true
+//}
+//
+//type scanResult struct {
+//	id     int
+//	exists bool
+//}
 type Target interface {
 	GetIps() ([]net.IP)
 	GetVlans() ([]int, error)
