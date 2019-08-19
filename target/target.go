@@ -154,13 +154,12 @@ func (o *defaultTarget) estimateLatency() time.Duration {
 // updateLatency adds the passed time.Duration as the most recent
 // latency sample to the specified targetInfo index.
 func (o *defaultTarget) updateLatency(index int, t time.Duration) {
-	upperBound := maxLatencySamples
-	if len(o.info[index].rtt) < maxLatencySamples-1 {
-		// not many samples here. set the upper bound (used below)
-		// to match the sample count after the append()
-		upperBound = len(o.info[index].rtt) + 1
+	l := len(o.info[index].rtt)
+	if l < maxLatencySamples {
+		o.info[index].rtt = append(o.info[index].rtt, t)
+		return
 	}
-	o.info[index].rtt = append(o.info[index].rtt, t)[:upperBound]
+	o.info[index].rtt = append(o.info[index].rtt, t)[l+1-maxLatencySamples:l+1]
 }
 
 type SendMessageConfig struct {
