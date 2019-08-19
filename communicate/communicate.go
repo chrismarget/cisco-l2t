@@ -17,6 +17,7 @@ const (
 )
 
 type SendResult struct {
+	Attempts  int
 	Err       error
 	Aborted   bool
 	Rtt       time.Duration
@@ -257,6 +258,7 @@ func Communicate(out SendThis, quit chan struct{}) SendResult {
 				outstandingMsgs--
 			}
 			return SendResult{
+				Attempts: outstandingMsgs+1,
 				Aborted:   aborted,
 				Err:       result.err,
 				Rtt:       time.Now().Sub(start),
