@@ -699,3 +699,41 @@ func TestString(t *testing.T) {
 		t.Fatalf("expected '%s', got '%s'", expected, result)
 	}
 }
+
+func TestAddAttr(t *testing.T) {
+	msgData := []byte{
+		2, 1, 0, 25, 3, // header	t2, v1, l25, ac3
+		2, 8, 255, 255, 255, 255, 255, 255, // src_mac ff:ff:ff:ff:ff:ff
+		1, 8, 255, 255, 255, 255, 255, 255, // dst_mac ff:ff:ff:ff:ff:ff
+		3, 4, 0, 1, // vlan 1
+	}
+
+	msg, err := UnmarshalMessage(msgData)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if msg.AttrCount() != 3 {
+		t.Fatalf("expected attrcout 3, got %d", msg.AttrCount())
+	}
+
+	if msg.NeedsSrcIp() != true {
+		t.Fatalf("message should have needed src ip")
+	}
+
+	srcIpAttr, err := attribute.NewAttrBuilder().
+		SetType(attribute.SrcIPv4Type).
+		SetString("1.1.1.1").
+		Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	msg.AddAttr(srcIpAttr)
+
+	if msg.AttrCount() != 4 {
+		t.Fatalf("expected attrcout 4, got %d", msg.AttrCount())
+	}
+
+	_ = msg
+}
