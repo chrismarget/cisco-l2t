@@ -13,6 +13,7 @@ import (
 	"net"
 	"os"
 	"strings"
+	"time"
 )
 
 const (
@@ -30,6 +31,8 @@ const (
 	attrFlagHelp      = "attribute string form 'type:value' or raw TLV hex string"
 	printFlag         = "p"
 	printFlagHelp     = "attempt to parse/print outbound message (unsafe if sending broken messages)"
+	rttFlag           = "r"
+	rttFlagHelp       = "estimate of round-trip latency in milliseconds (default 500)"
 	usageTextCmd      = "[options] <catalyst-ip-address>\n"
 	usageTextExplain  = "The following examples both create the same message:\n" +
 		"  -a 2:0004.f284.dbbf -a 1:00:50:56:98:e2:12 -a 3:18 -a 14:192.168.1.2 <catalyst-ip-address>\n" +
@@ -176,6 +179,7 @@ func main() {
 	msgLen := flag.Int(lenFlag, 0, lenFlagHelp)
 	msgAC := flag.Int(attrCountFlag, 0, attrCountFlagHelp)
 	doPrint := flag.Bool(printFlag, false, printFlagHelp)
+	rttGuess := flag.Int(rttFlag, 500, rttFlagHelp)
 
 	flag.Usage = func() {
 		_, _ = fmt.Fprintf(flag.CommandLine.Output(),
@@ -212,9 +216,9 @@ func main() {
 			os.Exit(3)
 		}
 
-		fmt.Printf("Sending:  %s\n",outMsg.String())
+		fmt.Printf("Sending:  %s\n", outMsg.String())
 		for _, a := range attribute.SortAttributes(outMsg.Attributes()) {
-			fmt.Printf("  %2d %-20s %s\n",a.Type(),attribute.AttrTypeString[a.Type()],a.String())
+			fmt.Printf("  %2d %-20s %s\n", a.Type(), attribute.AttrTypeString[a.Type()], a.String())
 		}
 	}
 
@@ -224,6 +228,7 @@ func main() {
 			IP:   net.ParseIP(flag.Arg(0)),
 			Port: communicate.CiscoL2TPort,
 		},
+		RttGuess: time.Duration(*rttGuess) * time.Millisecond,
 	}
 
 	result := communicate.Communicate(sendThis, nil)
@@ -238,9 +243,9 @@ func main() {
 		os.Exit(3)
 	}
 
-	fmt.Printf("Received: %s\n",inMsg.String())
+	fmt.Printf("Received: %s\n", inMsg.String())
 	for _, a := range attribute.SortAttributes(inMsg.Attributes()) {
-		fmt.Printf("  %2d %-20s %s\n",a.Type(),attribute.AttrTypeString[a.Type()],a.String())
+		fmt.Printf("  %2d %-20s %s\n", a.Type(), attribute.AttrTypeString[a.Type()], a.String())
 	}
 
 	os.Exit(0)
