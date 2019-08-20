@@ -1,7 +1,6 @@
 # l2t_ss
 
 ## Layer 2 Traceroute Simple Sender
-
 This program sends L2T messages, listens for responses, prints the responses.
 
 It doesn't use many of the attribute and builder methods available in this
@@ -11,7 +10,6 @@ on a switch.
 
 The minimal valid CLI arguments sends a correctly formatted (but invalid)
 message to the target switch:
-
 ```
 l2t_ss <target-ip>
 ```
