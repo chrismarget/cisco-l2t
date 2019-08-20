@@ -34,6 +34,7 @@ type defaultTarget struct {
 	best      int
 	name      string
 	platform  string
+	rttLock   sync.Mutex
 }
 
 func (o *defaultTarget) Reachable() bool {
@@ -164,7 +165,6 @@ func (o *defaultTarget) SendUnsafe(msg message.Msg) communicate.SendResult {
 	in := communicate.Communicate(out, nil)
 
 	if in.Err == nil {
-		//todo: updateLatency is not thread safe
 		o.updateLatency(o.best, in.Rtt)
 	}
 
@@ -213,14 +213,18 @@ func (o *defaultTarget) String() string {
 // estimateLatency tries to estimate the response time for this target
 // using the contents of the objects latency slice.
 func (o *defaultTarget) estimateLatency() time.Duration {
+	o.rttLock.Lock()
 	observed := o.info[o.best].rtt
+	o.rttLock.Unlock()
+
 	if len(observed) == 0 {
 		return communicate.InitialRTTGuess
 	}
 
 	// trim the latency samples
-	if len(observed) > maxLatencySamples {
-		o.info[o.best].rtt = observed[:maxLatencySamples]
+	lo := len(observed)
+	if lo > maxLatencySamples {
+		observed = observed[lo-maxLatencySamples:lo]
 	}
 
 	// half-assed latency estimator does a rolling average then pads 25%
@@ -239,12 +243,14 @@ func (o *defaultTarget) estimateLatency() time.Duration {
 // updateLatency adds the passed time.Duration as the most recent
 // latency sample to the specified targetInfo index.
 func (o *defaultTarget) updateLatency(index int, t time.Duration) {
+	o.rttLock.Lock()
 	l := len(o.info[index].rtt)
 	if l < maxLatencySamples {
 		o.info[index].rtt = append(o.info[index].rtt, t)
-		return
+	} else {
+		o.info[index].rtt = append(o.info[index].rtt, t)[l+1-maxLatencySamples : l+1]
 	}
-	o.info[index].rtt = append(o.info[index].rtt, t)[l+1-maxLatencySamples : l+1]
+	o.rttLock.Unlock()
 }
 
 type SendMessageConfig struct {
