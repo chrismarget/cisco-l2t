@@ -42,36 +42,62 @@ func (o *defaultTarget) Reachable() bool {
 }
 
 type bulkSendResult struct {
-	index int
-	msg   message.Msg
-	err   error
+	index   int
+	retries int
+	msg     message.Msg
+	err     error
 }
 
 func (o *defaultTarget) SendBulkUnsafe(out []message.Msg) []bulkSendResult {
-	resultChan := make(chan bulkSendResult)
+	resultChan := make(chan bulkSendResult, len(out))
 	finalResultChan := make(chan []bulkSendResult)
 
-	// collect results from all of the child routines
-	go func() {
-		var results []bulkSendResult
-		for r := range resultChan {
-			results = append(results, r)
-			// todo: feedback about retries
-		}
-		finalResultChan <- results
-	}()
+	// Credit to stephen-fox for good ideas about using a buffered channel
+	// to size a concurrency pool. Thank you Steve!
+	//
+	// Wait until all messages (len(out)) have been sent
+	wg := &sync.WaitGroup{}
+	wg.Add(len(out))
 
 	// Initialize the worker pool (channel)
 	maxWorkers := 100
-	workers := 3
+	workers := 5
 	workerPool := make(chan struct{}, maxWorkers)
 	for i := 0; i < workers; i++ {
 		workerPool <- struct{}{} //add worker credits to the workerPool
 	}
 
-	// Wait until all messages (len(out)) have been sent
-	wg := &sync.WaitGroup{}
-	wg.Add(len(out))
+	// collect results from all of the child routines;
+	// tweak workerPool as necessary
+	go func() {
+		msgsSinceLastRetry := 0
+		var results []bulkSendResult
+		for r := range resultChan { // loop until resultChan closes
+			results = append(results, r) // collect the reply
+			wg.Done()
+
+			if r.retries == 0 { // cool, no loss
+				msgsSinceLastRetry++
+			} else {
+				msgsSinceLastRetry = 0 // sad trombone
+			}
+
+			switch msgsSinceLastRetry {
+			case 0:
+				if workers > 1 {
+					<-workerPool
+					workers--
+				}
+			case 10:
+				if workers < maxWorkers {
+					workerPool <- struct{}{}
+					workers++
+					msgsSinceLastRetry = 1
+				}
+			}
+		}
+		finalResultChan <- results
+	}()
 
 	// main loop instantiates a worker (pool permitting) to send each message
 	for i, outMsg := range out {
@@ -86,30 +112,14 @@ func (o *defaultTarget) SendBulkUnsafe(out []message.Msg) []bulkSendResult {
 			}
 
 			resultChan <- bulkSendResult{
-				index: i,
-				msg:   inMsg,
-				err:   replyErr,
+				index:   i,
+				retries: reply.Attempts - 1,
+				msg:     inMsg,
+				err:     replyErr,
 			}
 			workerPool <- struct{}{} // Worker done, return credit to the pool
-			wg.Done()
 		}()
 
-		// tweak pool size
-		arw := addRemoveWorkers(1, 1)
-		workers++
-		workers--
-		switch {
-		case arw > 0: // Add a worker credit to the pool
-			if workers < maxWorkers {
-				workerPool <- struct{}{}
-				wg.Add(1)
-			}
-		case arw < 0: // Too many workers, remove a credit
-			if workers > 1 {
-				<-workerPool
-				wg.Done()
-			}
-		}
 	}
 
 	wg.Wait()
@@ -224,7 +234,7 @@ func (o *defaultTarget) estimateLatency() time.Duration {
 	// trim the latency samples
 	lo := len(observed)
 	if lo > maxLatencySamples {
-		observed = observed[lo-maxLatencySamples:lo]
+		observed = observed[lo-maxLatencySamples : lo]
 	}
 
 	// half-assed latency estimator does a rolling average then pads 25%

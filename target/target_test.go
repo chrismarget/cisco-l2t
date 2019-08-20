@@ -107,7 +107,7 @@ func TestGetVlans(t *testing.T) {
 
 func TestSendBulkUnsafe(t *testing.T) {
 	var bulkSendThis []message.Msg
-	for i := 1; i <=10; i++{
+	for i := 1; i <= 4094; i++ {
 		aSrcMac, err := attribute.NewAttrBuilder().
 			SetType(attribute.SrcMacType).
 			SetString("ffff.ffff.ffff").
@@ -153,7 +153,7 @@ func TestSendBulkUnsafe(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	time.Sleep(3*time.Second)
+	time.Sleep(3 * time.Second)
 
 	result := testTarget.SendBulkUnsafe(bulkSendThis)
 	log.Println(len(result))
