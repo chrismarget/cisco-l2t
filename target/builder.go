@@ -123,6 +123,7 @@ type testPacketResult struct {
 	sourceIp    net.IP
 	platform    string
 	name        string
+	mgmtIp      net.IP
 	localIp     net.IP
 }
 
@@ -194,6 +195,8 @@ func checkTarget(destination *net.UDPAddr) testPacketResult {
 
 	dialResult := make(chan communicate.SendResult)
 	go func() {
+		// This guy can't hear 3rd party (alien) replies. Start him first
+		// because he's not deaf to (noisy) ICMP unreachables.
 		dialResult <- communicate.Communicate(outViaDial, stopDialSocket)
 	}()
 
@@ -235,15 +238,19 @@ func checkTarget(destination *net.UDPAddr) testPacketResult {
 		return testPacketResult{err: err}
 	}
 
-	// Pull the name and platform strings from the message.
+	// Pull the name, platform, and IP address from the message attributes.
 	var name string
 	var platform string
+	var mgmtIp net.IP
 	for t, a := range replyMsg.Attributes() {
 		if t == attribute.DevNameType {
 			name = a.String()
 		}
 		if t == attribute.DevTypeType {
 			platform = a.String()
+		}
+		if t == attribute.SrcIPv4Type {
+			mgmtIp = net.ParseIP(a.String())
 		}
 	}
 
@@ -254,6 +261,7 @@ func checkTarget(destination *net.UDPAddr) testPacketResult {
 		sourceIp: in.ReplyFrom,
 		platform: platform,
 		name:     name,
+		mgmtIp:   mgmtIp,
 	}
 }
 
