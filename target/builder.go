@@ -73,10 +73,18 @@ func (o *defaultTargetBuilder) Build() (Target, error) {
 			bestRtt:     result.latency, // only sample is best sample
 		})
 
-		// Append newly discovered addresses to the list so we probe them too.
+		// Reply came from an unknown source address? Add it to the list.
 		if result.sourceIp != nil && addressIsNew(result.sourceIp, o.addresses) {
 			o.addresses = append(o.addresses, result.sourceIp)
 		}
+
+		// Reply cited an unknown management address? Add it to the list.
+		if result.mgmtIp != nil && addressIsNew(result.mgmtIp, o.addresses) {
+			o.addresses = append(o.addresses, result.mgmtIp)
+		}
+
+		// Last iteration of this loop is the one where 'i' has grown to match
+		// the length of the address list.
 		i++
 	}
 
