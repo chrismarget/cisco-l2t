@@ -89,6 +89,17 @@ func (o *defaultTarget) Reachable() bool {
 }
 
 func (o *defaultTarget) Send(out message.Msg) (message.Msg, error) {
+	if out.NeedsSrcIp() {
+		srcIpAttr, err := attribute.NewAttrBuilder().
+			SetType(attribute.SrcIPv4Type).
+			SetString(o.info[o.best].localAddr.String()).
+			Build()
+		if err != nil {
+			return nil, err
+		}
+		out.AddAttr(srcIpAttr)
+	}
+
 	in, err := o.SendUnsafe(out)
 	if err != nil {
 		return nil, err
@@ -103,20 +114,7 @@ func (o *defaultTarget) Send(out message.Msg) (message.Msg, error) {
 }
 
 func (o *defaultTarget) SendUnsafe(msg message.Msg) (message.Msg, error) {
-	var payload []byte
-	switch msg.NeedsSrcIp() {
-	case true:
-		srcIpAttr, err := attribute.NewAttrBuilder().
-			SetType(attribute.SrcIPv4Type).
-			SetString(o.info[o.best].localAddr.String()).
-			Build()
-		if err != nil {
-			return nil, err
-		}
-		payload = msg.Marshal([]attribute.Attribute{srcIpAttr})
-	case false:
-		payload = msg.Marshal([]attribute.Attribute{})
-	}
+	payload := msg.Marshal([]attribute.Attribute{})
 
 	out := communicate.SendThis{
 		Payload:         payload,
