@@ -45,12 +45,9 @@ type bulkSendResult struct {
 	err   error
 }
 
-func (o *defaultTarget) SendBulk(out []message.Msg) []bulkSendResult {
+func (o *defaultTarget) SendBulkUnsafe(out []message.Msg) []bulkSendResult {
 	resultChan := make(chan bulkSendResult)
 	finalResultChan := make(chan []bulkSendResult)
-	//retransmitsChan := make(chan bool)
-
-
 
 	// collect results from all of the child routines
 	go func() {
@@ -62,28 +59,50 @@ func (o *defaultTarget) SendBulk(out []message.Msg) []bulkSendResult {
 		finalResultChan <- results
 	}()
 
+	// Initialize the worker pool (channel)
 	maxWorkers := 100
 	workers := 10
 	workerPool := make(chan struct{}, maxWorkers)
+	wg := &sync.WaitGroup{}
 	for i := 0; i < workers; i++ {
 		workerPool <- struct{}{} //add worker credits to the workerPool
+		wg.Add(1)
 	}
-	wg := &sync.WaitGroup{}
-	wg.Add(len(out))
 
+	// main loop instantiates a worker (pool permitting) to send each message
 	for i, outMsg := range out {
 		<-workerPool // Block until possible to get a worker credit
 		go func() {  // Start a worker routine
-			inMsg, err := o.Send(outMsg)
+			out := communicate.SendThis{
+				Payload:         outMsg.Marshal([]attribute.Attribute{}),
+				Destination:     o.info[o.best].destination,
+				ExpectReplyFrom: o.info[o.best].theirSource,
+				RttGuess:        communicate.InitialRTTGuess,
+			}
+
+			in := communicate.Communicate(out, nil)
+			o.updateLatency(o.best, in.Rtt)
+			var inMsg message.Msg
+			var unmarshalErr error
+			resultErr := in.Err
+			if in.Err == nil {
+				inMsg, unmarshalErr = message.UnmarshalMessageUnsafe(in.ReplyData)
+			}
+
+			if resultErr == nil && unmarshalErr != nil {
+				resultErr = unmarshalErr
+			}
+
 			resultChan <- bulkSendResult{
 				index: i,
 				msg:   inMsg,
-				err:   err,
+				err:   resultErr,
 			}
 			workerPool <- struct{}{} // Worker done, return credit to the pool
 			wg.Done()
 		}()
 
+		// tweak pool size
 		arw := addRemoveWorkers(1, 1)
 		workers++
 		workers--
@@ -91,68 +110,26 @@ func (o *defaultTarget) SendBulk(out []message.Msg) []bulkSendResult {
 		case arw > 0: // Add a worker credit to the pool
 			if workers < maxWorkers {
 				workerPool <- struct{}{}
+				wg.Add(1)
 			}
 		case arw < 0: // Too many workers, remove a credit
 			if workers > 1 {
 				<-workerPool
+				wg.Done()
 			}
 		}
 	}
+
 	wg.Wait()
 	close(resultChan)
 
 	return <-finalResultChan
-
 }
 
 func addRemoveWorkers(workers int, rtt time.Duration) int {
 	return 0
 }
 
-//func (o *target) vlans(start int, end int) []scanResult {
-//	results := make(chan scanResult)
-//	final := make(chan []scanResult)
-//
-//	go func() {
-//		var vlans []scanResult
-//		for r := range results {
-//			vlans = append(vlans, r)
-//		}
-//		final <- vlans
-//	}()
-//
-//	pool := make(chan struct{}, 10)
-//	wg := &sync.WaitGroup{}
-//	wg.Add(end-start)
-//
-//	for i := start; i < end; i++ {
-//		pool <- struct{}{}
-//		go func() {
-//			results <- scanResult{
-//				id:     i,
-//				exists: o.hasVlan(i),
-//			}
-//			<-pool
-//			wg.Done()
-//		}()
-//	}
-//
-//	wg.Wait()
-//	close(results)
-//
-//	return <-final
-//}
-//
-//func (o *target) hasVlan(i int) bool {
-//	time.Sleep(time.Duration(rand.Intn(200)) * time.Millisecond)
-//
-//	return true
-//}
-//
-//type scanResult struct {
-//	id     int
-//	exists bool
-//}
 func (o *defaultTarget) Send(out message.Msg) (message.Msg, error) {
 	if out.NeedsSrcIp() {
 		srcIpAttr, err := attribute.NewAttrBuilder().
