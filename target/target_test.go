@@ -43,16 +43,10 @@ func TestEstimateLatency(t *testing.T) {
 		best: 0,
 	}
 	result := o.estimateLatency()
-	if result.Round(100*time.Microsecond) == 11500*time.Microsecond {
+	if result.Round(100*time.Microsecond) == 12500*time.Microsecond {
 		log.Printf("latency estimate okay: %s", result)
 	} else {
-		t.Fatalf("expected %d usec, got %d usec", 11500, result.Round(100*time.Microsecond))
-	}
-
-	if len(o.info[o.best].rtt) == 10 {
-		log.Printf("latency samples %d - okay", len(o.info[o.best].rtt))
-	} else {
-		t.Fatalf("estimateLatency should truncate the latency slice to %d items", 10)
+		t.Fatalf("expected %d usec, got %d usec", 11500, result.Round(time.Microsecond))
 	}
 
 	latency = []time.Duration{}
