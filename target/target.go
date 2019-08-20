@@ -39,20 +39,6 @@ func (o *defaultTarget) Reachable() bool {
 	return o.reachable
 }
 
-func (o *defaultTarget) Send(out message.Msg) (message.Msg, error) {
-	in, err := o.SendUnsafe(out)
-	if err != nil {
-		return nil, err
-	}
-
-	err = in.Validate()
-	if err != nil {
-		return in, err
-	}
-
-	return in, nil
-}
-
 type bulkSendResult struct {
 	index int
 	msg   message.Msg
@@ -167,11 +153,8 @@ func addRemoveWorkers(workers int, rtt time.Duration) int {
 //	id     int
 //	exists bool
 //}
-
-func (o *defaultTarget) SendUnsafe(msg message.Msg) (message.Msg, error) {
-	var payload []byte
-	switch msg.NeedsSrcIp() {
-	case true:
+func (o *defaultTarget) Send(out message.Msg) (message.Msg, error) {
+	if out.NeedsSrcIp() {
 		srcIpAttr, err := attribute.NewAttrBuilder().
 			SetType(attribute.SrcIPv4Type).
 			SetString(o.info[o.best].localAddr.String()).
@@ -179,10 +162,24 @@ func (o *defaultTarget) SendUnsafe(msg message.Msg) (message.Msg, error) {
 		if err != nil {
 			return nil, err
 		}
-		payload = msg.Marshal([]attribute.Attribute{srcIpAttr})
-	case false:
-		payload = msg.Marshal([]attribute.Attribute{})
+		out.AddAttr(srcIpAttr)
 	}
+
+	in, err := o.SendUnsafe(out)
+	if err != nil {
+		return nil, err
+	}
+
+	err = in.Validate()
+	if err != nil {
+		return in, err
+	}
+
+	return in, nil
+}
+
+func (o *defaultTarget) SendUnsafe(msg message.Msg) (message.Msg, error) {
+	payload := msg.Marshal([]attribute.Attribute{})
 
 	out := communicate.SendThis{
 		Payload:         payload,
