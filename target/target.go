@@ -7,6 +7,7 @@ import (
 	"github.com/chrismarget/cisco-l2t/communicate"
 	"github.com/chrismarget/cisco-l2t/message"
 	"net"
+	"sync"
 	"time"
 )
 
@@ -14,12 +15,114 @@ const (
 	maxLatencySamples = 10
 )
 
-// crazy:
-//
-//type target struct {
-//
-//}
-//
+type Target interface {
+	GetIps() []net.IP
+	GetVlans() ([]int, error)
+	HasIp(*net.IP) bool
+	HasVlan(int) (bool, error)
+	MacInVlan(net.HardwareAddr, int) (bool, error)
+	Reachable() bool
+	Send(message.Msg) (message.Msg, error)
+	SendUnsafe(message.Msg) (message.Msg, error)
+	String() string
+}
+
+type defaultTarget struct {
+	reachable bool
+	info      []targetInfo
+	best      int
+	name      string
+	platform  string
+}
+
+func (o *defaultTarget) Reachable() bool {
+	return o.reachable
+}
+
+func (o *defaultTarget) Send(out message.Msg) (message.Msg, error) {
+	in, err := o.SendUnsafe(out)
+	if err != nil {
+		return nil, err
+	}
+
+	err = in.Validate()
+	if err != nil {
+		return in, err
+	}
+
+	return in, nil
+}
+
+type bulkSendResult struct {
+	index int
+	msg   message.Msg
+	err   error
+}
+
+func (o *defaultTarget) SendBulk(out []message.Msg) []bulkSendResult {
+	resultChan := make(chan bulkSendResult)
+	finalResultChan := make(chan []bulkSendResult)
+	//retransmitsChan := make(chan bool)
+
+
+
+	// collect results from all of the child routines
+	go func() {
+		var results []bulkSendResult
+		for r := range resultChan {
+			results = append(results, r)
+			// todo: feedback about retries
+		}
+		finalResultChan <- results
+	}()
+
+	maxWorkers := 100
+	workers := 10
+	workerPool := make(chan struct{}, maxWorkers)
+	for i := 0; i < workers; i++ {
+		workerPool <- struct{}{} //add worker credits to the workerPool
+	}
+	wg := &sync.WaitGroup{}
+	wg.Add(len(out))
+
+	for i, outMsg := range out {
+		<-workerPool // Block until possible to get a worker credit
+		go func() {  // Start a worker routine
+			inMsg, err := o.Send(outMsg)
+			resultChan <- bulkSendResult{
+				index: i,
+				msg:   inMsg,
+				err:   err,
+			}
+			workerPool <- struct{}{} // Worker done, return credit to the pool
+			wg.Done()
+		}()
+
+		arw := addRemoveWorkers(1, 1)
+		workers++
+		workers--
+		switch {
+		case arw > 0: // Add a worker credit to the pool
+			if workers < maxWorkers {
+				workerPool <- struct{}{}
+			}
+		case arw < 0: // Too many workers, remove a credit
+			if workers > 1 {
+				<-workerPool
+			}
+		}
+	}
+	wg.Wait()
+	close(resultChan)
+
+	return <-finalResultChan
+
+}
+
+func addRemoveWorkers(workers int, rtt time.Duration) int {
+	return 0
+}
+
 //func (o *target) vlans(start int, end int) []scanResult {
 //	results := make(chan scanResult)
 //	final := make(chan []scanResult)
@@ -64,43 +167,6 @@ const (
 //	id     int
 //	exists bool
 //}
-type Target interface {
-	GetIps() ([]net.IP)
-	GetVlans() ([]int, error)
-	HasIp(*net.IP) bool
-	HasVlan(int) (bool, error)
-	MacInVlan(net.HardwareAddr, int) (bool, error)
-	Reachable() bool
-	Send(message.Msg) (message.Msg, error)
-	SendUnsafe(message.Msg) (message.Msg, error)
-	String() string
-}
-
-type defaultTarget struct {
-	reachable bool
-	info      []targetInfo
-	best      int
-	name      string
-	platform  string
-}
-
-func (o *defaultTarget) Reachable() bool {
-	return o.reachable
-}
-
-func (o *defaultTarget) Send(out message.Msg) (message.Msg, error) {
-	in, err := o.SendUnsafe(out)
-	if err != nil {
-		return nil, err
-	}
-
-	err = in.Validate()
-	if err != nil {
-		return in, err
-	}
-
-	return in, nil
-}
 
 func (o *defaultTarget) SendUnsafe(msg message.Msg) (message.Msg, error) {
 	var payload []byte
@@ -127,7 +193,7 @@ func (o *defaultTarget) SendUnsafe(msg message.Msg) (message.Msg, error) {
 
 	in := communicate.Communicate(out, nil)
 
-	o.updateLatency(o.best, in.Rtt )
+	o.updateLatency(o.best, in.Rtt)
 
 	if in.Err != nil {
 		return nil, in.Err
@@ -209,7 +275,7 @@ func (o *defaultTarget) updateLatency(index int, t time.Duration) {
 		o.info[index].rtt = append(o.info[index].rtt, t)
 		return
 	}
-	o.info[index].rtt = append(o.info[index].rtt, t)[l+1-maxLatencySamples:l+1]
+	o.info[index].rtt = append(o.info[index].rtt, t)[l+1-maxLatencySamples : l+1]
 }
 
 type SendMessageConfig struct {
