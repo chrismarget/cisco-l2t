@@ -23,7 +23,8 @@ type Target interface {
 	MacInVlan(net.HardwareAddr, int) (bool, error)
 	Reachable() bool
 	Send(message.Msg) (message.Msg, error)
-	SendUnsafe(message.Msg) (message.Msg, error)
+	SendBulkUnsafe([]message.Msg) []bulkSendResult
+	SendUnsafe(message.Msg) communicate.SendResult
 	String() string
 }
 
@@ -61,42 +62,32 @@ func (o *defaultTarget) SendBulkUnsafe(out []message.Msg) []bulkSendResult {
 
 	// Initialize the worker pool (channel)
 	maxWorkers := 100
-	workers := 10
+	workers := 3
 	workerPool := make(chan struct{}, maxWorkers)
-	wg := &sync.WaitGroup{}
 	for i := 0; i < workers; i++ {
 		workerPool <- struct{}{} //add worker credits to the workerPool
-		wg.Add(1)
 	}
+
+	// Wait until all messages (len(out)) have been sent
+	wg := &sync.WaitGroup{}
+	wg.Add(len(out))
 
 	// main loop instantiates a worker (pool permitting) to send each message
 	for i, outMsg := range out {
 		<-workerPool // Block until possible to get a worker credit
 		go func() {  // Start a worker routine
-			out := communicate.SendThis{
-				Payload:         outMsg.Marshal([]attribute.Attribute{}),
-				Destination:     o.info[o.best].destination,
-				ExpectReplyFrom: o.info[o.best].theirSource,
-				RttGuess:        communicate.InitialRTTGuess,
-			}
+			reply := o.SendUnsafe(outMsg)
 
-			in := communicate.Communicate(out, nil)
-			o.updateLatency(o.best, in.Rtt)
 			var inMsg message.Msg
-			var unmarshalErr error
-			resultErr := in.Err
-			if in.Err == nil {
-				inMsg, unmarshalErr = message.UnmarshalMessageUnsafe(in.ReplyData)
-			}
-
-			if resultErr == nil && unmarshalErr != nil {
-				resultErr = unmarshalErr
+			replyErr := reply.Err
+			if replyErr == nil {
+				inMsg, replyErr = message.UnmarshalMessageUnsafe(reply.ReplyData)
 			}
 
 			resultChan <- bulkSendResult{
 				index: i,
 				msg:   inMsg,
-				err:   resultErr,
+				err:   replyErr,
 			}
 			workerPool <- struct{}{} // Worker done, return credit to the pool
 			wg.Done()
@@ -142,20 +133,25 @@ func (o *defaultTarget) Send(out message.Msg) (message.Msg, error) {
 		out.AddAttr(srcIpAttr)
 	}
 
-	in, err := o.SendUnsafe(out)
+	in := o.SendUnsafe(out)
+	if in.Err != nil {
+		return nil, in.Err
+	}
+
+	inMsg, err := message.UnmarshalMessageUnsafe(in.ReplyData)
 	if err != nil {
 		return nil, err
 	}
 
-	err = in.Validate()
+	err = inMsg.Validate()
 	if err != nil {
-		return in, err
+		return inMsg, err
 	}
 
-	return in, nil
+	return inMsg, nil
 }
 
-func (o *defaultTarget) SendUnsafe(msg message.Msg) (message.Msg, error) {
+func (o *defaultTarget) SendUnsafe(msg message.Msg) communicate.SendResult {
 	payload := msg.Marshal([]attribute.Attribute{})
 
 	out := communicate.SendThis{
@@ -167,13 +163,12 @@ func (o *defaultTarget) SendUnsafe(msg message.Msg) (message.Msg, error) {
 
 	in := communicate.Communicate(out, nil)
 
-	o.updateLatency(o.best, in.Rtt)
-
-	if in.Err != nil {
-		return nil, in.Err
+	if in.Err == nil {
+		//todo: updateLatency is not thread safe
+		o.updateLatency(o.best, in.Rtt)
 	}
 
-	return message.UnmarshalMessageUnsafe(in.ReplyData)
+	return in
 }
 
 func (o *defaultTarget) String() string {
