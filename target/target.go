@@ -7,6 +7,7 @@ import (
 	"github.com/chrismarget/cisco-l2t/communicate"
 	"github.com/chrismarget/cisco-l2t/message"
 	"net"
+	"sync"
 	"time"
 )
 
@@ -14,65 +15,16 @@ const (
 	maxLatencySamples = 10
 )
 
-// crazy:
-//
-//type target struct {
-//
-//}
-//
-//func (o *target) vlans(start int, end int) []scanResult {
-//	results := make(chan scanResult)
-//	final := make(chan []scanResult)
-//
-//	go func() {
-//		var vlans []scanResult
-//		for r := range results {
-//			vlans = append(vlans, r)
-//		}
-//		final <- vlans
-//	}()
-//
-//	pool := make(chan struct{}, 10)
-//	wg := &sync.WaitGroup{}
-//	wg.Add(end-start)
-//
-//	for i := start; i < end; i++ {
-//		pool <- struct{}{}
-//		go func() {
-//			results <- scanResult{
-//				id:     i,
-//				exists: o.hasVlan(i),
-//			}
-//			<-pool
-//			wg.Done()
-//		}()
-//	}
-//
-//	wg.Wait()
-//	close(results)
-//
-//	return <-final
-//}
-//
-//func (o *target) hasVlan(i int) bool {
-//	time.Sleep(time.Duration(rand.Intn(200)) * time.Millisecond)
-//
-//	return true
-//}
-//
-//type scanResult struct {
-//	id     int
-//	exists bool
-//}
 type Target interface {
-	GetIps() ([]net.IP)
+	GetIps() []net.IP
 	GetVlans() ([]int, error)
 	HasIp(*net.IP) bool
 	HasVlan(int) (bool, error)
 	MacInVlan(net.HardwareAddr, int) (bool, error)
 	Reachable() bool
 	Send(message.Msg) (message.Msg, error)
-	SendUnsafe(message.Msg) (message.Msg, error)
+	SendBulkUnsafe([]message.Msg) []bulkSendResult
+	SendUnsafe(message.Msg) communicate.SendResult
 	String() string
 }
 
@@ -82,10 +34,102 @@ type defaultTarget struct {
 	best      int
 	name      string
 	platform  string
+	rttLock   sync.Mutex
 }
 
 func (o *defaultTarget) Reachable() bool {
 	return o.reachable
+}
+
+type bulkSendResult struct {
+	index   int
+	retries int
+	msg     message.Msg
+	err     error
+}
+
+func (o *defaultTarget) SendBulkUnsafe(out []message.Msg) []bulkSendResult {
+	resultChan := make(chan bulkSendResult, len(out))
+	finalResultChan := make(chan []bulkSendResult)
+
+	// Credit to stephen-fox for good ideas about using a buffered channel
+	// to size a concurrency pool. Thank you Steve!
+	//
+	// Wait until all messages (len(out)) have been sent
+	wg := &sync.WaitGroup{}
+	wg.Add(len(out))
+
+	// Initialize the worker pool (channel)
+	maxWorkers := 100
+	workers := 5
+	workerPool := make(chan struct{}, maxWorkers)
+	for i := 0; i < workers; i++ {
+		workerPool <- struct{}{} //add worker credits to the workerPool
+	}
+
+	// collect results from all of the child routines;
+	// tweak workerPool as necessary
+	go func() {
+		msgsSinceLastRetry := 0
+		var results []bulkSendResult
+		for r := range resultChan { // loop until resultChan closes
+			results = append(results, r) // collect the reply
+			wg.Done()
+
+			if r.retries == 0 { // cool, no loss
+				msgsSinceLastRetry++
+			} else {
+				msgsSinceLastRetry = 0 // sad trombone
+			}
+
+			switch msgsSinceLastRetry {
+			case 0:
+				if workers > 1 {
+					<-workerPool
+					workers--
+				}
+			case 10:
+				if workers < maxWorkers {
+					workerPool <- struct{}{}
+					workers++
+					msgsSinceLastRetry = 1
+				}
+			}
+		}
+		finalResultChan <- results
+	}()
+
+	// main loop instantiates a worker (pool permitting) to send each message
+	for i, outMsg := range out {
+		<-workerPool // Block until possible to get a worker credit
+		go func() {  // Start a worker routine
+			reply := o.SendUnsafe(outMsg)
+
+			var inMsg message.Msg
+			replyErr := reply.Err
+			if replyErr == nil {
+				inMsg, replyErr = message.UnmarshalMessageUnsafe(reply.ReplyData)
+			}
+
+			resultChan <- bulkSendResult{
+				index:   i,
+				retries: reply.Attempts - 1,
+				msg:     inMsg,
+				err:     replyErr,
+			}
+			workerPool <- struct{}{} // Worker done, return credit to the pool
+		}()
+
+	}
+
+	wg.Wait()
+	close(resultChan)
+
+	return <-finalResultChan
+}
+
+func addRemoveWorkers(workers int, rtt time.Duration) int {
+	return 0
 }
 
 func (o *defaultTarget) Send(out message.Msg) (message.Msg, error) {
@@ -100,20 +144,25 @@ func (o *defaultTarget) Send(out message.Msg) (message.Msg, error) {
 		out.AddAttr(srcIpAttr)
 	}
 
-	in, err := o.SendUnsafe(out)
+	in := o.SendUnsafe(out)
+	if in.Err != nil {
+		return nil, in.Err
+	}
+
+	inMsg, err := message.UnmarshalMessageUnsafe(in.ReplyData)
 	if err != nil {
 		return nil, err
 	}
 
-	err = in.Validate()
+	err = inMsg.Validate()
 	if err != nil {
-		return in, err
+		return inMsg, err
 	}
 
-	return in, nil
+	return inMsg, nil
 }
 
-func (o *defaultTarget) SendUnsafe(msg message.Msg) (message.Msg, error) {
+func (o *defaultTarget) SendUnsafe(msg message.Msg) communicate.SendResult {
 	payload := msg.Marshal([]attribute.Attribute{})
 
 	out := communicate.SendThis{
@@ -125,13 +174,11 @@ func (o *defaultTarget) SendUnsafe(msg message.Msg) (message.Msg, error) {
 
 	in := communicate.Communicate(out, nil)
 
-	o.updateLatency(o.best, in.Rtt )
-
-	if in.Err != nil {
-		return nil, in.Err
+	if in.Err == nil {
+		o.updateLatency(o.best, in.Rtt)
 	}
 
-	return message.UnmarshalMessageUnsafe(in.ReplyData)
+	return in
 }
 
 func (o *defaultTarget) String() string {
@@ -176,14 +223,18 @@ func (o *defaultTarget) String() string {
 // estimateLatency tries to estimate the response time for this target
 // using the contents of the objects latency slice.
 func (o *defaultTarget) estimateLatency() time.Duration {
+	o.rttLock.Lock()
 	observed := o.info[o.best].rtt
+	o.rttLock.Unlock()
+
 	if len(observed) == 0 {
 		return communicate.InitialRTTGuess
 	}
 
 	// trim the latency samples
-	if len(observed) > maxLatencySamples {
-		o.info[o.best].rtt = observed[:maxLatencySamples]
+	lo := len(observed)
+	if lo > maxLatencySamples {
+		observed = observed[lo-maxLatencySamples : lo]
 	}
 
 	// half-assed latency estimator does a rolling average then pads 25%
@@ -202,12 +253,14 @@ func (o *defaultTarget) estimateLatency() time.Duration {
 // updateLatency adds the passed time.Duration as the most recent
 // latency sample to the specified targetInfo index.
 func (o *defaultTarget) updateLatency(index int, t time.Duration) {
+	o.rttLock.Lock()
 	l := len(o.info[index].rtt)
 	if l < maxLatencySamples {
 		o.info[index].rtt = append(o.info[index].rtt, t)
-		return
+	} else {
+		o.info[index].rtt = append(o.info[index].rtt, t)[l+1-maxLatencySamples : l+1]
 	}
-	o.info[index].rtt = append(o.info[index].rtt, t)[l+1-maxLatencySamples:l+1]
+	o.rttLock.Unlock()
 }
 
 type SendMessageConfig struct {
