@@ -103,6 +103,9 @@ type Msg interface {
 	// lengths. This is the third/fourth bytes on the wire
 	Len() msgLen
 
+	// GetAttr retrieves an attribute by type.
+	GetAttr(attribute.AttrType) attribute.Attribute
+
 	// SetAttr adds an attribute to the message
 	SetAttr(attribute.Attribute)
 
@@ -167,6 +170,15 @@ func (o *defaultMsg) Len() msgLen {
 		l += msgLen(a.Len())
 	}
 	return l
+}
+
+func (o *defaultMsg) GetAttr(at attribute.AttrType) attribute.Attribute {
+	for _, a := range o.Attributes() {
+		if at == a.Type() {
+			return a
+		}
+	}
+	return nil
 }
 
 func (o *defaultMsg) SetAttr(new attribute.Attribute) {
