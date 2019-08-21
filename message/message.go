@@ -103,8 +103,8 @@ type Msg interface {
 	// lengths. This is the third/fourth bytes on the wire
 	Len() msgLen
 
-	// AddAttr adds an attribute to the message
-	AddAttr(attribute.Attribute)
+	// SetAttr adds an attribute to the message
+	SetAttr(attribute.Attribute)
 
 	// AttrCount returns the count of attributes in the message. This is
 	// the fifth byte on the wire.
@@ -169,7 +169,7 @@ func (o *defaultMsg) Len() msgLen {
 	return l
 }
 
-func (o *defaultMsg) AddAttr(new attribute.Attribute) {
+func (o *defaultMsg) SetAttr(new attribute.Attribute) {
 	o.attrs[new.Type()] = new
 }
 

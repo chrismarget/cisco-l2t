@@ -18,12 +18,13 @@ const (
 type Target interface {
 	GetIps() []net.IP
 	GetVlans() ([]int, error)
+	GetLocalIp() net.IP
 	HasIp(*net.IP) bool
 	HasVlan(int) (bool, error)
 	MacInVlan(net.HardwareAddr, int) (bool, error)
 	Reachable() bool
 	Send(message.Msg) (message.Msg, error)
-	SendBulkUnsafe([]message.Msg) []bulkSendResult
+	SendBulkUnsafe([]message.Msg) []BulkSendResult
 	SendUnsafe(message.Msg) communicate.SendResult
 	String() string
 }
@@ -37,20 +38,24 @@ type defaultTarget struct {
 	rttLock   sync.Mutex
 }
 
+func (o *defaultTarget) GetLocalIp() net.IP {
+	return o.info[o.best].localAddr
+}
+
 func (o *defaultTarget) Reachable() bool {
 	return o.reachable
 }
 
-type bulkSendResult struct {
-	index   int
-	retries int
-	msg     message.Msg
-	err     error
+type BulkSendResult struct {
+	Index   int
+	Retries int
+	Msg     message.Msg
+	Err     error
 }
 
-func (o *defaultTarget) SendBulkUnsafe(out []message.Msg) []bulkSendResult {
-	resultChan := make(chan bulkSendResult, len(out))
-	finalResultChan := make(chan []bulkSendResult)
+func (o *defaultTarget) SendBulkUnsafe(out []message.Msg) []BulkSendResult {
+	resultChan := make(chan BulkSendResult, len(out))
+	finalResultChan := make(chan []BulkSendResult)
 
 	// Credit to stephen-fox for good ideas about using a buffered channel
 	// to size a concurrency pool. Thank you Steve!
@@ -71,12 +76,12 @@ func (o *defaultTarget) SendBulkUnsafe(out []message.Msg) []bulkSendResult {
 	// tweak workerPool as necessary
 	go func() {
 		msgsSinceLastRetry := 0
-		var results []bulkSendResult
+		var results []BulkSendResult
 		for r := range resultChan { // loop until resultChan closes
 			results = append(results, r) // collect the reply
 			wg.Done()
 
-			if r.retries == 0 { // cool, no loss
+			if r.Retries == 0 { // cool, no loss
 				msgsSinceLastRetry++
 			} else {
 				msgsSinceLastRetry = 0 // sad trombone
@@ -88,7 +93,7 @@ func (o *defaultTarget) SendBulkUnsafe(out []message.Msg) []bulkSendResult {
 					<-workerPool
 					workers--
 				}
-			case 10:
+			case 5:
 				if workers < maxWorkers {
 					workerPool <- struct{}{}
 					workers++
@@ -100,10 +105,10 @@ func (o *defaultTarget) SendBulkUnsafe(out []message.Msg) []bulkSendResult {
 	}()
 
 	// main loop instantiates a worker (pool permitting) to send each message
-	for i, outMsg := range out {
+	for index, outMsg := range out {
 		<-workerPool // Block until possible to get a worker credit
-		go func() {  // Start a worker routine
-			reply := o.SendUnsafe(outMsg)
+		go func(i int, m message.Msg) {  // Start a worker routine
+			reply := o.SendUnsafe(m)
 
 			var inMsg message.Msg
 			replyErr := reply.Err
@@ -111,14 +116,14 @@ func (o *defaultTarget) SendBulkUnsafe(out []message.Msg) []bulkSendResult {
 				inMsg, replyErr = message.UnmarshalMessageUnsafe(reply.ReplyData)
 			}
 
-			resultChan <- bulkSendResult{
-				index:   i,
-				retries: reply.Attempts - 1,
-				msg:     inMsg,
-				err:     replyErr,
+			resultChan <- BulkSendResult{
+				Index:   i,
+				Retries: reply.Attempts - 1,
+				Msg:     inMsg,
+				Err:     replyErr,
 			}
 			workerPool <- struct{}{} // Worker done, return credit to the pool
-		}()
+		}(index, outMsg)
 
 	}
 
@@ -126,10 +131,6 @@ func (o *defaultTarget) SendBulkUnsafe(out []message.Msg) []bulkSendResult {
 	close(resultChan)
 
 	return <-finalResultChan
-}
-
-func addRemoveWorkers(workers int, rtt time.Duration) int {
-	return 0
 }
 
 func (o *defaultTarget) Send(out message.Msg) (message.Msg, error) {
@@ -141,7 +142,7 @@ func (o *defaultTarget) Send(out message.Msg) (message.Msg, error) {
 		if err != nil {
 			return nil, err
 		}
-		out.AddAttr(srcIpAttr)
+		out.SetAttr(srcIpAttr)
 	}
 
 	in := o.SendUnsafe(out)
@@ -169,7 +170,7 @@ func (o *defaultTarget) SendUnsafe(msg message.Msg) communicate.SendResult {
 		Payload:         payload,
 		Destination:     o.info[o.best].destination,
 		ExpectReplyFrom: o.info[o.best].theirSource,
-		RttGuess:        communicate.InitialRTTGuess,
+		RttGuess:        o.estimateLatency(),
 	}
 
 	in := communicate.Communicate(out, nil)

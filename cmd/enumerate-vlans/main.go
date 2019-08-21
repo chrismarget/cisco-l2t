@@ -3,11 +3,13 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/cheggaaa/pb/v3"
+	"github.com/chrismarget/cisco-l2t/attribute"
+	"github.com/chrismarget/cisco-l2t/message"
 	"github.com/chrismarget/cisco-l2t/target"
 	"log"
 	"net"
 	"os"
+	"sort"
 )
 
 const (
@@ -16,25 +18,64 @@ const (
 )
 
 func enumerate_vlans(t target.Target) ([]int, error) {
-	var found []int
+	//bar := pb.StartNew(vlanMax)
 
-	bar := pb.StartNew(vlanMax)
+	var queries []message.Msg
+
+	srcIpAttr, err := attribute.NewAttrBuilder().
+		SetType(attribute.SrcIPv4Type).
+		SetString(t.GetLocalIp().String()).
+		Build()
+	if err != nil {
+		return nil, err
+	}
 
 	// loop over all VLANs
 	for v := vlanMin; v <= vlanMax; v++ {
-		bar.Increment()
-		vlanFound, err := t.HasVlan(v)
+		msg, err := message.TestMsg()
 		if err != nil {
-			return found, err
+			return nil, err
 		}
-		if vlanFound {
-			found = append(found, v)
+
+		vlanAttr, err := attribute.NewAttrBuilder().
+			SetType(attribute.VlanType).
+			SetInt(uint32(v)).
+			Build()
+		if err != nil {
+			return nil, err
+		}
+
+		msg.SetAttr(srcIpAttr)
+		msg.SetAttr(vlanAttr)
+
+		queries = append(queries, msg)
+
+		//bar.Increment()
+		//vlanFound, err := t.HasVlan(v)
+		//if err != nil {
+		//	return found, err
+		//}
+		//if vlanFound {
+		//	found = append(found, v)
+		//}
+	}
+
+	result := t.SendBulkUnsafe(queries)
+	var found []int
+	for _, r := range result {
+		for _, a := range r.Msg.Attributes() {
+			if a.Type() == attribute.ReplyStatusType &&
+				a.String() == attribute.ReplyStatusSrcNotFound {
+				found = append(found, r.Index)
+			}
 		}
 	}
+
 	return found, nil
 }
 
 func printResults(found []int) {
+	sort.Ints(found)
 	fmt.Printf("\n%d VLANs found:", len(found))
 	var somefound bool
 	if len(found) > 0 {
@@ -66,7 +107,7 @@ func printResults(found []int) {
 			}
 		}
 	}
-	switch{
+	switch {
 	case len(a) == 1:
 		// Just one number? Print it.
 		fmt.Printf(" %d", a[0])
@@ -98,7 +139,7 @@ func main() {
 		os.Exit(2)
 	}
 
-	log.Println(t.String())
+	fmt.Print(t.String(),"\n")
 
 	found, err := enumerate_vlans(t)
 	if err != nil {

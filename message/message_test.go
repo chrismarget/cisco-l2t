@@ -3,7 +3,11 @@ package message
 import (
 	"bytes"
 	"github.com/chrismarget/cisco-l2t/attribute"
+	"log"
+	"math/rand"
+	"strconv"
 	"testing"
+	"time"
 )
 
 func TestNewMsgBuilder_Minimal(t *testing.T) {
@@ -700,7 +704,7 @@ func TestString(t *testing.T) {
 	}
 }
 
-func TestAddAttr(t *testing.T) {
+func TestSetAttr(t *testing.T) {
 	msgData := []byte{
 		2, 1, 0, 25, 3, // header	t2, v1, l25, ac3
 		2, 8, 255, 255, 255, 255, 255, 255, // src_mac ff:ff:ff:ff:ff:ff
@@ -729,11 +733,83 @@ func TestAddAttr(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	msg.AddAttr(srcIpAttr)
+	msg.SetAttr(srcIpAttr)
 
 	if msg.AttrCount() != 4 {
 		t.Fatalf("expected attrcout 4, got %d", msg.AttrCount())
 	}
 
 	_ = msg
+}
+
+func TestSetAttrAgain(t *testing.T) {
+	msgData := []byte{
+		2, 1, 0, 25, 3, // header	t2, v1, l25, ac3
+		2, 8, 255, 255, 255, 255, 255, 255, // src_mac ff:ff:ff:ff:ff:ff
+		1, 8, 255, 255, 255, 255, 255, 255, // dst_mac ff:ff:ff:ff:ff:ff
+		3, 4, 0, 1, // vlan 1
+	}
+
+	msg, err := UnmarshalMessage(msgData)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if msg.AttrCount() != 3 {
+		t.Fatalf("expected attrcout 3, got %d", msg.AttrCount())
+	}
+
+	if msg.NeedsSrcIp() != true {
+		t.Fatalf("message should have needed src ip")
+	}
+
+	srcIpAttr, err := attribute.NewAttrBuilder().
+		SetType(attribute.SrcIPv4Type).
+		SetString("1.1.1.1").
+		Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	msg.SetAttr(srcIpAttr)
+
+	rand.Seed(time.Now().UTC().UnixNano())
+
+	v1 := (rand.Int() % 4093) + 1
+	vlan1Attr, err := attribute.NewAttrBuilder().
+		SetType(attribute.VlanType).
+		SetInt(uint32(v1)).
+		Build()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	v2 := (rand.Int() % 4093) + 1
+	vlan2Attr, err := attribute.NewAttrBuilder().
+		SetType(attribute.VlanType).
+		SetInt(uint32(v2)).
+		Build()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	msg.SetAttr(vlan1Attr)
+	for _, a := range msg.Attributes() {
+		if a.Type() == attribute.VlanType {
+			if a.String() != strconv.Itoa(v1) {
+				t.Fatalf("v1 got vlan %s, expected %d", a.String(), v1)
+			}
+		}
+	}
+	msg.SetAttr(vlan2Attr)
+	for _, a := range msg.Attributes() {
+		if a.Type() == attribute.VlanType {
+			if a.String() != strconv.Itoa(v2) {
+				t.Fatalf("v2 got vlan %s, expected %d", a.String(), v2)
+			}
+		}
+	}
+
+	if msg.AttrCount() != 4 {
+		t.Fatalf("expected attrcout 4, got %d", msg.AttrCount())
+	}
 }
