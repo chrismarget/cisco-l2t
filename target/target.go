@@ -24,7 +24,7 @@ type Target interface {
 	MacInVlan(net.HardwareAddr, int) (bool, error)
 	Reachable() bool
 	Send(message.Msg) (message.Msg, error)
-	SendBulkUnsafe([]message.Msg) []BulkSendResult
+	SendBulkUnsafe([]message.Msg, chan struct{}) []BulkSendResult
 	SendUnsafe(message.Msg) communicate.SendResult
 	String() string
 }
@@ -53,7 +53,7 @@ type BulkSendResult struct {
 	Err     error
 }
 
-func (o *defaultTarget) SendBulkUnsafe(out []message.Msg) []BulkSendResult {
+func (o *defaultTarget) SendBulkUnsafe(out []message.Msg, progressChan chan struct{}) []BulkSendResult {
 	resultChan := make(chan BulkSendResult, len(out))
 	finalResultChan := make(chan []BulkSendResult)
 
@@ -78,6 +78,9 @@ func (o *defaultTarget) SendBulkUnsafe(out []message.Msg) []BulkSendResult {
 		msgsSinceLastRetry := 0
 		var results []BulkSendResult
 		for r := range resultChan { // loop until resultChan closes
+			select {
+			case progressChan <- struct{}{}: // non-blocking poke the progress bar
+			}
 			results = append(results, r) // collect the reply
 			wg.Done()
 
@@ -102,12 +105,13 @@ func (o *defaultTarget) SendBulkUnsafe(out []message.Msg) []BulkSendResult {
 			}
 		}
 		finalResultChan <- results
+		close(progressChan)
 	}()
 
 	// main loop instantiates a worker (pool permitting) to send each message
 	for index, outMsg := range out {
-		<-workerPool // Block until possible to get a worker credit
-		go func(i int, m message.Msg) {  // Start a worker routine
+		<-workerPool                    // Block until possible to get a worker credit
+		go func(i int, m message.Msg) { // Start a worker routine
 			reply := o.SendUnsafe(m)
 
 			var inMsg message.Msg

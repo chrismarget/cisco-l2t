@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/cheggaaa/pb/v3"
 	"github.com/chrismarget/cisco-l2t/attribute"
 	"github.com/chrismarget/cisco-l2t/message"
 	"github.com/chrismarget/cisco-l2t/target"
@@ -18,7 +19,7 @@ const (
 )
 
 func enumerate_vlans(t target.Target) ([]int, error) {
-	//bar := pb.StartNew(vlanMax)
+	bar := pb.StartNew(vlanMax)
 
 	var queries []message.Msg
 
@@ -49,18 +50,16 @@ func enumerate_vlans(t target.Target) ([]int, error) {
 		msg.SetAttr(vlanAttr)
 
 		queries = append(queries, msg)
-
-		//bar.Increment()
-		//vlanFound, err := t.HasVlan(v)
-		//if err != nil {
-		//	return found, err
-		//}
-		//if vlanFound {
-		//	found = append(found, v)
-		//}
 	}
 
-	result := t.SendBulkUnsafe(queries)
+	pChan := make(chan struct{})
+	go func() {
+		for _ = range pChan {
+			bar.Increment()
+		}
+		bar.Finish()
+	}()
+	result := t.SendBulkUnsafe(queries, pChan)
 	var found []int
 	for _, r := range result {
 		for _, a := range r.Msg.Attributes() {
