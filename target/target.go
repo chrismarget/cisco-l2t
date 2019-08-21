@@ -215,6 +215,14 @@ func (o *defaultTarget) String() string {
 		out.WriteString(o.platform)
 	}
 
+	out.WriteString("\n  Claimed IP:     ")
+	switch o.mgmtIp.String() {
+	case "<nil>":
+		out.WriteString("<unknown>")
+	default:
+		out.WriteString(o.mgmtIp.String())
+	}
+
 	out.WriteString("\n  Known IP Addresses:")
 	for _, i := range o.info {
 		out.WriteString(fmt.Sprintf("\n    %15s responds from %-15s %s",

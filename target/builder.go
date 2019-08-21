@@ -40,6 +40,7 @@ func (o *defaultTargetBuilder) AddIp(ip net.IP) Builder {
 func (o *defaultTargetBuilder) Build() (Target, error) {
 	var name string
 	var platform string
+	var mgmtIp net.IP
 	var info []targetInfo
 
 	// Loop over o.addresses, noting that it may grow as the loop progresses
@@ -58,6 +59,9 @@ func (o *defaultTargetBuilder) Build() (Target, error) {
 		}
 		if result.platform != "" {
 			platform = result.platform
+		}
+		if result.mgmtIp.String() != "<nil>" {
+			mgmtIp = result.mgmtIp
 		}
 
 		var rttSamples []time.Duration
@@ -110,6 +114,7 @@ func (o *defaultTargetBuilder) Build() (Target, error) {
 		best:      fastestTarget,
 		name:      name,
 		platform:  platform,
+		mgmtIp:    mgmtIp,
 	}, nil
 }
 
