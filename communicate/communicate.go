@@ -10,7 +10,7 @@ import (
 
 const (
 	inBufferSize    = 65536
-	InitialRTTGuess = 100 * time.Millisecond
+	InitialRTTGuess = 250 * time.Millisecond
 	MaxRTT          = 2500 * time.Millisecond
 	UdpProtocol     = "udp4"
 	CiscoL2TPort    = 2228
