@@ -34,14 +34,24 @@ type receiveResult struct {
 	replyData []byte
 }
 
-// timedOut returns a boolean indicating whether the receiveResult has an error
+// temporaryErr returns a boolean indicating whether the receiveResult has an error
 // of the Timeout variety
-func (o receiveResult) timedOut() bool {
+func (o receiveResult) temporaryErr() bool {
+	if o.err != nil {
+		if result, ok := o.err.(net.Error); ok && result.Temporary() {
+			return true
+		}
+	}
+	return false
+}
+
+// timeoutErr returns a boolean indicating whether the receiveResult has an error
+// of the Timeout variety
+func (o receiveResult) timeoutErr() bool {
 	if o.err != nil {
 		if result, ok := o.err.(net.Error); ok && result.Timeout() {
 			return true
 		}
-
 	}
 	return false
 }
@@ -253,7 +263,7 @@ func Communicate(out SendThis, quit chan struct{}) SendResult {
 			}
 			outstandingMsgs++
 		case result := <-replyChan: // reply or timeout
-			if !result.timedOut() { // are we here because of a reply?
+			if !result.timeoutErr() { // are we here because of a reply?
 				// decrement outstanding counter on inbound reply
 				outstandingMsgs--
 			}
