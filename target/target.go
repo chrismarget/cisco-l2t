@@ -35,6 +35,7 @@ type defaultTarget struct {
 	best      int
 	name      string
 	platform  string
+	mgmtIp    net.IP
 	rttLock   sync.Mutex
 }
 
@@ -78,16 +79,25 @@ func (o *defaultTarget) SendBulkUnsafe(out []message.Msg, progressChan chan stru
 		msgsSinceLastRetry := 0
 		var results []BulkSendResult
 		for r := range resultChan { // loop until resultChan closes
+			//fmt.Printf("retries %d, workers %d", r.Retries, workers)
 			select {
 			case progressChan <- struct{}{}: // non-blocking poke the progress bar
 			}
 			results = append(results, r) // collect the reply
 			wg.Done()
 
-			if r.Retries == 0 { // cool, no loss
+			if x, ok := r.Err.(net.Error); ok && x.Temporary() {
+				// socket error, maybe too many file descriptors
+				msgsSinceLastRetry = 0
+			} else if x, ok := r.Err.(net.Error); ok && x.Timeout() {
+				// socket timeout error
+				msgsSinceLastRetry = 0
+			} else if r.Retries == 0 {
+				// no loss, no network error
 				msgsSinceLastRetry++
 			} else {
-				msgsSinceLastRetry = 0 // sad trombone
+				// packet loss
+				msgsSinceLastRetry = 0
 			}
 
 			switch msgsSinceLastRetry {
