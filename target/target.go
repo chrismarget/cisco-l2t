@@ -215,7 +215,7 @@ func (o *defaultTarget) String() string {
 		out.WriteString(o.platform)
 	}
 
-	out.WriteString("\n  Claimed IP:     ")
+	out.WriteString("\n  Claimed IP:   ")
 	switch o.mgmtIp.String() {
 	case "<nil>":
 		out.WriteString("<unknown>")

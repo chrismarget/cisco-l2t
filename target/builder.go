@@ -262,7 +262,7 @@ func checkTarget(destination *net.UDPAddr) testPacketResult {
 		if t == attribute.DevTypeType {
 			platform = a.String()
 		}
-		if t == attribute.SrcIPv4Type {
+		if t == attribute.DevIPv4Type {
 			mgmtIp = net.ParseIP(a.String())
 		}
 	}
