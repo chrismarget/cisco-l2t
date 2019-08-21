@@ -33,8 +33,8 @@ const (
 	printFlagHelp     = "attempt to parse/print outbound message (unsafe if sending broken messages)"
 	rttFlag           = "r"
 	rttFlagHelp       = "estimate of round-trip latency in milliseconds (default 500)"
-	vasiliFlag           = "V"
-	vasiliFlagHelp       = "One ping only, Mr. Vasili"
+	vasiliFlag        = "V"
+	vasiliFlagHelp    = "One ping only, Mr. Vasili"
 	usageTextCmd      = "[options] <catalyst-ip-address>\n"
 	usageTextExplain  = "The following examples both create the same message:\n" +
 		"  -a 2:0004.f284.dbbf -a 1:00:50:56:98:e2:12 -a 3:18 -a 14:192.168.1.2 <catalyst-ip-address>\n" +
@@ -232,7 +232,7 @@ func main() {
 			Port: communicate.CiscoL2TPort,
 		},
 		RttGuess: time.Duration(*rttGuess) * time.Millisecond,
-		Vasili: *vasili,
+		Vasili:   *vasili,
 	}
 
 	result := communicate.Communicate(sendThis, nil)
