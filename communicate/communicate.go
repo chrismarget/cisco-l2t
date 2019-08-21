@@ -258,7 +258,7 @@ func Communicate(out SendThis, quit chan struct{}) SendResult {
 	for {
 		select {
 		case <-bot.C: // send again on RTO expiration
-			if !out.Vasili {
+			if !out.Vasili || outstandingMsgs == 0 {
 				err := transmit(cxn, out.Destination, out.Payload)
 				if err != nil {
 					return SendResult{Err: err}
