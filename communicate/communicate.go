@@ -62,6 +62,7 @@ type SendThis struct {
 	ExpectReplyFrom net.IP
 	RttGuess        time.Duration
 	Vasili          bool // one ping only
+	MaxWait         time.Duration
 }
 
 // GetOutgoingIpForDestination returns a net.IP representing the local interface
@@ -228,8 +229,14 @@ func Communicate(out SendThis, quit chan struct{}) SendResult {
 	go receiveOneMsg(cxn, out.ExpectReplyFrom, replyChan)
 
 	// socket timeout stuff
+	var rtt time.Duration
+	if out.MaxWait > 0 {
+		rtt = out.MaxWait
+	} else {
+		rtt = MaxRTT
+	}
 	start := time.Now()
-	end := start.Add(MaxRTT)
+	end := start.Add(rtt)
 	err = cxn.SetReadDeadline(end)
 	if err != nil {
 		return SendResult{Err: err}
