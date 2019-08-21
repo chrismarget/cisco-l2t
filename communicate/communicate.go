@@ -61,6 +61,7 @@ type SendThis struct {
 	Destination     *net.UDPAddr
 	ExpectReplyFrom net.IP
 	RttGuess        time.Duration
+	Vasily          bool // one ping only
 }
 
 // GetOutgoingIpForDestination returns a net.IP representing the local interface
@@ -257,18 +258,20 @@ func Communicate(out SendThis, quit chan struct{}) SendResult {
 	for {
 		select {
 		case <-bot.C: // send again on RTO expiration
-			err := transmit(cxn, out.Destination, out.Payload)
-			if err != nil {
-				return SendResult{Err: err}
+			if !out.Vasily {
+				err := transmit(cxn, out.Destination, out.Payload)
+				if err != nil {
+					return SendResult{Err: err}
+				}
+				outstandingMsgs++
 			}
-			outstandingMsgs++
 		case result := <-replyChan: // reply or timeout
 			if !result.timeoutErr() { // are we here because of a reply?
 				// decrement outstanding counter on inbound reply
 				outstandingMsgs--
 			}
 			return SendResult{
-				Attempts: outstandingMsgs+1,
+				Attempts:  outstandingMsgs + 1,
 				Aborted:   aborted,
 				Err:       result.err,
 				Rtt:       time.Now().Sub(start),
