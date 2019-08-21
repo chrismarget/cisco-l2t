@@ -54,7 +54,6 @@ func buildQueries(t target.Target) ([]message.Msg, error) {
 
 		template.SetAttr(vlanAttr)
 		queries = append(queries, template)
-
 	}
 	return queries, nil
 }
