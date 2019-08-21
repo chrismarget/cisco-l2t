@@ -18,11 +18,7 @@ const (
 	vlanMax = 4094
 )
 
-func enumerate_vlans(t target.Target) ([]int, error) {
-	bar := pb.StartNew(vlanMax)
-
-	var queries []message.Msg
-
+func queryTemplate(t target.Target) (message.Msg, error) {
 	srcIpAttr, err := attribute.NewAttrBuilder().
 		SetType(attribute.SrcIPv4Type).
 		SetString(t.GetLocalIp().String()).
@@ -31,9 +27,19 @@ func enumerate_vlans(t target.Target) ([]int, error) {
 		return nil, err
 	}
 
-	// loop over all VLANs
+	msg, err := message.TestMsg()
+	if err != nil {
+		return nil, err
+	}
+
+	msg.SetAttr(srcIpAttr)
+	return msg, nil
+}
+
+func buildQueries(t target.Target) ([]message.Msg, error) {
+	var queries []message.Msg
 	for v := vlanMin; v <= vlanMax; v++ {
-		msg, err := message.TestMsg()
+		template, err := queryTemplate(t)
 		if err != nil {
 			return nil, err
 		}
@@ -46,30 +52,65 @@ func enumerate_vlans(t target.Target) ([]int, error) {
 			return nil, err
 		}
 
-		msg.SetAttr(srcIpAttr)
-		msg.SetAttr(vlanAttr)
+		template.SetAttr(vlanAttr)
+		queries = append(queries, template)
 
-		queries = append(queries, msg)
+	}
+	return queries, nil
+}
+
+func enumerate_vlans(t target.Target) ([]int, error) {
+	queries, err := buildQueries(t)
+	if err != nil {
+		return nil, err
 	}
 
-	pChan := make(chan struct{})
-	go func() {
-		for _ = range pChan {
-			bar.Increment()
-		}
-		bar.Finish()
-	}()
-	result := t.SendBulkUnsafe(queries, pChan)
 	var found []int
-	for _, r := range result {
-		for _, a := range r.Msg.Attributes() {
-			if a.Type() == attribute.ReplyStatusType &&
-				a.String() == attribute.ReplyStatusSrcNotFound {
-				found = append(found, r.Index)
+	for len(queries) > 0 {
+		// progress bar and bar channel
+		bar := pb.StartNew(len(queries))
+		pChan := make(chan struct{})
+		go func() {
+			for _ = range pChan {
+				bar.Increment()
+			}
+			bar.Finish()
+		}()
+
+		// go do work
+		result := t.SendBulkUnsafe(queries, pChan)
+
+		// how'd we do?
+		var doOver []message.Msg
+		for i, r := range result {
+			if r.Err != nil {
+				// Error? This message goes on the doOver slice
+				doOver = append(doOver, queries[i])
+				continue
+			}
+			err := r.Msg.Validate()
+			if err != nil {
+				// Message validation error? This message goes on the doOver slice
+				doOver = append(doOver, queries[i])
+				continue
+			}
+			replyStatus := r.Msg.GetAttr(attribute.ReplyStatusType)
+			if replyStatus == nil {
+				// No reply status attribute? This message goes on the doOver slice
+				doOver = append(doOver, queries[i])
+				continue
+			}
+			// So far so good. Check to see whether the replyStatus indicates the vlan exists
+			if replyStatus.String() == attribute.ReplyStatusSrcNotFound {
+				found = append(found, r.Index+vlanMin)
 			}
 		}
+		// if there's any doOver messages this will send us back around for them
+		queries = doOver
+		if len(queries) > 0 {
+			fmt.Println("missed some...")
+		}
 	}
-
 	return found, nil
 }
 
@@ -137,8 +178,7 @@ func main() {
 		fmt.Println(err)
 		os.Exit(2)
 	}
-
-	fmt.Print(t.String(),"\n")
+	fmt.Print(t.String(), "\n")
 
 	found, err := enumerate_vlans(t)
 	if err != nil {
