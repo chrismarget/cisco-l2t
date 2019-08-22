@@ -84,20 +84,6 @@ func (o *defaultTarget) GetIps() []net.IP {
 	return out
 }
 
-func (o *defaultTarget) GetVlans() ([]int, error) {
-	var found []int
-	for v := vlanMin; v <= vlanMax; v++ {
-		vlanFound, err := o.HasVlan(v)
-		if err != nil {
-			return found, err
-		}
-		if vlanFound {
-			found = append(found, v)
-		}
-	}
-	return found, nil
-}
-
 func (o *defaultTarget) MacInVlan(mac net.HardwareAddr, vlan int) (bool, error) {
 	if vlan < 1 || vlan > 4094 {
 		return false, fmt.Errorf("vlan %d out of range", vlan)
