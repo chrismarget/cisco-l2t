@@ -78,25 +78,31 @@ func (o *defaultTarget) SendBulkUnsafe(out []message.Msg, progressChan chan stru
 		msgsSinceLastRetry := 0
 		var results []BulkSendResult
 		for r := range resultChan { // loop until resultChan closes
-			//fmt.Printf("retries %d, workers %d", r.Retries, workers)
-			select {
-			case progressChan <- struct{}{}: // non-blocking poke the progress bar
-			}
 			results = append(results, r) // collect the reply
 			wg.Done()
 
-			if x, ok := r.Err.(net.Error); ok && x.Temporary() {
-				// socket error, maybe too many file descriptors
-				msgsSinceLastRetry = 0
-			} else if x, ok := r.Err.(net.Error); ok && x.Timeout() {
-				// socket timeout error
-				msgsSinceLastRetry = 0
-			} else if r.Retries == 0 {
-				// no loss, no network error
-				msgsSinceLastRetry++
-			} else {
-				// packet loss
-				msgsSinceLastRetry = 0
+			updatePBar := true
+			switch r.Err.(type) {
+			case (net.Error):
+				if r.Err.(net.Error).Temporary() {
+					updatePBar = false
+					msgsSinceLastRetry = 0
+				}
+				if r.Err.(net.Error).Timeout() {
+					updatePBar = true
+					msgsSinceLastRetry = 0
+				}
+			default:
+				updatePBar = true
+				if r.Retries == 0 {
+					msgsSinceLastRetry++
+				} else {
+					msgsSinceLastRetry = 0
+				}
+			}
+
+			if updatePBar {
+				progressChan <- struct{}{}
 			}
 
 			switch msgsSinceLastRetry {
@@ -114,7 +120,6 @@ func (o *defaultTarget) SendBulkUnsafe(out []message.Msg, progressChan chan stru
 			}
 		}
 		finalResultChan <- results
-		close(progressChan)
 	}()
 
 	// main loop instantiates a worker (pool permitting) to send each message
@@ -143,7 +148,25 @@ func (o *defaultTarget) SendBulkUnsafe(out []message.Msg, progressChan chan stru
 	wg.Wait()
 	close(resultChan)
 
-	return <-finalResultChan
+	interimResults := <-finalResultChan // hope these are all good
+
+	var goodResults []BulkSendResult
+	var retry []message.Msg
+
+	for _, ir := range interimResults {
+		if x, ok := ir.Err.(net.Error); ok && x.Temporary() {
+			retry = append(retry, out[ir.Index])
+		} else {
+			goodResults = append(goodResults, ir)
+		}
+	}
+
+	var retryResult []BulkSendResult
+	if len(retry) != 0 {
+		retryResult = o.SendBulkUnsafe(retry, progressChan)
+	}
+
+	return append(goodResults, retryResult...)
 }
 
 func (o *defaultTarget) Send(out message.Msg) (message.Msg, error) {
