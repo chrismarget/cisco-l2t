@@ -92,19 +92,6 @@ func TestUpdateLatency(t *testing.T) {
 	log.Println("samples: ", len(target.info[0].rtt))
 }
 
-func TestGetVlans(t *testing.T) {
-	target, err := TargetBuilder().
-		AddIp(net.ParseIP("192.168.96.150")).
-		Build()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	vlans, err := target.GetVlans()
-	log.Println(vlans)
-
-}
-
 func TestSendBulkUnsafe(t *testing.T) {
 	var bulkSendThis []message.Msg
 	for i := 1; i <= 4094; i++ {
@@ -155,6 +142,6 @@ func TestSendBulkUnsafe(t *testing.T) {
 
 	time.Sleep(3 * time.Second)
 
-	result := testTarget.SendBulkUnsafe(bulkSendThis)
+	result := testTarget.SendBulkUnsafe(bulkSendThis, nil)
 	log.Println(len(result))
 }
