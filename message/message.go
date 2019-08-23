@@ -12,13 +12,13 @@ import (
 
 type (
 	MsgType   uint8
-	msgVer    uint8
-	msgLen    uint16
-	attrCount uint8
+	MsgVer    uint8
+	MsgLen    uint16
+	AttrCount uint8
 )
 
 const (
-	Version1       = msgVer(1)
+	Version1       = MsgVer(1)
 	defaultMsgType = RequestSrc
 	defaultMsgVer  = Version1
 
@@ -32,7 +32,7 @@ const (
 )
 
 var (
-	headerLenByVersion = map[msgVer]msgLen{
+	headerLenByVersion = map[MsgVer]MsgLen{
 		Version1: 5,
 	}
 
@@ -97,11 +97,11 @@ type Msg interface {
 
 	// Ver returns the message protocol version. This is the
 	// second byte on the wire.
-	Ver() msgVer
+	Ver() MsgVer
 
 	// Len returns the message overall length: header plus sum of attribute
 	// lengths. This is the third/fourth bytes on the wire
-	Len() msgLen
+	Len() MsgLen
 
 	// GetAttr retrieves an attribute from the message by type. Returns <nil>
 	// if the attribute is not present in the message.
@@ -112,7 +112,7 @@ type Msg interface {
 
 	// AttrCount returns the count of attributes in the message. This is
 	// the fifth byte on the wire.
-	AttrCount() attrCount
+	AttrCount() AttrCount
 
 	// Attributes returns a slice of attributes belonging to the message.
 	Attributes() map[attribute.AttrType]attribute.Attribute
@@ -151,7 +151,7 @@ type Msg interface {
 
 type defaultMsg struct {
 	msgType       MsgType
-	msgVer        msgVer
+	msgVer        MsgVer
 	attrs         map[attribute.AttrType]attribute.Attribute
 	srcIpIncluded bool
 	//srcIpFunc func(*net.IP) (*net.IP, error)
@@ -161,14 +161,14 @@ func (o *defaultMsg) Type() MsgType {
 	return o.msgType
 }
 
-func (o *defaultMsg) Ver() msgVer {
+func (o *defaultMsg) Ver() MsgVer {
 	return o.msgVer
 }
 
-func (o *defaultMsg) Len() msgLen {
+func (o *defaultMsg) Len() MsgLen {
 	l := headerLenByVersion[o.msgVer]
 	for _, a := range o.attrs {
-		l += msgLen(a.Len())
+		l += MsgLen(a.Len())
 	}
 	return l
 }
@@ -186,8 +186,8 @@ func (o *defaultMsg) SetAttr(new attribute.Attribute) {
 	o.attrs[new.Type()] = new
 }
 
-func (o *defaultMsg) AttrCount() attrCount {
-	return attrCount(len(o.attrs))
+func (o *defaultMsg) AttrCount() AttrCount {
+	return AttrCount(len(o.attrs))
 }
 
 func (o *defaultMsg) Attributes() map[attribute.AttrType]attribute.Attribute {
@@ -209,7 +209,7 @@ func (o *defaultMsg) Validate() error {
 	observedLen := headerLenByVersion[o.msgVer]
 	foundAttrs := make(map[attribute.AttrType]bool)
 	for _, a := range o.attrs {
-		observedLen += msgLen(a.Len())
+		observedLen += MsgLen(a.Len())
 		t := a.Type()
 		if _, ok := foundAttrs[a.Type()]; ok {
 			return fmt.Errorf("attribute type %d (%s) repeats in message", t, attribute.AttrTypeString[t])
@@ -224,7 +224,7 @@ func (o *defaultMsg) Validate() error {
 	}
 
 	// attribute count sanity check
-	observedAttrCount := attrCount(len(o.attrs))
+	observedAttrCount := AttrCount(len(o.attrs))
 	queriedAttrCount := o.AttrCount()
 	if observedAttrCount != queriedAttrCount {
 		return fmt.Errorf("found %d attributes, object claims to have %d", observedAttrCount, queriedAttrCount)
@@ -308,7 +308,7 @@ type MsgBuilder interface {
 
 	// SetVer sets the message version. Only one version is known to
 	// exist, so Version1 is the default.
-	SetVer(msgVer) MsgBuilder
+	SetVer(MsgVer) MsgBuilder
 
 	// SetAttr adds attributes to the message's []attribute.Attribute.
 	// Attribute order matters on the wire, but not within this slice.
@@ -326,7 +326,7 @@ type MsgBuilder interface {
 
 type defaultMsgBuilder struct {
 	msgType MsgType
-	msgVer  msgVer
+	msgVer  MsgVer
 	attrs   map[attribute.AttrType]attribute.Attribute
 	//	srcIpFunc func(*net.IP) (*net.IP, error)
 }
@@ -345,7 +345,7 @@ func (o *defaultMsgBuilder) SetType(t MsgType) MsgBuilder {
 	return o
 }
 
-func (o *defaultMsgBuilder) SetVer(v msgVer) MsgBuilder {
+func (o *defaultMsgBuilder) SetVer(v MsgVer) MsgBuilder {
 	o.msgVer = v
 	return o
 }
@@ -450,9 +450,9 @@ func UnmarshalMessageUnsafe(b []byte) (Msg, error) {
 	}
 
 	t := MsgType(b[0])
-	v := msgVer(b[1])
-	l := msgLen(binary.BigEndian.Uint16(b[2:4]))
-	c := attrCount(b[4])
+	v := MsgVer(b[1])
+	l := MsgLen(binary.BigEndian.Uint16(b[2:4]))
+	c := AttrCount(b[4])
 
 	attrs := make(map[attribute.AttrType]attribute.Attribute)
 
