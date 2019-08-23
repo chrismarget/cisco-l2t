@@ -103,7 +103,8 @@ type Msg interface {
 	// lengths. This is the third/fourth bytes on the wire
 	Len() msgLen
 
-	// GetAttr retrieves an attribute by type.
+	// GetAttr retrieves an attribute from the message by type. Returns <nil>
+	// if the attribute is not present in the message.
 	GetAttr(attribute.AttrType) attribute.Attribute
 
 	// SetAttr adds an attribute to the message
