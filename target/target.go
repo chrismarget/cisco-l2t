@@ -102,7 +102,9 @@ func (o *defaultTarget) SendBulkUnsafe(out []message.Msg, progressChan chan stru
 			}
 
 			if updatePBar {
-				progressChan <- struct{}{}
+				if progressChan != nil {
+					progressChan <- struct{}{}
+				}
 			}
 
 			switch msgsSinceLastRetry {
