@@ -145,3 +145,24 @@ func TestSendBulkUnsafe(t *testing.T) {
 	result := testTarget.SendBulkUnsafe(bulkSendThis, nil)
 	log.Println(len(result))
 }
+
+func TestAverageRtt(t *testing.T) {
+	var a []time.Duration
+ 	e := []time.Duration{
+ 		0,
+ 		500*time.Microsecond,
+ 		1000*time.Microsecond,
+ 		1500*time.Microsecond,
+		2000*time.Microsecond,
+	}
+	for len(a) < 5 {
+		a = append(a, time.Duration(len(a))*time.Millisecond)
+		r := averageRtt(a)
+		if r != e[len(a)-1] {
+			log.Println(a)
+			t.Fatalf("bad average time, expected %s, got %s",e[len(a)-1], r)
+		} else {
+			log.Println("okay")
+		}
+	}
+}

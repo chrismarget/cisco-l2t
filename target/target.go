@@ -252,7 +252,7 @@ func (o *defaultTarget) String() string {
 		out.WriteString(fmt.Sprintf("\n    %15s responds from %-15s %s",
 			i.destination.IP.String(),
 			i.theirSource,
-			i.rtt))
+			averageRtt(i.rtt)))
 	}
 
 	out.WriteString("\n  Target address:      ")
@@ -265,6 +265,14 @@ func (o *defaultTarget) String() string {
 	out.WriteString(o.info[o.best].localAddr.String())
 
 	return out.String()
+}
+
+func averageRtt (in []time.Duration) time.Duration{
+	var total time.Duration
+	for _, i := range in {
+		total = total + i
+	}
+	return total / time.Duration(len(in))
 }
 
 // estimateLatency tries to estimate the response time for this target
