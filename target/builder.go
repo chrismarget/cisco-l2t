@@ -6,6 +6,7 @@ import (
 	"github.com/chrismarget/cisco-l2t/message"
 	"net"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -116,6 +117,57 @@ func (o *defaultTargetBuilder) Build() (Target, error) {
 		platform:  platform,
 		mgmtIp:    mgmtIp,
 	}, nil
+}
+
+func TestTargetBuilder() Builder {
+	return &testTargetBuilder{}
+}
+
+type testTargetBuilder struct {
+	addresses []net.IP
+}
+
+func (o *testTargetBuilder) AddIp(ip net.IP) Builder {
+	if addressIsNew(ip, o.addresses) {
+		o.addresses = append(o.addresses, ip)
+	}
+	return o
+
+}
+func (o *testTargetBuilder) Build() (Target, error) {
+	name := "TestTarget"
+	platform := "TestPlatform"
+	mgmtIp := net.ParseIP("192.168.255.1")
+	var ti []targetInfo
+	if len(o.addresses) == 0 {
+		o.addresses = append(o.addresses, net.ParseIP("1.1.1.1"))
+	}
+
+	for i, a := range o.addresses {
+		outIp, _ := communicate.GetOutgoingIpForDestination(a)
+		rtt := []time.Duration{(time.Duration(i) + 1) * time.Millisecond}
+		ti = append(ti, targetInfo{
+			destination: &net.UDPAddr{
+				IP:   a,
+				Port: communicate.CiscoL2TPort,
+			},
+			theirSource: a,
+			localAddr:   outIp,
+			rtt:         rtt,
+			bestRtt:     0,
+		})
+	}
+
+	return &defaultTarget{
+		reachable: true,
+		info:      ti,
+		best:      0,
+		name:      name,
+		platform:  platform,
+		mgmtIp:    mgmtIp,
+		rttLock:   sync.Mutex{},
+	}, nil
+
 }
 
 // addressIsNew returns a boolean indicating whether

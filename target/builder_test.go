@@ -24,3 +24,34 @@ func TestCheckTarget(t *testing.T) {
 	log.Println("responseIp:",result.sourceIp)
 	log.Println("latency:",result.latency)
 }
+
+func TestTestTargetBuilder(t *testing.T) {
+	log.Println("----------------------------------")
+	tta, err := TestTargetBuilder().
+		Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	log.Println(tta.String())
+	log.Println("----------------------------------")
+
+	ttb, err := TestTargetBuilder().
+		AddIp(net.ParseIP("2.2.2.2")).
+		Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	log.Println(ttb.String())
+	log.Println("----------------------------------")
+
+	ttc, err := TestTargetBuilder().
+		AddIp(net.ParseIP("3.3.3.3")).
+		AddIp(net.ParseIP("4.4.4.4")).
+		Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	log.Println(ttc.String())
+	log.Println("----------------------------------")
+
+}
