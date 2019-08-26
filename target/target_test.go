@@ -166,3 +166,10 @@ func TestAverageRtt(t *testing.T) {
 		}
 	}
 }
+
+func TestAverageRttEmpty(t *testing.T) {
+	a := averageRtt([]time.Duration{})
+	if a != 0 {
+		t.Fatalf("average of no RTT samples should have returned zero durations")
+	}
+}

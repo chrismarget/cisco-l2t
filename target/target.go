@@ -249,10 +249,15 @@ func (o *defaultTarget) String() string {
 
 	out.WriteString("\n  Known IP Addresses:")
 	for _, i := range o.info {
+		var avgRttStr string
+		switch len(i.rtt){
+		case 0: avgRttStr = ""
+		default: avgRttStr = fmt.Sprintf("%s", averageRtt(i.rtt))
+		}
 		out.WriteString(fmt.Sprintf("\n    %15s responds from %-15s %s",
 			i.destination.IP.String(),
 			i.theirSource,
-			averageRtt(i.rtt)))
+			avgRttStr))
 	}
 
 	out.WriteString("\n  Target address:      ")
@@ -268,11 +273,15 @@ func (o *defaultTarget) String() string {
 }
 
 func averageRtt (in []time.Duration) time.Duration{
+	if len(in) == 0 {
+		return 0
+	}
 	var total time.Duration
 	for _, i := range in {
 		total = total + i
 	}
-	return total / time.Duration(len(in))
+	// nonsense math below rounds to Microseconds
+	return total / time.Duration(len(in)) / time.Microsecond * time.Microsecond
 }
 
 // estimateLatency tries to estimate the response time for this target
