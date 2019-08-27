@@ -140,7 +140,7 @@ func (o *testTargetBuilder) Build() (Target, error) {
 	mgmtIp := net.ParseIP("192.168.255.1")
 	var ti []targetInfo
 	if len(o.addresses) == 0 {
-		o.addresses = append(o.addresses, net.ParseIP("1.1.1.1"))
+		o.addresses = append(o.addresses, net.ParseIP("127.0.0.1"))
 	}
 
 	for i, a := range o.addresses {
