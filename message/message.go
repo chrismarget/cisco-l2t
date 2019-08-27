@@ -427,6 +427,11 @@ func UnmarshalMessage(b []byte) (Msg, error) {
 		return nil, err
 	}
 
+	if int(msg.Len()) != len(b) {
+		return msg, fmt.Errorf("message header claims size of %d, got %d bytes",
+			msg.Len(), len(b))
+	}
+
 	// validate the message header
 	err = msg.Validate()
 	if err != nil {
