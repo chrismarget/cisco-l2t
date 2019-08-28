@@ -54,6 +54,9 @@ const (
 
 	// The following strings were found together by strings-ing an IOS image.
 	// Leap of faith makes me think they're reply status attribute messages.
+	// EDIT:
+	// Nope. They're actually the return codes from the l2_get_trace_info() function
+	// e.g. : "l2t_get_reply_status: l2t_get_trace_info() returned 9(No CDP neighbour)"
 	replyStatusInvalidMac           = "Invalid mac address"
 	replyStatusInvalidIP            = "Invalid ip address"
 	replyStausMultipleVlan          = "Mac found on multiple vlans"
