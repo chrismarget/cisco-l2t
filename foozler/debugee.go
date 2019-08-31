@@ -114,13 +114,18 @@ func ConnectTo(address string, port int, clientConfig *ssh.ClientConfig) (*Debug
 	go func() {
 		discardIntialLines := 9
 		discardTimeout := time.NewTimer(5 * time.Second)
-		keepAliveTicker := time.NewTicker(10 * time.Minute)
-
+		keepAliveDuration := 5 * time.Minute
+		keepAliveTicker := time.NewTicker(keepAliveDuration)
+		lastKeepAlive := time.Now()
 		isEnabled := false
+
 		for {
 			select {
 			case <-keepAliveTicker.C:
-				d.Execute("show clock")
+				if !isEnabled || time.Since(lastKeepAlive) > 6 * keepAliveDuration {
+					lastKeepAlive = time.Now()
+					d.Execute("show clock")
+				}
 			case isEnabled = <-d.enable:
 			case <-discardTimeout.C:
 				discardIntialLines = 0
