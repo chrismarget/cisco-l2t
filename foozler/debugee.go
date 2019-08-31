@@ -199,16 +199,16 @@ func removeTimestamp(s string) string {
 	}
 
 	secondSpace := strings.Index(s, " ")
-	if secondSpace < 0 || secondSpace == len(s)-1 || secondSpace - firstSpace > 2 {
+	if secondSpace < 0 || secondSpace == len(s)-1 || secondSpace-firstSpace > 2 {
 		return s
 	}
 
 	end := strings.Index(s, ": ")
-	if end - secondSpace < 10 || end - secondSpace > 20 {
+	if end-secondSpace < 10 || end-secondSpace > 20 {
 		return s
 	}
 
-	if end + 2 > len(s) {
+	if end+2 > len(s) {
 		return s[end+1:]
 	}
 
