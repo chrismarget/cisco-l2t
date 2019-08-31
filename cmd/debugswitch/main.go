@@ -52,7 +52,12 @@ func main() {
 
 	clientConfig.Ciphers = append(clientConfig.Ciphers, "aes128-cbc")
 
-	d, err := foozler.ConnectTo(*address, 22, clientConfig)
+	d, err := foozler.ConnectTo(foozler.DebugeeConfig{
+		Address:        *address,
+		Port:           22,
+		ClientConfig:   clientConfig,
+		TrimTimestamps: true,
+	})
 	if err != nil {
 		log.Fatalln(err.Error())
 	}

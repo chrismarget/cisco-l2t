@@ -60,9 +60,18 @@ func (o *Debugee) Execute(command string) error {
 	return nil
 }
 
+type DebugeeConfig struct {
+	Address        string
+	Port           int
+	ClientConfig   *ssh.ClientConfig
+	TrimTimestamps bool
+}
+
 // ConnectTo connects to a Cisco switch via SSH to facilitate debugging.
-func ConnectTo(address string, port int, clientConfig *ssh.ClientConfig) (*Debugee, error) {
-	client, err := ssh.Dial("tcp", fmt.Sprintf("%s:%d", address, port), clientConfig)
+func ConnectTo(config DebugeeConfig) (*Debugee, error) {
+	client, err := ssh.Dial("tcp",
+		fmt.Sprintf("%s:%d", config.Address, config.Port),
+		config.ClientConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -135,7 +144,13 @@ func ConnectTo(address string, port int, clientConfig *ssh.ClientConfig) (*Debug
 					continue
 				}
 				if isEnabled {
-					d.out <- removeTimestamp(string(raw))
+					var output string
+					if config.TrimTimestamps {
+						output = removeTimestamp(string(raw))
+					} else {
+						output = string(raw)
+					}
+					d.out <- output
 				}
 			case rejoin := <-d.stop:
 				client.Close()
