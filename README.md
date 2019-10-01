@@ -2,6 +2,8 @@
 
 This is some tooling for working with the Cisco layer 2 traceroute service on Catalyst switches.
 
+Cisco has released [an advisory](https://tools.cisco.com/security/center/content/CiscoSecurityAdvisory/cisco-sa-20190925-l2-traceroute) that explains how to secure this service.
+
 The layer 2 traceroute service is a UDP listener (port 2228) on (all?) Catalysts. It leaks information about configured VLANs, MAC address tables, interface names/speed/duplex, and CDP neighbors.
 
 There is no requirement for L2 adjacency. The service is available via routed paths, provided that the querier can reach an L3 address on the target machine.
