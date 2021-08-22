@@ -225,7 +225,7 @@ func Communicate(out SendThis, quit chan struct{}) SendResult {
 		}
 	}
 
-	replyChan := make(chan receiveResult)
+	replyChan := make(chan receiveResult, 1)
 	go receiveOneMsg(cxn, out.ExpectReplyFrom, replyChan)
 
 	// socket timeout stuff
