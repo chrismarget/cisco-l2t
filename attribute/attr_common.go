@@ -182,7 +182,7 @@ func UnmarshalAttribute(b []byte) (Attribute, error) {
 	return nil, fmt.Errorf("cannot umarshal attribute of unknown type %d", t)
 }
 
-// Attribute represents an Attribure field from a
+// Attribute represents an attribute field from a
 // Cisco L2 Traceroute packet.
 type Attribute interface {
 
