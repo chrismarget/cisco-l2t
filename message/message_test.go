@@ -15,8 +15,8 @@ func TestNewMsgBuilder_Minimal(t *testing.T) {
 	if msg.Len() != 5 {
 		t.Fatal("Default message should be 5 bytes")
 	}
-	if msg.Type() != RequestDst {
-		t.Fatalf("Default message type should be %s", MsgTypeToString[RequestDst])
+	if msg.Type() != RequestSrc {
+		t.Fatalf("Default message type should be %s", MsgTypeToString[RequestSrc])
 	}
 	if msg.AttrCount() != 0 {
 		t.Fatal("Attribute count foa a default message should be zero")
@@ -403,7 +403,7 @@ func TestMarshalMsg_Minimal(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	expected := []byte{1, 1, 0, 5, 0}
+	expected := []byte{2, 1, 0, 5, 0}
 	result := msg.Marshal(nil)
 	if len(result) != len(expected) {
 		t.Fatalf("expected 5 bytes")
@@ -697,7 +697,7 @@ func TestString(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	expected := "L2T_REPLY_DST with 12 attributes (86 bytes)"
+	expected := "L2T_REPLY_DST (3) with 12 attributes (86 bytes)"
 	result := msg.String()
 	if expected != result {
 		t.Fatalf("expected '%s', got '%s'", expected, result)
