@@ -697,7 +697,7 @@ func TestString(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	expected := "L2T_REPLY_DST with 12 attributes (86 bytes)"
+	expected := "L2T_REPLY_DST (3) with 12 attributes (86 bytes)"
 	result := msg.String()
 	if expected != result {
 		t.Fatalf("expected '%s', got '%s'", expected, result)
