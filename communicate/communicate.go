@@ -155,8 +155,8 @@ func receiveOneMsg(cxn *net.UDPConn, expectedSource net.IP, result chan<- receiv
 	}
 }
 
-// transmit writes bytes to the specified destination using an unconnected UDP
-// socket.
+// transmit writes bytes to the specified destination using the
+// provided *net.UDPConn.
 func transmit(cxn *net.UDPConn, destination *net.UDPAddr, payload []byte) error {
 	var n int
 	var err error
