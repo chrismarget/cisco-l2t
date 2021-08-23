@@ -109,7 +109,7 @@ func getRemote(in net.UDPConn) (*net.UDPAddr, error) {
 // or the socket times out. It ignores alien replies (packets not from
 // expectedSource) unless expectedSource is <nil>. It is guaranteed to
 // write to the result channel exactly once.
-func receiveOneMsg(cxn *net.UDPConn, expectedSource net.IP, result chan receiveResult) {
+func receiveOneMsg(cxn *net.UDPConn, expectedSource net.IP, result chan<- receiveResult) {
 	buffIn := make([]byte, inBufferSize)
 	var err error
 	var received int
@@ -225,7 +225,7 @@ func Communicate(out SendThis, quit chan struct{}) SendResult {
 		}
 	}
 
-	replyChan := make(chan receiveResult)
+	replyChan := make(chan receiveResult, 1)
 	go receiveOneMsg(cxn, out.ExpectReplyFrom, replyChan)
 
 	// socket timeout stuff

@@ -99,7 +99,7 @@ func TestReceive(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	replyChan := make(chan receiveResult)
+	replyChan := make(chan receiveResult, 1)
 	go receiveOneMsg(listenSock, ip, replyChan)
 
 	testData := make([]byte, 25)
