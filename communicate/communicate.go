@@ -2,7 +2,6 @@ package communicate
 
 import (
 	"fmt"
-	"log"
 	"net"
 	"strconv"
 	"time"
@@ -300,34 +299,42 @@ func Communicate(out SendThis, quit chan struct{}) SendResult {
 	}
 }
 
-// closeListenerAfterNReplies
-func closeListenerAfterNReplies(cxn *net.UDPConn, pendingReplies int, end time.Time) {
-	var err error
-	buffIn := make([]byte, inBufferSize)
-
+// closeListenerAfterNReplies closes the specified *net.UDPConn after reading
+// the specified number of replies, or reaching the specified deadline
+// - whichever happens first.
+//
+// This allows us to gracefully handle replies to outstanding messages,
+// rather than closing the socket, and forcing the operating system to
+// send ICMP "f-off" replies.
+func closeListenerAfterNReplies(cxn *net.UDPConn, pendingReplies int, deadline time.Time) {
 	// restore the socket deadline (may have been changed due to abort)
-	err = cxn.SetReadDeadline(end)
-	if err != nil {
-		log.Println(err)
+	setDeadlineErr := cxn.SetReadDeadline(deadline)
+	if setDeadlineErr != nil {
+		timeRemaining := deadline.Sub(time.Now())
+		if timeRemaining < 0 {
+			_ = cxn.Close()
+			return
+		}
+		go func() {
+			time.Sleep(timeRemaining)
+			_ = cxn.Close()
+		}()
 	}
+
+	isNetDialSocket := cxn.RemoteAddr() != nil
+	buffIn := make([]byte, inBufferSize)
 
 	// collect pending replies -- we really don't care what happens here.
 	for i := 0; i < pendingReplies; i++ {
 		// read from the socket using the appropriate call
-		switch cxn.RemoteAddr() != nil {
-		case true:
-			// Yes I am not handling the error.
-			// The only thing that matters is running out the loop.
-			cxn.Read(buffIn)
-		case false:
-			// Yes I am not handling the error.
-			// The only thing that matters is running out the loop.
-			cxn.ReadFromUDP(buffIn)
+		// Yes I am not handling the error.
+		// The only thing that matters is running out the loop.
+		if isNetDialSocket {
+			_, _ = cxn.Read(buffIn)
+		} else {
+			_, _, _ = cxn.ReadFromUDP(buffIn)
 		}
 	}
 
-	err = cxn.Close()
-	if err != nil {
-		log.Println(err)
-	}
+	_ = cxn.Close()
 }
