@@ -403,7 +403,7 @@ func TestMarshalMsg_Minimal(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	expected := []byte{1, 1, 0, 5, 0}
+	expected := []byte{2, 1, 0, 5, 0}
 	result := msg.Marshal(nil)
 	if len(result) != len(expected) {
 		t.Fatalf("expected 5 bytes")
