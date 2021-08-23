@@ -9,7 +9,7 @@ import (
 
 type (
 	AttrType     byte
-	attrCategory string
+	attrCategory byte
 )
 
 const (
