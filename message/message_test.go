@@ -15,8 +15,8 @@ func TestNewMsgBuilder_Minimal(t *testing.T) {
 	if msg.Len() != 5 {
 		t.Fatal("Default message should be 5 bytes")
 	}
-	if msg.Type() != RequestDst {
-		t.Fatalf("Default message type should be %s", MsgTypeToString[RequestDst])
+	if msg.Type() != RequestSrc {
+		t.Fatalf("Default message type should be %s", MsgTypeToString[RequestSrc])
 	}
 	if msg.AttrCount() != 0 {
 		t.Fatal("Attribute count foa a default message should be zero")
