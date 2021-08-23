@@ -59,7 +59,7 @@ func TestEstimateLatency(t *testing.T) {
 		best: 0,
 	}
 	result = o.estimateLatency()
-	if result == 100*time.Millisecond {
+	if result == 250*time.Millisecond {
 		log.Printf("wild-ass guess latency okay: %s", result)
 	} else {
 		t.Fatalf("expected 100ms, got %s", result)
