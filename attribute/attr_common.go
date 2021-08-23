@@ -9,7 +9,7 @@ import (
 
 type (
 	AttrType     byte
-	attrCategory string
+	attrCategory byte
 )
 
 const (
@@ -162,20 +162,20 @@ func UnmarshalAttribute(b []byte) (Attribute, error) {
 	}
 
 	t := AttrType(b[0])
-	switch {
-	case attrCategoryByType[t] == duplexCategory:
+	switch attrCategoryByType[t]{
+	case duplexCategory:
 		return &duplexAttribute{attrType: t, attrData: b[2:]}, nil
-	case attrCategoryByType[t] == ipv4Category:
+	case ipv4Category:
 		return &ipv4Attribute{attrType: t, attrData: b[2:]}, nil
-	case attrCategoryByType[t] == macCategory:
+	case macCategory:
 		return &macAttribute{attrType: t, attrData: b[2:]}, nil
-	case attrCategoryByType[t] == replyStatusCategory:
+	case replyStatusCategory:
 		return &replyStatusAttribute{attrType: t, attrData: b[2:]}, nil
-	case attrCategoryByType[t] == speedCategory:
+	case speedCategory:
 		return &speedAttribute{attrType: t, attrData: b[2:]}, nil
-	case attrCategoryByType[t] == stringCategory:
+	case stringCategory:
 		return &stringAttribute{attrType: t, attrData: b[2:]}, nil
-	case attrCategoryByType[t] == vlanCategory:
+	case vlanCategory:
 		return &vlanAttribute{attrType: t, attrData: b[2:]}, nil
 	}
 
