@@ -9,7 +9,7 @@ import (
 
 func TestCheckTarget(t *testing.T) {
 	destination := &net.UDPAddr{
-		IP:   net.ParseIP("192.1568.96.2"),
+		IP:   net.ParseIP("192.168.96.2"),
 		Port: communicate.CiscoL2TPort,
 		Zone: "",
 	}
